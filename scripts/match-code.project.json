@@ -1,0 +1,10 @@
+{
+  "name": "MatchCode",
+  "tree": {
+    "$className": "Folder",
+    "Shared": { "$path": "../src/shared" },
+    "Common": { "$path": "../src/serverCommon" },
+    "Server": { "$path": "../src/match/server" },
+    "Client": { "$path": "../src/match/client" }
+  }
+}

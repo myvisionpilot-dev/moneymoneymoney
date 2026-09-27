@@ -1,0 +1,10 @@
+{
+  "name": "LobbyCode",
+  "tree": {
+    "$className": "Folder",
+    "Shared": { "$path": "../src/shared" },
+    "Common": { "$path": "../src/serverCommon" },
+    "Server": { "$path": "../src/lobby/server" },
+    "Client": { "$path": "../src/lobby/client" }
+  }
+}

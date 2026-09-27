@@ -1,0 +1,26 @@
+{
+  "name": "MoneyLobby",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Common": {
+        "$path": "src/serverCommon"
+      },
+      "Server": {
+        "$path": "src/lobby/server"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/lobby/client"
+        }
+      }
+    }
+  }
+}

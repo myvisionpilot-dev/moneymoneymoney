@@ -1,0 +1,27 @@
+{
+  "name": "MoneyMatch",
+  "servePort": 34873,
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Common": {
+        "$path": "src/serverCommon"
+      },
+      "Server": {
+        "$path": "src/match/server"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/match/client"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# Built places and generated files
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+sourcemap*.json
+roblox.yml
+globalTypes.d.luau
+
+# Editors / OS
+.vscode/
+.DS_Store
+Thumbs.db
