@@ -22,6 +22,7 @@ export type LobbyRemotes = {
 	QueueStatus: ToClient<Types.QueueStatus?>,
 	Notify: ToClient<Types.Notice>,
 	LeaveQueue: ToServer<nil>,
+	SetPartySize: ToServer<number>,
 }
 
 export type MatchRemotes = {
@@ -108,6 +109,7 @@ function Remotes.lobby(): LobbyRemotes
 		QueueStatus = toClient("QueueStatus"),
 		Notify = toClient("Notify"),
 		LeaveQueue = toServer("LeaveQueue"),
+		SetPartySize = toServer("SetPartySize"),
 	}
 	lobbyRemotes = remotes
 	return remotes

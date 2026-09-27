@@ -90,8 +90,10 @@ export type RunResults = {
 
 export type QueueStatus = {
 	count: number,
-	max: number,
+	partySize: number, -- the pad leaves once this many are on it
 	departsAt: number,
+	isHost: boolean, -- the first player on the pad picks the party size
+	hostName: string,
 }
 
 return {}

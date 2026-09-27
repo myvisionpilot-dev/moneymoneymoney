@@ -1,6 +1,7 @@
 --!strict
 -- Queue pads: players standing on a pad are sent together to a reserved Match server.
--- A pad leaves when it is full or QueueWaitSeconds after the first player steps on.
+-- The first player on a pad (the host) picks the party size. The pad leaves when it
+-- reaches that size, or QueueWaitSeconds after the first player steps on.
 
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
@@ -21,7 +22,7 @@ local SafeTeleport = require(ServerScriptService.Common.SafeTeleport)
 
 local PAD_TAG = "QueuePad"
 local POLL_SECONDS = 0.25
-local PAD_HEIGHT = 10 -- studs above the pad that count as standing on it
+local PAD_HEIGHT = 10 -- how far below a player we look for the pad
 local RESET_SECONDS = 5 -- pad pause after a launch
 local TELEPORT_GRACE_SECONDS = 30 -- don't re-queue players whose teleport is in flight
 
@@ -31,12 +32,15 @@ type Pad = {
 	departsAt: number?,
 	launching: boolean,
 	label: TextLabel,
+	partySize: number,
+	rayParams: RaycastParams,
 }
 
 local QueueService = {}
 
 local remotes = Remotes.lobby()
 local leaveLimiter = RateLimiter.new(Config.Security.RemotesPerSecond, 1)
+local partySizeLimiter = RateLimiter.new(Config.Security.RemotesPerSecond, 1)
 local pads: { Pad } = {}
 local lastStatus: { [Player]: string } = {}
 local warnedFull: { [Player]: boolean } = {}
@@ -46,11 +50,22 @@ local function notify(player: Player, text: string, kind: Types.NoticeKind)
 	remotes.Notify:fireClient(player, { text = text, kind = kind })
 end
 
+-- Half the part's size along world axes, whatever its rotation (cylinders lie on their side).
+local function worldHalfSize(part: BasePart): Vector3
+	local cframe, half = part.CFrame, part.Size / 2
+	local x, y, z = cframe.XVector * half.X, cframe.YVector * half.Y, cframe.ZVector * half.Z
+	return Vector3.new(
+		math.abs(x.X) + math.abs(y.X) + math.abs(z.X),
+		math.abs(x.Y) + math.abs(y.Y) + math.abs(z.Y),
+		math.abs(x.Z) + math.abs(y.Z) + math.abs(z.Z)
+	)
+end
+
 local function makeLabel(part: BasePart): TextLabel
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "QueueLabel"
 	gui.Size = UDim2.fromOffset(240, 70)
-	gui.StudsOffset = Vector3.new(0, 7, 0)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, worldHalfSize(part).Y + 6, 0)
 	gui.MaxDistance = 150
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
@@ -64,14 +79,13 @@ local function makeLabel(part: BasePart): TextLabel
 	return label
 end
 
-local function isOnPad(part: BasePart, player: Player): boolean
+-- A ray straight down from the player must hit the pad, so any shape or rotation works.
+local function isOnPad(pad: Pad, player: Player): boolean
 	local root = CharacterUtil.getRoot(player)
 	if not root then
 		return false
 	end
-	local offset = part.CFrame:PointToObjectSpace(root.Position)
-	local half = part.Size / 2
-	return math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z and offset.Y >= 0 and offset.Y <= PAD_HEIGHT
+	return workspace:Raycast(root.Position, Vector3.new(0, -PAD_HEIGHT, 0), pad.rayParams) ~= nil
 end
 
 local function padOf(player: Player): Pad?
@@ -84,7 +98,9 @@ local function padOf(player: Player): Pad?
 end
 
 local function sendStatus(player: Player, status: Types.QueueStatus?)
-	local key = if status then `{status.count}/{status.departsAt}` else "none"
+	local key = if status
+		then `{status.count}/{status.partySize}/{status.departsAt}/{status.hostName}/{status.isHost}`
+		else "none"
 	if lastStatus[player] == key then
 		return
 	end
@@ -142,6 +158,7 @@ local function launch(pad: Pad)
 		task.wait(RESET_SECONDS)
 		pad.members = {}
 		pad.departsAt = nil
+		pad.partySize = Config.Match.MaxPlayers
 		pad.launching = false
 	end)
 end
@@ -154,19 +171,19 @@ local function updatePad(pad: Pad, now: number)
 	-- Keep the existing order, drop anyone who stepped off, then add newcomers.
 	local members = {}
 	for _, player in pad.members do
-		if player.Parent and isOnPad(pad.part, player) then
+		if player.Parent and isOnPad(pad, player) then
 			table.insert(members, player)
 		end
 	end
 	for _, player in Players:GetPlayers() do
 		local teleporting = (teleportingUntil[player] or 0) > os.clock()
-		if not teleporting and not table.find(members, player) and not padOf(player) and isOnPad(pad.part, player) then
-			if #members < Config.Match.MaxPlayers then
+		if not teleporting and not table.find(members, player) and not padOf(player) and isOnPad(pad, player) then
+			if #members < pad.partySize then
 				table.insert(members, player)
 				warnedFull[player] = nil
 			elseif not warnedFull[player] then
 				warnedFull[player] = true
-				notify(player, "This pad is full. Try the other one!", "Info")
+				notify(player, `This pad is set to {pad.partySize} player(s). Try the other one!`, "Info")
 			end
 		end
 	end
@@ -179,35 +196,71 @@ local function updatePad(pad: Pad, now: number)
 
 	if #members == 0 then
 		pad.departsAt = nil
-		pad.label.Text = "STEP ON TO PLAY"
+		pad.partySize = Config.Match.MaxPlayers -- the next host starts from the default
+		pad.label.Visible = false -- empty pads show nothing
 		return
 	end
 
 	local departsAt = pad.departsAt or (now + Timing.scaled(Config.Match.QueueWaitSeconds))
 	pad.departsAt = departsAt
 	local ready = #members >= Config.Match.MinPlayers
-	if ready and (#members >= Config.Match.MaxPlayers or now >= departsAt) then
+	if ready and (#members >= pad.partySize or now >= departsAt) then
 		launch(pad)
 		return
 	end
 
-	pad.label.Text = `{#members}/{Config.Match.MaxPlayers}  ·  {Format.clock(departsAt - now)}`
+	pad.label.Visible = true
+	pad.label.Text = `{#members}/{pad.partySize}  ·  {Format.clock(departsAt - now)}`
+	local host = members[1]
 	for _, player in members do
-		sendStatus(player, { count = #members, max = Config.Match.MaxPlayers, departsAt = departsAt })
+		sendStatus(player, {
+			count = #members,
+			partySize = pad.partySize,
+			departsAt = departsAt,
+			isHost = player == host,
+			hostName = host.DisplayName,
+		})
 	end
 end
 
 local function addPad(instance: Instance)
 	if not instance:IsA("BasePart") then
+		warn(`[QueueService] {instance:GetFullName()} is tagged QueuePad but isn't a part; tag its base part instead`)
 		return
 	end
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Include
+	rayParams.FilterDescendantsInstances = { instance }
 	table.insert(pads, {
 		part = instance,
 		members = {},
 		departsAt = nil,
 		launching = false,
 		label = makeLabel(instance),
+		partySize = Config.Match.MaxPlayers,
+		rayParams = rayParams,
 	})
+end
+
+-- Only the host may change the size, and never below the players already on the pad.
+local function onSetPartySize(player: Player, payload: unknown)
+	if not partySizeLimiter:allow(player) or typeof(payload) ~= "number" then
+		return
+	end
+	local size = payload
+	if size ~= math.floor(size) then
+		return
+	end
+	local pad = padOf(player)
+	if not pad or pad.launching or pad.members[1] ~= player then
+		return
+	end
+	local minimum = math.max(Config.Match.MinPlayers, #pad.members)
+	if size < minimum or size > Config.Match.MaxPlayers then
+		return
+	end
+	pad.partySize = size
+	updatePad(pad, Timing.now())
 end
 
 local function onLeaveQueue(player: Player, _payload: unknown)
@@ -219,9 +272,9 @@ local function onLeaveQueue(player: Player, _payload: unknown)
 	if not pad or pad.launching or not character then
 		return
 	end
-	-- Step them off the front edge of the pad.
-	local exit = pad.part.CFrame * CFrame.new(0, 3, pad.part.Size.Z / 2 + 6)
-	character:PivotTo(exit)
+	-- Step them off the pad's +Z edge in world space (works for rotated pads too).
+	local half = worldHalfSize(pad.part)
+	character:PivotTo(CFrame.new(pad.part.Position + Vector3.new(0, half.Y + 3, half.Z + 6)))
 end
 
 function QueueService.start()
@@ -231,6 +284,7 @@ function QueueService.start()
 	CollectionService:GetInstanceAddedSignal(PAD_TAG):Connect(addPad)
 
 	remotes.LeaveQueue:onServer(onLeaveQueue)
+	remotes.SetPartySize:onServer(onSetPartySize)
 
 	Players.PlayerRemoving:Connect(function(player: Player)
 		lastStatus[player] = nil
