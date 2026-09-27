@@ -67,7 +67,11 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	local pay = payout(player, ctx.tier())
 	local added = EconomyService.addCarried(player, pay, "store robbery")
 	HeatService.add(player, Config.Heat.StoreRobbery)
-	Notifier.send(player, `You emptied the register! +{Format.money(added)}. The alarm is ringing!`, "Good")
+	if added < pay then
+		Notifier.send(player, `The alarm is ringing! Only {Format.money(added)} fit in your bag.`, "Bad")
+	else
+		Notifier.send(player, `You emptied the register! +{Format.money(added)}. The alarm is ringing!`, "Good")
+	end
 	Notifier.others(player, "Alarm! Someone just robbed a store.", "Bad")
 	return true, nil
 end

@@ -134,7 +134,17 @@ function HudController.start()
 	local depositedLabel = row(3, "DEPOSITED $0", UI.Colors.Money)
 	local shareLabel = row(4, "YOUR SHARE 0%")
 	local heatLabel = row(5, "HEAT", UI.Colors.Muted)
-	local job = row(6, "", UI.Colors.Gold)
+	-- Fills toward the next star, so small crimes (half a star) still show.
+	local heatMeter = UI.frame({
+		LayoutOrder = 6,
+		Size = UDim2.new(1, 0, 0, 6),
+		BackgroundColor3 = UI.Colors.PanelLight,
+		Visible = false,
+	}, cashPanel)
+	UI.corner(heatMeter, 3)
+	local heatMeterFill = UI.frame({ Size = UDim2.fromScale(0, 1), BackgroundColor3 = UI.Colors.Risk }, heatMeter)
+	UI.corner(heatMeterFill, 3)
+	local job = row(7, "", UI.Colors.Gold)
 	job.Visible = false
 	jobLabel = job
 
@@ -197,7 +207,12 @@ function HudController.start()
 			local stars = math.floor(me.heat)
 			local shown = string.rep("★", stars) .. string.rep("☆", Config.Police.MaxHeat - stars)
 			heatLabel.Text = `HEAT {shown}` .. (if me.hiding and me.heat > 0 then "  hiding" else "")
-			heatLabel.TextColor3 = if stars >= 1 then UI.Colors.Danger else UI.Colors.Muted
+			heatLabel.TextColor3 = if stars >= 1
+				then UI.Colors.Danger
+				elseif me.heat > 0 then UI.Colors.Risk
+				else UI.Colors.Muted
+			heatMeter.Visible = me.heat > 0 and stars < Config.Police.MaxHeat
+			heatMeterFill.Size = UDim2.fromScale(me.heat - stars, 1)
 		end
 	end
 

@@ -46,15 +46,19 @@ local function place<T>(instance: T, defaults: Props, props: Props?, parent: Ins
 end
 
 -- Screen-size scaling: each root is a virtual screen of (viewport / scale), then scaled back up.
+-- The virtual screen is at least ~500 tall and MIN_WIDTH wide, so the top panels never overlap.
 type Root = { frame: Frame, scale: UIScale }
 local roots: { Root } = {}
+
+local MIN_WIDTH = 800
 
 local function computeScale(): number
 	local camera = workspace.CurrentCamera
 	if not camera then
 		return 1
 	end
-	return math.clamp(camera.ViewportSize.Y / 500, 0.8, 1.6)
+	local viewport = camera.ViewportSize
+	return math.clamp(math.min(viewport.Y / 500, viewport.X / MIN_WIDTH), 0.8, 1.6)
 end
 
 local function fit(root: Root)

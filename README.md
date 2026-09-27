@@ -18,7 +18,11 @@ One universe, two places, each synced from its own Rojo project.
 
 Maps are grey boxes kept in the place files, not in Rojo. Rebuild them with `tools/build_lobby_map.luau`
 and `tools/build_match_map.luau` (paste into the command bar). Code finds map points by CollectionService tags:
-`QueuePad`, `TonyDesk`, `TonySpawn`, `DeliveryDepot`, `DeliveryDropoff` (plus `House`, `HidingSpot` for later).
+`QueuePad`, `TonyDesk`, `TonySpawn`, `DeliveryDepot`, `DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`,
+`ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`, `AlleyDrop`.
+
+Place settings (not in Rojo, set in both places): `StarterGui.ScreenOrientation = LandscapeSensor`, so phones
+play sideways (the HUD is laid out for landscape).
 
 ## Checks
 

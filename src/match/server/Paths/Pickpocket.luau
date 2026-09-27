@@ -63,7 +63,11 @@ local function pick(player: Player, pedestrian: Model, prompt: ProximityPrompt):
 	local pay = payout(player, ctx.tier())
 	local added = EconomyService.addCarried(player, pay, "pickpocket")
 	HeatService.add(player, Config.Heat.Pickpocket)
-	Notifier.send(player, `Pickpocketed {pedestrian.Name}! +{Format.money(added)}`, "Good")
+	if added < pay then
+		Notifier.send(player, `Pickpocketed {pedestrian.Name}! Only {Format.money(added)} fit in your bag.`, "Bad")
+	else
+		Notifier.send(player, `Pickpocketed {pedestrian.Name}! +{Format.money(added)}`, "Good")
+	end
 	return true, nil
 end
 
