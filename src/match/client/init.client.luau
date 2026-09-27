@@ -1,12 +1,18 @@
 --!strict
 -- Match client entry point. Controllers start first, then we ask the server for a snapshot.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local ClientState = require(script:WaitForChild("ClientState"))
 
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FirstPerson")).start()
+require(script:WaitForChild("PromptController")).start()
 require(script:WaitForChild("NotifyController")).start()
 require(script:WaitForChild("TonyController")).start()
 require(script:WaitForChild("HudController")).start()
-require(script:WaitForChild("DeliveryController")).start()
+require(script:WaitForChild("JobGuideController")).start()
+require(script:WaitForChild("DoorController")).start()
+require(script:WaitForChild("ShopController")).start()
 require(script:WaitForChild("IntermissionController")).start()
 require(script:WaitForChild("DecisionController")).start()
 require(script:WaitForChild("ResultsController")).start()

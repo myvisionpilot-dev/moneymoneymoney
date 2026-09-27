@@ -105,6 +105,30 @@ function EconomyService.removeCarried(player: Player, amount: number, reason: st
 	return removed
 end
 
+-- Moves carried cash from one player to another, limited by the receiver's bag space.
+-- Returns the amount moved.
+function EconomyService.transferCarried(from: Player, to: Player, amount: number, reason: string): number
+	local source = EconomyService.account(from)
+	local target = EconomyService.account(to)
+	local room = math.max(0, target.bagCapacity - target.carried)
+	local moved = math.min(math.floor(amount), source.carried, room)
+	if moved <= 0 then
+		return 0
+	end
+	source.carried -= moved
+	record(source, "carried", -moved, `{reason} (to {to.UserId})`)
+	target.carried += moved
+	record(target, "carried", moved, `{reason} (from {from.UserId})`)
+	return moved
+end
+
+-- Bag upgrades change how much carried cash fits.
+function EconomyService.setBagCapacity(player: Player, capacity: number)
+	local account = EconomyService.account(player)
+	account.bagCapacity = capacity
+	EconomyService.changed:Fire(account.userId)
+end
+
 function EconomyService.setCarried(player: Player, amount: number, reason: string)
 	local account = EconomyService.account(player)
 	local delta = math.floor(amount) - account.carried

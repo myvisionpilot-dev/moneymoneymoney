@@ -22,4 +22,6 @@ New-Item -ItemType Directory -Force $target | Out-Null
 foreach ($place in @("lobby", "match")) {
 	rojo build "scripts/$place-code.project.json" -o (Join-Path $target "$place-code.rbxm")
 }
+# tools/*.luau as ModuleScripts, e.g. require(game:GetObjects("rbxasset://mmm/tools.rbxm")[1].build_match_map)
+rojo build "scripts/tools.project.json" -o (Join-Path $target "tools.rbxm")
 Write-Host "Built to $target"

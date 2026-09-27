@@ -29,7 +29,7 @@ local function cell(parent: Instance, x: number, width: number, text: string, co
 	}, parent)
 end
 
-local function resultRow(parent: Instance, index: number, row: Types.ResultRow, mvpUserId: number?)
+local function resultRow(parent: Instance, index: number, row: Types.ResultRow, results: Types.RunResults)
 	local isMe = row.userId == Players.LocalPlayer.UserId
 	local color = if isMe then UI.Colors.Gold else UI.Colors.Text
 	local frame = UI.frame({
@@ -39,8 +39,11 @@ local function resultRow(parent: Instance, index: number, row: Types.ResultRow, 
 	}, parent)
 	local place = PLACES[index] or `{index}th`
 	local name = `{place}  {row.name}`
-	if row.userId == mvpUserId then
+	if row.userId == results.mvpUserId then
 		name ..= "  [MVP]"
+	end
+	if row.userId == results.snakeUserId then
+		name ..= "  [SNAKE]"
 	end
 	if row.status == "Left" then
 		name ..= " (left)"
@@ -138,7 +141,7 @@ function ResultsController.start()
 			end
 		end
 		for index, row in results.players do
-			resultRow(table_, index, row, results.mvpUserId)
+			resultRow(table_, index, row, results)
 		end
 
 		overlay.Visible = true

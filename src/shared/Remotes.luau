@@ -29,12 +29,16 @@ export type MatchRemotes = {
 	RunSnapshot: ToClient<Types.RunSnapshot>,
 	TonySays: ToClient<Types.TonyLine>,
 	Notify: ToClient<Types.Notice>,
-	DeliveryJob: ToClient<Types.DeliveryJob?>,
+	JobGuide: ToClient<Types.JobGuide?>,
 	QuotaResult: ToClient<Types.QuotaResult>,
 	DecisionPrompt: ToClient<Types.DecisionPrompt>,
 	RunResults: ToClient<Types.RunResults>,
+	DoorOffer: ToClient<Types.DoorOffer?>,
+	ShopOpen: ToClient<Types.ShopState>,
 	ClientReady: ToServer<nil>,
 	SubmitDecision: ToServer<Types.Decision>,
+	ChooseDoorOffer: ToServer<number>, -- 1 or 2, or 0 to walk away
+	BuyUpgrade: ToServer<Types.UpgradeId>,
 }
 
 local IS_SERVER = RunService:IsServer()
@@ -123,12 +127,16 @@ function Remotes.match(): MatchRemotes
 		RunSnapshot = toClient("RunSnapshot"),
 		TonySays = toClient("TonySays"),
 		Notify = toClient("Notify"),
-		DeliveryJob = toClient("DeliveryJob"),
+		JobGuide = toClient("JobGuide"),
 		QuotaResult = toClient("QuotaResult"),
 		DecisionPrompt = toClient("DecisionPrompt"),
 		RunResults = toClient("RunResults"),
+		DoorOffer = toClient("DoorOffer"),
+		ShopOpen = toClient("ShopOpen"),
 		ClientReady = toServer("ClientReady"),
 		SubmitDecision = toServer("SubmitDecision"),
+		ChooseDoorOffer = toServer("ChooseDoorOffer"),
+		BuyUpgrade = toServer("BuyUpgrade"),
 	}
 	matchRemotes = remotes
 	return remotes

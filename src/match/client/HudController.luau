@@ -1,11 +1,13 @@
 --!strict
--- Always-on HUD: quota + progress + timer (top centre), bag / deposited / share (top right).
+-- Always-on HUD: quota + progress + timer (top centre); bag, deposited, share, heat and the
+-- current job (top right); a jail banner while you're locked up.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
 local Format = require(Shared:WaitForChild("Format"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
@@ -131,9 +133,26 @@ function HudController.start()
 	}, UI.Colors.Gold)
 	local depositedLabel = row(3, "DEPOSITED $0", UI.Colors.Money)
 	local shareLabel = row(4, "YOUR SHARE 0%")
-	local job = row(5, "", UI.Colors.Gold)
+	local heatLabel = row(5, "HEAT", UI.Colors.Muted)
+	local job = row(6, "", UI.Colors.Gold)
 	job.Visible = false
 	jobLabel = job
+
+	-- Jail banner (centre of the screen while you're locked up)
+	local jailBanner = UI.label({
+		Name = "Jail",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+		Size = UDim2.fromOffset(360, 60),
+		BackgroundTransparency = 0.1,
+		BackgroundColor3 = UI.Colors.Panel,
+		Font = UI.Fonts.Heading,
+		TextSize = 30,
+		TextColor3 = UI.Colors.Danger,
+		Visible = false,
+	}, root)
+	UI.corner(jailBanner, 14)
+	UI.stroke(jailBanner, 3, UI.Colors.Danger)
 
 	local function render(snapshot: Types.RunSnapshot)
 		local phaseTitle = PHASE_TITLES[snapshot.phase]
@@ -174,6 +193,11 @@ function HudController.start()
 			depositedLabel.Text = `DEPOSITED {Format.money(me.deposited)}`
 			local share = if snapshot.teamDeposited > 0 then me.deposited / snapshot.teamDeposited else 0
 			shareLabel.Text = `YOUR SHARE {Format.percent(share)}`
+
+			local stars = math.floor(me.heat)
+			local shown = string.rep("★", stars) .. string.rep("☆", Config.Police.MaxHeat - stars)
+			heatLabel.Text = `HEAT {shown}` .. (if me.hiding and me.heat > 0 then "  hiding" else "")
+			heatLabel.TextColor3 = if stars >= 1 then UI.Colors.Danger else UI.Colors.Muted
 		end
 	end
 
@@ -183,6 +207,13 @@ function HudController.start()
 	end
 
 	RunService.RenderStepped:Connect(function()
+		local me = ClientState.me()
+		local jailLeft = if me then me.jailedUntil - Timing.now() else 0
+		jailBanner.Visible = jailLeft > 0
+		if jailLeft > 0 then
+			jailBanner.Text = `BUSTED! Out in {Format.clock(jailLeft)}`
+		end
+
 		local snapshot = ClientState.snapshot
 		if not snapshot or snapshot.phaseEndsAt <= 0 or snapshot.phase == "Ended" then
 			timer.Text = ""

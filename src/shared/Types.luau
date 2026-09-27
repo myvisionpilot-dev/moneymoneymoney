@@ -15,6 +15,10 @@ export type PlayerRow = {
 	bagCapacity: number,
 	status: PlayerStatus,
 	decided: boolean,
+	heat: number, -- 0 to Police.MaxHeat; whole numbers are stars
+	hiding: boolean,
+	jailedUntil: number, -- 0 when free
+	stolen: number, -- total stolen from teammates this run
 }
 
 export type RunSnapshot = {
@@ -37,10 +41,44 @@ export type TonyLine = {
 	text: string,
 }
 
-export type DeliveryJob = {
-	dropoffPosition: Vector3,
+-- Where to go for your current job. Every job (delivery, chores, errands...) uses this.
+export type JobGuide = {
+	title: string,
+	markers: { Vector3 }, -- the first one gets the guide beam
 	endsAt: number,
-	payout: number,
+	pay: number,
+}
+
+export type DoorOfferOption = {
+	slot: number, -- 1 or 2
+	title: string,
+	detail: string,
+	legal: boolean,
+	pay: number,
+	heat: number,
+}
+
+export type DoorOffer = {
+	residentName: string,
+	greeting: string,
+	options: { DoorOfferOption },
+	expiresAt: number,
+}
+
+export type UpgradeId = "Bag" | "Lockpick"
+
+export type ShopItem = {
+	id: UpgradeId,
+	title: string,
+	level: number, -- 0 = not bought
+	maxLevel: number,
+	current: string, -- what you have now, e.g. "$5,000 bag"
+	nextEffect: string?, -- nil at max level
+	nextPrice: number?,
+}
+
+export type ShopState = {
+	items: { ShopItem },
 }
 
 export type Contribution = {
@@ -84,6 +122,7 @@ export type RunResults = {
 	highestQuota: number,
 	yourPrize: number,
 	mvpUserId: number?,
+	snakeUserId: number?,
 	players: { ResultRow },
 	endsAt: number,
 }

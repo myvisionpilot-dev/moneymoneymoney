@@ -19,6 +19,7 @@ local PrizeService = require(script.Parent.PrizeService)
 local QuotaMath = require(script.Parent.QuotaMath)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local StealService = require(script.Parent.StealService)
 local TonyService = require(script.Parent.TonyService)
 
 local IS_STUDIO = RunService:IsStudio()
@@ -157,6 +158,7 @@ local function sendResults(recipients: { RosterService.Member }, reason: Types.E
 				highestQuota = PrizeService.highestCleared(),
 				yourPrize = PrizeService.lockedPrize(member.userId) or 0,
 				mvpUserId = mvp,
+				snakeUserId = StealService.snakeUserId(),
 				players = rows,
 				endsAt = endsAt,
 			})
@@ -279,6 +281,7 @@ local function runLoop()
 		forcePass = false
 
 		local duration = Timing.scaled(Config.Match.QuotaDurationSeconds)
+		RunState.quotaStartedAt = Timing.now()
 		setPhase("Quota", duration)
 		PathService.openQuota(quotaIndex)
 		TonyService.say(TonyService.Lines.quotaStart(quotaIndex, target, duration, RunState.isEndless))

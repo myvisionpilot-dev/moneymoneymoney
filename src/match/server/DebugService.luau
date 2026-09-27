@@ -4,6 +4,8 @@
 --   /skip                     pass the current quota now
 --   /timer <seconds>          set time left in the current phase
 --   /start                    start the run without waiting for arrivals
+--   /heat <stars>             add heat to yourself (to test police)
+--   /tp <x> <y> <z>           teleport yourself (goes through MovementGuard)
 -- In Studio, ServerStorage.DebugHook:Invoke("cash", "5000") runs the same commands.
 
 local Players = game:GetService("Players")
@@ -16,6 +18,8 @@ local TextChatService = game:GetService("TextChatService")
 local Format = require(ReplicatedStorage.Shared.Format)
 local Admin = require(ServerScriptService.Common.Admin)
 local EconomyService = require(script.Parent.EconomyService)
+local HeatService = require(script.Parent.HeatService)
+local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
@@ -72,6 +76,24 @@ local handlers: { [string]: Handler } = {
 		return if QuotaRunService.setTimer(seconds)
 			then `Timer set to {Format.clock(seconds)}`
 			else "No timer is running right now"
+	end,
+
+	heat = function(player: Player, args: { string }): string
+		local stars = tonumber(args[1])
+		if not stars then
+			return "Usage: /heat <stars>"
+		end
+		HeatService.add(player, stars)
+		return `Heat is now {string.format("%.1f", HeatService.get(player))}`
+	end,
+
+	tp = function(player: Player, args: { string }): string
+		local x, y, z = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
+		if not x or not y or not z then
+			return "Usage: /tp <x> <y> <z>"
+		end
+		MovementGuard.teleport(player, CFrame.new(x, y, z))
+		return `Teleported to {x}, {y}, {z}`
 	end,
 
 	start = function(_player: Player, _args: { string }): string

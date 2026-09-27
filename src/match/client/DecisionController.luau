@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Timing = require(Shared:WaitForChild("Timing"))
@@ -30,6 +31,7 @@ function DecisionController.start()
 	UI.corner(panel, 16)
 	UI.stroke(panel, 3, UI.Colors.Gold)
 	UI.padding(panel, 14)
+	FirstPerson.registerPanel(panel)
 	UI.list(panel, Enum.FillDirection.Vertical, 8)
 
 	local title = UI.label({

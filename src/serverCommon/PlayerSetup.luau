@@ -1,0 +1,35 @@
+--!strict
+-- Every player, in both places: locked first-person camera and Movement.WalkSpeed.
+-- Sprinting is handled on the client (shared/FirstPerson).
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+
+local PlayerSetup = {}
+
+local function setupCharacter(character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if humanoid and humanoid:IsA("Humanoid") then
+		humanoid.WalkSpeed = Config.Movement.WalkSpeed
+	end
+end
+
+local function setupPlayer(player: Player)
+	player.CameraMode = Enum.CameraMode.LockFirstPerson
+	player.DevEnableMouseLock = false -- Shift is sprint, not shift-lock
+	if player.Character then
+		task.spawn(setupCharacter, player.Character)
+	end
+	player.CharacterAdded:Connect(setupCharacter)
+end
+
+function PlayerSetup.start()
+	for _, player in Players:GetPlayers() do
+		task.spawn(setupPlayer, player)
+	end
+	Players.PlayerAdded:Connect(setupPlayer)
+end
+
+return PlayerSetup

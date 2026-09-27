@@ -13,6 +13,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local Carry = require(script.Parent.Parent.Carry)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
@@ -49,30 +50,6 @@ local function payout(_player: Player, tier: number): number
 	return math.floor(settings.BasePayout * Config.Economy.TierPayoutMultiplier ^ (tier - 1) + 0.5)
 end
 
-local function attachPackage(player: Player): BasePart?
-	local root = CharacterUtil.getRoot(player)
-	local character = player.Character
-	if not root or not character then
-		return nil
-	end
-	local box = Instance.new("Part")
-	box.Name = "DeliveryPackage"
-	box.Size = Vector3.new(1.6, 1.3, 1.6)
-	box.Color = Color3.fromRGB(176, 128, 72)
-	box.Material = Enum.Material.Cardboard
-	box.CanCollide = false
-	box.CanQuery = false
-	box.CanTouch = false
-	box.Massless = true
-	box.CFrame = root.CFrame * CFrame.new(0, 0, -1.4)
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = root
-	weld.Part1 = box
-	weld.Parent = box
-	box.Parent = character
-	return box
-end
-
 local function clear(player: Player): Job?
 	local job = jobs[player]
 	if not job then
@@ -83,7 +60,7 @@ local function clear(player: Player): Job?
 		job.package:Destroy()
 	end
 	if player.Parent then
-		remotes.DeliveryJob:fireClient(player, nil)
+		remotes.JobGuide:fireClient(player, nil)
 	end
 	return job
 end
@@ -112,7 +89,7 @@ local function pickDropoff(from: Vector3): BasePart?
 	return pool[rng:NextInteger(1, #pool)]
 end
 
-local function start(player: Player): (boolean, string?)
+local function start(player: Player, _source: Instance?): (boolean, string?)
 	local ctx = getContext()
 	if not ctx.isOpen() then
 		return false, "Deliveries open when a quota starts."
@@ -120,8 +97,8 @@ local function start(player: Player): (boolean, string?)
 	if not ctx.canWork(player) then
 		return false, nil
 	end
-	if jobs[player] then
-		return false, "You're already on a delivery."
+	if ctx.isBusy(player) then
+		return false, "Finish your current job first."
 	end
 	if EconomyService.isFull(player) then
 		return false, "Your bag is full. Deposit at Tony's first!"
@@ -141,12 +118,23 @@ local function start(player: Player): (boolean, string?)
 		startedAt = now,
 		endsAt = now + settings.TimeLimitSeconds,
 		startPosition = root.Position,
-		package = attachPackage(player),
+		package = Carry.attach(
+			player,
+			"DeliveryPackage",
+			Vector3.new(1.6, 1.3, 1.6),
+			Color3.fromRGB(176, 128, 72),
+			Enum.Material.Cardboard
+		),
 	}
 	jobs[player] = job
 
 	local pay = payout(player, ctx.tier())
-	remotes.DeliveryJob:fireClient(player, { dropoffPosition = dropoff.Position, endsAt = job.endsAt, payout = pay })
+	remotes.JobGuide:fireClient(player, {
+		title = "Delivery",
+		markers = { dropoff.Position },
+		endsAt = job.endsAt,
+		pay = pay,
+	})
 	Notifier.send(player, `Take the package to the marked house for {Format.money(pay)}.`, "Info")
 	return true, nil
 end
@@ -264,16 +252,21 @@ local function init(newContext: MoneyPath.Context)
 	end)
 end
 
+local function hasJob(player: Player): boolean
+	return jobs[player] ~= nil
+end
+
 local Delivery: MoneyPath.MoneyPath = {
 	id = "Delivery",
 	displayName = "Delivery jobs",
-	unlockQuota = 1,
+	unlockQuota = Config.Paths.Unlocks.Delivery,
 	legal = true,
 	init = init,
 	start = start,
 	complete = complete,
 	fail = fail,
 	payout = payout,
+	hasJob = hasJob,
 	cancelAll = cancelAll,
 }
 

@@ -1,14 +1,31 @@
 --!strict
--- Match server entry point. Order matters: roster first, the run loop last.
+-- Match server entry point. Order matters: roster first, money paths before NPCs (so
+-- pickpocketing hears about new pedestrians), the run loop last.
+
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Delivery = require(script.Paths.Delivery)
+local DoorKnock = require(script.Paths.DoorKnock)
+local Pickpocket = require(script.Paths.Pickpocket)
+local StoreRobbery = require(script.Paths.StoreRobbery)
 local PathService = require(script.PathService)
 
 PathService.register(Delivery)
+PathService.register(DoorKnock)
+PathService.register(Pickpocket)
+PathService.register(StoreRobbery)
 
+require(ServerScriptService.Common.PlayerSetup).start()
+require(script.MovementGuard).start()
 require(script.RosterService).start()
+require(script.HeatService).start()
+require(script.JailService).start()
 require(script.SyncService).start()
 require(script.DepositService).start()
+require(script.ShopService).start()
+require(script.StealService).start()
 PathService.start()
+require(script.NpcService).start()
+require(script.PoliceService).start()
 require(script.DebugService).start()
 require(script.QuotaRunService).start()

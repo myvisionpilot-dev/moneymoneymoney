@@ -10,8 +10,11 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
+local HeatService = require(script.Parent.HeatService)
+local JailService = require(script.Parent.JailService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local StealService = require(script.Parent.StealService)
 
 local SEND_INTERVAL = 0.2
 
@@ -35,6 +38,10 @@ function SyncService.build(): Types.RunSnapshot
 			bagCapacity = if account then account.bagCapacity else Config.Economy.BaseBagCapacity,
 			status = member.status,
 			decided = member.decision ~= nil,
+			heat = HeatService.get(member.player),
+			hiding = HeatService.isHiding(member.player),
+			jailedUntil = JailService.releaseAt(member.player),
+			stolen = StealService.totalStolen(member.userId),
 		})
 	end
 	return {
@@ -56,6 +63,9 @@ end
 function SyncService.start()
 	RunState.changed:Connect(markDirty)
 	RosterService.changed:Connect(markDirty)
+	HeatService.changed:Connect(markDirty)
+	JailService.changed:Connect(markDirty)
+	StealService.changed:Connect(markDirty)
 	EconomyService.changed:Connect(function(_userId: number)
 		dirty = true
 	end)

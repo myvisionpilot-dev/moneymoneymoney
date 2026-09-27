@@ -7,6 +7,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Timing = require(Shared:WaitForChild("Timing"))
@@ -34,6 +35,7 @@ function QueueController.start()
 	}, root)
 	UI.corner(panel, 14)
 	UI.stroke(panel, 3, UI.Colors.Gold)
+	FirstPerson.registerPanel(panel)
 
 	local title = UI.label({
 		Position = UDim2.fromOffset(12, 8),

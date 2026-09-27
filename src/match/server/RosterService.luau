@@ -13,6 +13,7 @@ local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
 local SafeTeleport = require(ServerScriptService.Common.SafeTeleport)
+local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 
 local TONY_SPAWN_TAG = "TonySpawn"
@@ -119,12 +120,9 @@ function RosterService.gatherAtTony()
 		return
 	end
 	for index, member in RosterService.active() do
-		local character = member.player.Character
-		if character then
-			local spawn = spawns[(index - 1) % #spawns + 1]
-			local spread = (index - 1) // #spawns * 4
-			character:PivotTo(spawn.CFrame * CFrame.new(spread, 4, 0))
-		end
+		local spawn = spawns[(index - 1) % #spawns + 1]
+		local spread = (index - 1) // #spawns * 4
+		MovementGuard.teleport(member.player, spawn.CFrame * CFrame.new(spread, 4, 0))
 	end
 end
 

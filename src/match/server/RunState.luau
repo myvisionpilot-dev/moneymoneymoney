@@ -14,6 +14,7 @@ type RunState = {
 	phaseEndsAt: number,
 	isEndless: boolean,
 	metAt: number?,
+	quotaStartedAt: number, -- when the current quota began (steal grace uses it)
 	changed: Signal.Signal<()>,
 }
 
@@ -25,6 +26,7 @@ local RunState: RunState = {
 	phaseEndsAt = 0,
 	isEndless = false,
 	metAt = nil,
+	quotaStartedAt = 0,
 	changed = Signal.new(),
 }
 
