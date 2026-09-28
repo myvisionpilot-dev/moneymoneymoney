@@ -53,7 +53,9 @@ function QuotaRunService.addProgress(amount: number)
 	RunState.progress += amount
 	if RunState.metAt == nil and RunState.progress >= RunState.target then
 		RunState.metAt = Timing.now()
-		TonyService.say(TonyService.Lines.quotaMet())
+		if not Config.Match.AdvanceWhenMet then
+			TonyService.say(TonyService.Lines.quotaMet())
+		end
 	end
 	RunState.changed:Fire()
 end
@@ -112,7 +114,8 @@ local function runQuotaTimer()
 	local warned: { [number]: boolean } = {}
 	while true do
 		local secondsLeft = RunState.phaseEndsAt - Timing.now()
-		if secondsLeft <= 0 or forcePass or #RosterService.active() == 0 then
+		local met = Config.Match.AdvanceWhenMet and RunState.progress >= RunState.target
+		if secondsLeft <= 0 or forcePass or met or #RosterService.active() == 0 then
 			return
 		end
 		local line: string? = nil
@@ -286,13 +289,22 @@ local function runLoop()
 		PathService.openQuota(quotaIndex)
 		TonyService.say(TonyService.Lines.quotaStart(quotaIndex, target, duration, RunState.isEndless))
 		runQuotaTimer()
-		PathService.closeQuota("Time's up! Your job was cancelled.")
 
 		if #RosterService.active() == 0 then
+			PathService.closeQuota("Time's up! Your job was cancelled.")
 			break
 		end
 		local passed = forcePass or RunState.progress >= target
 		forcePass = false
+		-- Filled before time ran out, with no cash-out choice due: roll straight into the next
+		-- quota. Jobs keep going and nobody is sent back to Tony's.
+		local rollOver = passed
+			and Config.Match.AdvanceWhenMet
+			and quotaIndex < Config.Match.CashOutAfterQuota
+			and Timing.now() < RunState.phaseEndsAt
+		if not rollOver then
+			PathService.closeQuota("Time's up! Your job was cancelled.")
+		end
 		if not passed then
 			TonyService.say(TonyService.Lines.failed(quotaIndex))
 			endRun("Failed")
@@ -301,10 +313,7 @@ local function runLoop()
 
 		PrizeService.quotaCleared(quotaIndex)
 		carry = QuotaMath.carry(RunState.progress, target)
-		TonyService.say(TonyService.Lines.passed(quotaIndex, carry))
-		RosterService.gatherAtTony()
-		setPhase("Intermission", Timing.scaled(Config.Match.IntermissionSeconds))
-		remotes.QuotaResult:fireAll({
+		local result: Types.QuotaResult = {
 			quotaIndex = quotaIndex,
 			passed = true,
 			target = target,
@@ -312,9 +321,20 @@ local function runLoop()
 			contributions = contributions(),
 			nextQuotaIndex = quotaIndex + 1,
 			nextTarget = QuotaMath.target(quotaIndex + 1, #RosterService.active()),
-			endsAt = RunState.phaseEndsAt,
-		})
-		waitUntilPhaseEnds()
+			endsAt = 0,
+			rolledOver = rollOver,
+		}
+		if rollOver then
+			result.endsAt = Timing.now() + Config.Match.QuotaPaidBannerSeconds
+			remotes.QuotaResult:fireAll(result)
+		else
+			TonyService.say(TonyService.Lines.passed(quotaIndex, carry))
+			RosterService.gatherAtTony()
+			setPhase("Intermission", Timing.scaled(Config.Match.IntermissionSeconds))
+			result.endsAt = RunState.phaseEndsAt
+			remotes.QuotaResult:fireAll(result)
+			waitUntilPhaseEnds()
+		end
 
 		if quotaIndex >= Config.Match.CashOutAfterQuota and not runDecision(quotaIndex) then
 			-- Everyone cashed out; their results screens are already up.

@@ -1,5 +1,6 @@
 --!strict
--- Between quotas: the result, everyone's contribution, and what's next.
+-- A paid quota: the result, everyone's contribution, and what's next. Shown through the break,
+-- or for a few seconds while you play when the next quota started straight away.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -115,7 +116,9 @@ function IntermissionController.start()
 			contributionRow(rows, index, contribution)
 		end
 
-		if result.quotaIndex >= Config.Match.CashOutAfterQuota then
+		if result.rolledOver then
+			nextLabel.Text = `Now: Quota {result.nextQuotaIndex} · {Format.money(result.nextTarget)}`
+		elseif result.quotaIndex >= Config.Match.CashOutAfterQuota then
 			nextLabel.Text =
 				`Up next: cash out, or face Quota {result.nextQuotaIndex} ({Format.money(result.nextTarget)})`
 		else
@@ -125,15 +128,23 @@ function IntermissionController.start()
 	end)
 
 	ClientState.changed:Connect(function(snapshot: Types.RunSnapshot)
-		if snapshot.phase ~= "Intermission" then
+		if snapshot.phase ~= "Intermission" and snapshot.phase ~= "Quota" then
 			panel.Visible = false
 		end
 	end)
 
 	RunService.RenderStepped:Connect(function()
 		local result = current
-		if panel.Visible and result then
-			countdown.Text = `Continuing in {Format.clock(result.endsAt - Timing.now())}`
+		if not panel.Visible or not result then
+			return
+		end
+		local secondsLeft = result.endsAt - Timing.now()
+		if secondsLeft <= 0 then
+			panel.Visible = false
+		elseif result.rolledOver then
+			countdown.Text = "It's already started. Keep going!"
+		else
+			countdown.Text = `Continuing in {Format.clock(secondsLeft)}`
 		end
 	end)
 end

@@ -16,6 +16,8 @@ return {
 		DecisionSeconds = 20,
 		Quotas = { 50_000, 150_000, 300_000, 600_000, 1_000_000 },
 		CashOutAfterQuota = 5,
+		AdvanceWhenMet = true, -- filling a quota starts the next one straight away (the cash-out choice still comes after CashOutAfterQuota)
+		QuotaPaidBannerSeconds = 6, -- how long the "quota paid" panel shows when the next quota starts straight away
 		EndlessQuotaMultiplier = 1.6,
 		CarryOverExcess = true,
 		PlayerCountScale = { [1] = 0.35, [2] = 0.55, [3] = 0.70, [4] = 0.80, [5] = 0.90, [6] = 1.00 },

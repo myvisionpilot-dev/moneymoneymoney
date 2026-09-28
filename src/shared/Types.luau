@@ -117,6 +117,7 @@ export type QuotaResult = {
 	nextQuotaIndex: number,
 	nextTarget: number,
 	endsAt: number,
+	rolledOver: boolean, -- the next quota already started (no break)
 }
 
 export type DecisionPrompt = {
