@@ -27,6 +27,15 @@ local PEDESTRIAN_NAMES = {
 	"Chatty Cathy",
 }
 
+-- NPCs never climb, swim or fall over: switching those off saves the physics some work.
+local UNUSED_STATES = {
+	Enum.HumanoidStateType.Climbing,
+	Enum.HumanoidStateType.Swimming,
+	Enum.HumanoidStateType.FallingDown,
+	Enum.HumanoidStateType.Ragdoll,
+	Enum.HumanoidStateType.GettingUp,
+}
+
 local SKIN_TONES = {
 	Color3.fromRGB(234, 184, 146),
 	Color3.fromRGB(204, 142, 105),
@@ -96,6 +105,9 @@ function NpcService.makeRig(name: string, colors: Colors): Model
 	if humanoid then
 		humanoid.DisplayName = name
 		humanoid.NameDisplayDistance = 40
+		for _, state in UNUSED_STATES do
+			humanoid:SetStateEnabled(state, false)
+		end
 	end
 	return model
 end

@@ -1,5 +1,5 @@
 --!strict
--- Every player, in both places: locked first-person camera and Movement.WalkSpeed.
+-- Every player, in both places: the normal zoomable camera and Movement.WalkSpeed.
 -- Sprinting is handled on the client (shared/Movement).
 
 local Players = game:GetService("Players")
@@ -17,7 +17,9 @@ local function setupCharacter(character: Model)
 end
 
 local function setupPlayer(player: Player)
-	player.CameraMode = Enum.CameraMode.LockFirstPerson
+	player.CameraMode = Enum.CameraMode.Classic
+	player.CameraMinZoomDistance = Config.Camera.MinZoom
+	player.CameraMaxZoomDistance = Config.Camera.MaxZoom
 	player.DevEnableMouseLock = false -- Shift is sprint, not shift-lock
 	if player.Character then
 		task.spawn(setupCharacter, player.Character)

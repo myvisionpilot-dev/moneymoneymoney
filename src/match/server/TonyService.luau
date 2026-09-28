@@ -16,7 +16,9 @@ end
 
 TonyService.Lines = {
 	intro = function(quotaSeconds: number): string
-		return `Welcome to town, kids. You owe Tony money. Every {Format.clock(quotaSeconds)} I want a payment on this desk. Only deposited cash counts!`
+		return `Welcome to town, kids. You owe Tony money. Knock on doors, find work, and bring me cash every {Format.clock(
+			quotaSeconds
+		)}. Only cash on this desk counts!`
 	end,
 
 	quotaStart = function(quotaIndex: number, target: number, seconds: number, endless: boolean): string

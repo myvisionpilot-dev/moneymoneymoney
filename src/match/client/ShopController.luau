@@ -9,7 +9,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
-local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
+local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
@@ -39,7 +39,7 @@ function ShopController.start()
 		Size = UDim2.fromOffset(460, 0),
 	}, root, true)
 	local panel = window.panel
-	FirstPerson.registerPanel(panel)
+	Cursor.registerPanel(panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
 	local bagPill = UI.pill("💵", UI.Colors.Money, { LayoutOrder = 1, Size = UDim2.fromOffset(220, 34) }, window.body)

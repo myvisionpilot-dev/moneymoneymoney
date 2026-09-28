@@ -8,7 +8,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
-local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
+local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
@@ -36,7 +36,7 @@ function QueueController.start()
 	}, root)
 	local panel = window.panel
 	window.title.TextSize = 24
-	FirstPerson.registerPanel(panel)
+	Cursor.registerPanel(panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 6)
 
 	local info = UI.label({

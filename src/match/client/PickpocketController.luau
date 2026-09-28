@@ -18,6 +18,9 @@ local UI = require(Shared:WaitForChild("UI"))
 
 local BAR_WIDTH = 340
 local RESULT_SECONDS = 0.9 -- how long the last hit or miss shows before the panel closes
+local HOW_TO = if UserInputService.TouchEnabled
+	then "Tap GRAB when the needle is in the green!"
+	else "Press E (or click) when the needle is in the green!"
 
 local PickpocketController = {}
 
@@ -54,7 +57,7 @@ function PickpocketController.start()
 		Size = UDim2.new(1, 0, 0, 20),
 		TextSize = 16,
 		TextColor3 = UI.Colors.Muted,
-		Text = "Press E (or click) when the needle is in the green!",
+		Text = HOW_TO,
 	}, panel)
 
 	local bar = UI.frame({
@@ -184,7 +187,7 @@ function PickpocketController.start()
 		finished = false
 		roundStartedAt = os.clock() + game.pauseSeconds
 		title.Text = `👛 Pickpocket {game.target}`
-		hint.Text = "Press E (or click) when the needle is in the green!"
+		hint.Text = HOW_TO
 		showRound()
 		panel.Visible = true
 		ProximityPromptService.Enabled = false

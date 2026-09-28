@@ -6,7 +6,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
-local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
+local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Timing = require(Shared:WaitForChild("Timing"))
@@ -27,7 +27,7 @@ function DecisionController.start()
 	}, root)
 	local panel = window.panel
 	window.title.TextSize = 24
-	FirstPerson.registerPanel(panel)
+	Cursor.registerPanel(panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
 	local prizeLabel = UI.label({

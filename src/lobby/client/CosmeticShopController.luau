@@ -11,7 +11,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Catalog"))
 local Config = require(Shared:WaitForChild("Config"))
-local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
+local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
@@ -105,7 +105,7 @@ function CosmeticShopController.start()
 		Size = UDim2.fromOffset(520, 0),
 	}, root, true)
 	local panel = window.panel
-	FirstPerson.registerPanel(panel)
+	Cursor.registerPanel(panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
 	-- Your Cred sits in the title bar, next to the X.

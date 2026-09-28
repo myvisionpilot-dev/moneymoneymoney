@@ -17,6 +17,7 @@ local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
 
 local DESK_TAG = "TonyDesk"
+local DESK_ATTRIBUTE = "TonyDeskPosition" -- on ReplicatedStorage, for guides when the desk isn't streamed in
 local RANGE_SLACK = 3 -- studs, for network lag
 
 local limiter = RateLimiter.new(Config.Security.PromptsPerSecond, 1)
@@ -49,6 +50,7 @@ local function setupDesk(instance: Instance)
 		return
 	end
 	local desk: BasePart = instance
+	ReplicatedStorage:SetAttribute(DESK_ATTRIBUTE, desk.Position)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "DepositPrompt"
 	prompt.ActionText = "Deposit cash"

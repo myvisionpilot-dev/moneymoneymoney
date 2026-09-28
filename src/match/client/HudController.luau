@@ -1,11 +1,12 @@
 --!strict
--- Always-on HUD: quota + progress + timer (top centre); bag, deposited, share, heat and the
+-- Always-on HUD: quota + progress + timer + next-step hint (top centre); bag, deposited, share, heat and the
 -- current job (top right); a jail banner while you're locked up. It also plays the sting when
 -- you gain a star, the clang and red flash when you're busted, and beeps for the last 10 seconds.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -33,6 +34,31 @@ local HudController = {}
 local jobLabel: TextLabel? = nil
 local bagBar: Frame? = nil
 local quotaBarFrame: Frame? = nil
+local statusLabel: TextLabel? = nil
+local phaseStatus = "" -- the quota panel's line for the current phase
+local hint: string? = nil -- GuideController's next step, shown instead during a quota
+
+local function showStatus()
+	local label = statusLabel
+	if not label then
+		return
+	end
+	local current = if ClientState.phase() == "Quota" then hint else nil
+	local text = current or phaseStatus
+	if label.Text ~= text then
+		label.Text = text
+		if current then
+			UI.pop(label, 0.25)
+		end
+	end
+	label.TextColor3 = if current then UI.Colors.Gold else UI.Colors.Muted
+end
+
+-- GuideController's "what to do next" line under the quota bar; nil goes back to normal.
+function HudController.setHint(text: string?)
+	hint = text
+	showStatus()
+end
 
 -- JobGuideController shows the active job here; nil hides the row.
 function HudController.setJobText(text: string?)
@@ -128,6 +154,7 @@ function HudController.start()
 		TextColor3 = UI.Colors.Muted,
 		Text = "",
 	}, quotaPanel)
+	statusLabel = status
 
 	-- Cash panel
 	local cashPanel = panel({
@@ -227,18 +254,19 @@ function HudController.start()
 		end
 
 		if snapshot.phase == "Quota" then
-			status.Text = "Deposit cash at Tony's desk"
+			phaseStatus = "Deposit cash at Tony's desk"
 		elseif snapshot.phase == "Waiting" then
-			status.Text = "The run starts soon"
+			phaseStatus = "The run starts soon"
 		elseif snapshot.phase == "Intro" then
-			status.Text = "Tony's about to name his price"
+			phaseStatus = "Tony's about to name his price"
 		elseif snapshot.phase == "Intermission" then
-			status.Text = "Next quota starts soon"
+			phaseStatus = "Next quota starts soon"
 		elseif snapshot.phase == "Decision" then
-			status.Text = "Cash out or keep going?"
+			phaseStatus = "Cash out or keep going?"
 		else
-			status.Text = ""
+			phaseStatus = ""
 		end
+		showStatus()
 
 		local me = ClientState.me()
 		if not me then
@@ -284,7 +312,8 @@ function HudController.start()
 		bountyLabel.Visible = me.bounty > 0
 		bountyLabel.Text = `🎯 BOUNTY ON YOU {Format.money(me.bounty)}`
 		rideLabel.Visible = me.rideLevel > 0
-		rideLabel.Text = if me.riding then "🏎️ RIDING · R to walk" else "🏎️ KART · R to ride"
+		local key = if UserInputService.TouchEnabled then "tap 🏎️" else "R"
+		rideLabel.Text = if me.riding then `🏎️ RIDING · {key} to walk` else `🏎️ KART · {key} to ride`
 	end
 
 	ClientState.changed:Connect(render)
@@ -308,7 +337,7 @@ function HudController.start()
 		end
 		local secondsLeft = snapshot.phaseEndsAt - Timing.now()
 		timer.Text = `⏱️ {Format.clock(secondsLeft)}`
-		local urgent = snapshot.phase == "Quota" and secondsLeft <= 60
+		local urgent = snapshot.phase == "Quota" and secondsLeft <= Config.Guide.HurrySeconds
 		timer.TextColor3 = if urgent then UI.Colors.Danger else UI.Colors.Text
 		local whole = math.ceil(secondsLeft)
 		if snapshot.phase == "Quota" and whole <= COUNTDOWN_BEEPS and whole > 0 and whole ~= lastBeep then

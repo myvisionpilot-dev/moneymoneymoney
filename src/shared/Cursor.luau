@@ -1,14 +1,16 @@
 --!strict
--- Client side of first person (both places): a tiny white dot crosshair, and a free mouse
--- while a clickable panel is open. Walking and sprinting live in Movement.
+-- The mouse and crosshair (both places). The camera is Roblox's normal one (zoom in all the way
+-- for first person). Zoomed in, a tiny white dot marks the centre of the screen, and clickable
+-- panels free the mouse while they're open.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local DOT_SIZE = 4
+local FIRST_PERSON_STUDS = 1.5 -- a camera this close to your head is first person
 
-local FirstPerson = {}
+local Cursor = {}
 
 local panels: { GuiObject } = {}
 local unlockGui: ScreenGui? = nil
@@ -26,9 +28,9 @@ local function getUnlockGui(): ScreenGui
 	return gui
 end
 
--- A panel with buttons: while it's showing, the mouse is freed so players can click it.
--- (A visible GuiButton with Modal = true unlocks the mouse in first person.)
-function FirstPerson.registerPanel(panel: GuiObject)
+-- A panel with buttons: while it's showing, the mouse is freed so players can click it even
+-- when zoomed into first person. (A visible GuiButton with Modal = true unlocks the mouse.)
+function Cursor.registerPanel(panel: GuiObject)
 	local unlock = Instance.new("TextButton")
 	unlock.Name = panel.Name
 	unlock.BackgroundTransparency = 1
@@ -53,6 +55,16 @@ local function anyPanelOpen(): boolean
 	return false
 end
 
+local function inFirstPerson(): boolean
+	local camera = workspace.CurrentCamera
+	local character = Players.LocalPlayer.Character
+	local head = character and character:FindFirstChild("Head")
+	if not camera or not head or not head:IsA("BasePart") then
+		return false
+	end
+	return (camera.CFrame.Position - head.Position).Magnitude < FIRST_PERSON_STUDS
+end
+
 local function makeCrosshair(): Frame
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "Crosshair"
@@ -66,6 +78,7 @@ local function makeCrosshair(): Frame
 	dot.Size = UDim2.fromOffset(DOT_SIZE, DOT_SIZE)
 	dot.BackgroundColor3 = Color3.new(1, 1, 1)
 	dot.BorderSizePixel = 0
+	dot.Visible = false
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(1, 0)
 	corner.Parent = dot
@@ -78,13 +91,17 @@ local function makeCrosshair(): Frame
 	return dot
 end
 
-function FirstPerson.start()
+function Cursor.start()
 	local dot = makeCrosshair()
 	RunService.RenderStepped:Connect(function()
+		local firstPerson = inFirstPerson()
 		local open = anyPanelOpen()
-		UserInputService.MouseIconEnabled = open
-		dot.Visible = not open
+		local showMouse = open or not firstPerson
+		if UserInputService.MouseIconEnabled ~= showMouse then
+			UserInputService.MouseIconEnabled = showMouse
+		end
+		dot.Visible = firstPerson and not open
 	end)
 end
 
-return FirstPerson
+return Cursor

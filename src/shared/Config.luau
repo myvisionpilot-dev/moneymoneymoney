@@ -200,6 +200,15 @@ return {
 		MaxAirStuds = 16, -- higher than this above the ground for MaxAirChecks checks in a row is flying
 		MaxAirChecks = 3,
 	},
+	-- The next-step hints and marker (no tutorial): see GuideController.
+	Guide = {
+		HurrySeconds = 60, -- this close to the deadline, with cash in your bag, you're told to pay Tony
+	},
+	-- Roblox's normal camera: scroll or pinch to zoom, all the way in for first person.
+	Camera = {
+		MinZoom = 0.5,
+		MaxZoom = 40,
+	},
 	-- Sound effects from Roblox's audio library (ProSoundEffects and APM are Roblox-licensed).
 	Sounds = {
 		Click = { id = 122835655736085, volume = 0.5 },

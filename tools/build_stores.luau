@@ -59,6 +59,15 @@ local function part(parent, name, size, position, color, material)
 	return p
 end
 
+-- Small props: no shadow, no touch or raycast checks, nothing to bump into. Cheaper on phones.
+local function decor(p)
+	p.CastShadow = false
+	p.CanCollide = false
+	p.CanTouch = false
+	p.CanQuery = false
+	return p
+end
+
 local function label(target, text, height)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Label"
@@ -111,7 +120,7 @@ local function store(name, sign, center, facing, wallColor)
 	local roof = piece("Roof", Vector3.new(38, 1.5, 28), 0, 14.75, 0, TRIM)
 	label(roof, sign, 5)
 	piece("Awning", Vector3.new(5, 0.6, 16), 20.5, 10.5, 0, AWNING, Enum.Material.Fabric)
-	piece("Doormat", Vector3.new(3, 0.1, 8), 15, 0.45, 0, Color3.fromRGB(150, 40, 40), Enum.Material.Fabric)
+	decor(piece("Doormat", Vector3.new(3, 0.1, 8), 15, 0.45, 0, Color3.fromRGB(150, 40, 40), Enum.Material.Fabric))
 
 	for index, z in { -5, 5 } do
 		local lamp = piece(
@@ -123,6 +132,7 @@ local function store(name, sign, center, facing, wallColor)
 			Color3.fromRGB(255, 250, 230),
 			Enum.Material.Neon
 		)
+		decor(lamp)
 		local light = Instance.new("PointLight")
 		light.Range = 28
 		light.Brightness = 1
@@ -132,7 +142,7 @@ local function store(name, sign, center, facing, wallColor)
 	local counter =
 		piece("Counter", Vector3.new(3, 4, 10), -8, 2.4, -4, Color3.fromRGB(90, 150, 120), Enum.Material.Wood)
 	CollectionService:AddTag(counter, "StoreCounter")
-	piece("Register", Vector3.new(1.4, 1.2, 1.8), -8, 5, -6, Color3.fromRGB(50, 50, 60), Enum.Material.Metal)
+	decor(piece("Register", Vector3.new(1.4, 1.2, 1.8), -8, 5, -6, Color3.fromRGB(50, 50, 60), Enum.Material.Metal))
 
 	-- Shelves along both side walls, stocked with colourful boxes.
 	for unit, side in { -1, 1 } do
@@ -142,13 +152,15 @@ local function store(name, sign, center, facing, wallColor)
 			piece(`Shelf{unit}_{level}`, Vector3.new(14, 0.3, 2), 3, height, z, SHELF, Enum.Material.Wood)
 			for slot = 0, 4 do
 				local color = PRODUCT_COLORS[rng:NextInteger(1, #PRODUCT_COLORS)]
-				piece(
-					`Product{unit}_{level}_{slot}`,
-					Vector3.new(1.8, 1.3, 1.2),
-					-2.6 + slot * 2.8,
-					height + 0.8,
-					z,
-					color
+				decor(
+					piece(
+						`Product{unit}_{level}_{slot}`,
+						Vector3.new(1.8, 1.3, 1.2),
+						-2.6 + slot * 2.8,
+						height + 0.8,
+						z,
+						color
+					)
 				)
 			end
 		end

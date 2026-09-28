@@ -1,7 +1,7 @@
 --!strict
--- Client movement (both places): walk, hold Shift (or the Sprint touch button) to sprint, and
--- vehicle speed while the server has you in a kart or car (the VehicleSpeed attribute on your
--- character). The view widens a little while you're going fast.
+-- Client movement (both places): walk, hold Shift to sprint (on touch screens, tap the Sprint
+-- button to toggle it), and vehicle speed while the server has you in a kart or car (the
+-- VehicleSpeed attribute on your character). The view widens a little while you're going fast.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -11,6 +11,8 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(script.Parent.Config)
+local TouchButtons = require(script.Parent.TouchButtons)
+local UI = require(script.Parent.UI)
 
 local SPRINT_ACTION = "Sprint"
 local VEHICLE_ATTRIBUTE = "VehicleSpeed"
@@ -20,6 +22,7 @@ local MOVING = 0.1 -- MoveDirection length that counts as trying to move
 local Movement = {}
 
 local sprinting = false
+local sprintButton: TouchButtons.TouchButton? = nil
 local sitTrack: AnimationTrack? = nil
 local fieldOfViewTarget = Config.Movement.FieldOfView
 
@@ -54,6 +57,9 @@ local function setSitting(humanoid: Humanoid, sitting: boolean)
 end
 
 local function apply()
+	if sprintButton then
+		sprintButton.button.BackgroundColor3 = if sprinting then UI.Colors.Gold else UI.Colors.Panel
+	end
 	local character = Players.LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not character or not humanoid then
@@ -110,12 +116,18 @@ function Movement.start()
 			apply()
 			return Enum.ContextActionResult.Sink
 		end,
-		true, -- adds a Sprint button on touch screens
+		false,
 		Enum.KeyCode.LeftShift,
 		Enum.KeyCode.RightShift,
 		Enum.KeyCode.ButtonL3
 	)
-	ContextActionService:SetTitle(SPRINT_ACTION, "Sprint")
+	-- Holding a button while steering with the other thumb is awkward, so on touch it toggles.
+	if TouchButtons.enabled() then
+		sprintButton = TouchButtons.add("🏃", "SPRINT", 1, function()
+			sprinting = not sprinting
+			apply()
+		end)
+	end
 
 	local player = Players.LocalPlayer
 	if player.Character then

@@ -108,7 +108,7 @@ local function stateFor(player: Player): Types.ShopState
 			},
 			{
 				id = "Ride",
-				title = "Ride (press R)",
+				title = "Ride",
 				level = ride,
 				maxLevel = #Config.Shop.Ride,
 				current = if rideSpeed then `Kart, {rideSpeed} speed` else "On foot",
@@ -178,7 +178,7 @@ local function onBuy(player: Player, payload: unknown)
 		Notifier.send(player, `Better lockpick! Break-ins take {ShopService.breakInHoldSeconds(player)}s.`, "Good")
 	else
 		local speed = Config.Shop.Ride[newLevel].speed
-		Notifier.send(player, `New kart (speed {speed})! Press R to hop on or off.`, "Good")
+		Notifier.send(player, `New kart (speed {speed})! Press R (or tap 🏎️) to hop on or off.`, "Good")
 	end
 	ShopService.upgraded:Fire(player, id)
 	Juice.sound(player, "Purchase")
