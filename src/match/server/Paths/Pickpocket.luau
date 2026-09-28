@@ -141,7 +141,7 @@ local function begin(player: Player, pedestrian: Model, prompt: ProximityPrompt)
 		return false, nil
 	end
 	if EconomyService.isFull(player) then
-		return false, "Your bag is full. Deposit at Tony's first!"
+		return false, "Your bag is full. Deposit at the bank first!"
 	end
 
 	prompt.Enabled = false

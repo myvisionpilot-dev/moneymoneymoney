@@ -41,7 +41,7 @@ export type Notice = {
 	kind: NoticeKind,
 }
 
-export type TonyLine = {
+export type PennyLine = {
 	text: string,
 }
 

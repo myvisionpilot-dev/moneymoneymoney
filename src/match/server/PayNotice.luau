@@ -15,9 +15,9 @@ function PayNotice.send(player: Player, headline: string, added: number, pay: nu
 	if added >= pay then
 		Notifier.send(player, `{headline} +{Format.money(added)}`, "Good")
 	elseif added > 0 then
-		Notifier.send(player, `{headline} Only {Format.money(added)} fit in your bag. Deposit at Tony's!`, "Bad")
+		Notifier.send(player, `{headline} Only {Format.money(added)} fit in your bag. Deposit at the bank!`, "Bad")
 	else
-		Notifier.send(player, `{headline} But your bag was full, so you got nothing. Deposit at Tony's!`, "Bad")
+		Notifier.send(player, `{headline} But your bag was full, so you got nothing. Deposit at the bank!`, "Bad")
 	end
 	Juice.paid(player, added)
 end

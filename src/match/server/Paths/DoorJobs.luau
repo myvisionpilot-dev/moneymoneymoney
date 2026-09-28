@@ -1,82 +1,15 @@
 --!strict
--- The five door jobs. DoorKnock runs the knock-and-offer flow; each handler here says what
--- the job is called and what the player has to do.
+-- The door jobs. DoorKnock runs the knock-and-offer flow; each handler here says what the job
+-- is called and what the player has to do. Chores (mow, bins, car wash) live in Chores.
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Chores = require(script.Parent.Chores)
+local DoorTypes = require(script.Parent.DoorTypes)
 
-local Config = require(ReplicatedStorage.Shared.Config)
-local Residents = require(script.Parent.Parent.Residents)
-
-export type Kind = "Chore" | Residents.Wildcard
-
-export type House = {
-	id: number,
-	part: BasePart,
-	tier: number,
-	door: BasePart,
-	backDoor: Attachment?,
-	choreSpots: { Attachment },
-	resident: Residents.Resident,
-	restUntil: number,
-}
-
-export type Job = {
-	player: Player,
-	house: House,
-	kind: Kind,
-	startedAt: number,
-	endsAt: number,
-	stage: number,
-	targets: { Vector3 }, -- where to go next; the first gets the guide beam
-	prompts: { ProximityPrompt },
-	props: { BasePart },
-	pay: number,
-	heat: number,
-	heatApplied: boolean,
-	travel: number, -- straight-line studs the job needs, for the speed check
-}
-
--- What DoorKnock lets a handler do.
-export type Kit = {
-	guide: (job: Job) -> (),
-	finish: (job: Job, message: string) -> (),
-	fail: (job: Job, reason: string) -> (),
-	addHeat: (job: Job) -> (),
-	notify: (job: Job, text: string) -> (),
-	prompt: (
-		job: Job,
-		parent: Instance,
-		action: string,
-		holdSeconds: number,
-		onDone: (prompt: ProximityPrompt) -> ()
-	) -> ProximityPrompt,
-	carry: (job: Job, name: string, size: Vector3, color: Color3) -> (),
-	arrived: (job: Job, position: Vector3) -> boolean,
-	tooFast: (job: Job) -> boolean,
-	park: () -> Vector3?,
-	alley: () -> Vector3?,
-	otherDoor: (house: House) -> Vector3?,
-	breakInHold: (player: Player) -> number,
-}
-
-export type Handler = {
-	legal: boolean,
-	title: (house: House) -> string,
-	begin: (job: Job, kit: Kit) -> (),
-	tick: ((job: Job, kit: Kit) -> ())?,
-}
-
-local CHORE_TITLES: { [Residents.Chore]: string } = {
-	Mow = "Mow the lawn",
-	Bins = "Take out the bins",
-	CarWash = "Wash the car",
-}
-
-local CHORE_ACTIONS: { [Residents.Chore]: string } = {
-	Mow = "Mow",
-	Bins = "Grab bin",
-	CarWash = "Scrub",
-}
+export type Kind = DoorTypes.Kind
+export type House = DoorTypes.House
+export type Job = DoorTypes.Job
+export type Kit = DoorTypes.Kit
+export type Handler = DoorTypes.Handler
 
 -- Shared ending for travel jobs: arrive, pass the speed check, get paid.
 local function arriveAndFinish(job: Job, kit: Kit, message: string)
@@ -94,34 +27,11 @@ local handlers: { [Kind]: Handler } = {
 	Chore = {
 		legal = true,
 		title = function(house: House): string
-			return CHORE_TITLES[house.resident.chore]
+			return Chores.title(house.resident.chore)
 		end,
-		begin = function(job: Job, kit: Kit)
-			local action = CHORE_ACTIONS[job.house.resident.chore]
-			for _, spot in job.house.choreSpots do
-				local position = spot.WorldPosition
-				table.insert(job.targets, position)
-				kit.prompt(job, spot, action, Config.Paths.Doors.ChoreHoldSeconds, function(prompt: ProximityPrompt)
-					prompt:Destroy()
-					local index = table.find(job.targets, position)
-					if index then
-						table.remove(job.targets, index)
-					end
-					if #job.targets == 0 then
-						kit.finish(job, "Chore done!")
-					else
-						kit.guide(job)
-					end
-				end)
-			end
-			if #job.targets == 0 then
-				kit.finish(job, "Chore done!")
-			else
-				kit.guide(job)
-			end
-		end,
+		begin = Chores.begin,
+		tick = Chores.tick,
 	},
-
 	DogWalk = {
 		legal = true,
 		title = function(_house: House): string

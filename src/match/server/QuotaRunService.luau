@@ -21,7 +21,7 @@ local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
 local Stats = require(script.Parent.Stats)
 local StealService = require(script.Parent.StealService)
-local TonyService = require(script.Parent.TonyService)
+local PennyService = require(script.Parent.PennyService)
 
 local IS_STUDIO = RunService:IsStudio()
 local TICK_SECONDS = 0.1
@@ -55,7 +55,7 @@ function QuotaRunService.addProgress(amount: number)
 	if RunState.metAt == nil and RunState.progress >= RunState.target then
 		RunState.metAt = Timing.now()
 		if not Config.Match.AdvanceWhenMet then
-			TonyService.say(TonyService.Lines.quotaMet())
+			PennyService.say(PennyService.Lines.quotaMet())
 		end
 	end
 	RunState.changed:Fire()
@@ -120,14 +120,14 @@ local function runQuotaTimer()
 			return
 		end
 		local line: string? = nil
-		for _, mark in Config.Match.TonyWarningSeconds do
+		for _, mark in Config.Match.WarningSeconds do
 			if not warned[mark] and secondsLeft <= Timing.scaled(mark) then
 				warned[mark] = true
-				line = TonyService.Lines.warning(secondsLeft, RunState.progress >= RunState.target)
+				line = PennyService.Lines.warning(secondsLeft, RunState.progress >= RunState.target)
 			end
 		end
 		if line then
-			TonyService.say(line)
+			PennyService.say(line)
 		end
 		task.wait(TICK_SECONDS)
 	end
@@ -222,7 +222,7 @@ local function runDecision(quotaIndex: number): boolean
 			endsAt = RunState.phaseEndsAt,
 		})
 	end
-	TonyService.say(TonyService.Lines.decision())
+	PennyService.say(PennyService.Lines.decision())
 
 	waitUntilPhaseEnds(function(): boolean
 		for _, member in RosterService.active() do
@@ -267,9 +267,9 @@ local function runLoop()
 	for _, member in RosterService.active() do
 		EconomyService.setCarried(member.player, Config.Match.StartingCash, "starting cash")
 	end
-	RosterService.gatherAtTony()
+	RosterService.gatherAtBank()
 	setPhase("Intro", Timing.scaled(Config.Match.IntroSeconds))
-	TonyService.say(TonyService.Lines.intro(Timing.scaled(Config.Match.QuotaDurationSeconds)))
+	PennyService.say(PennyService.Lines.intro(Timing.scaled(QuotaMath.duration(1))))
 	waitUntilPhaseEnds()
 
 	local quotaIndex = 0
@@ -284,11 +284,11 @@ local function runLoop()
 		RunState.metAt = if carry >= target then Timing.now() else nil
 		forcePass = false
 
-		local duration = Timing.scaled(Config.Match.QuotaDurationSeconds)
+		local duration = Timing.scaled(QuotaMath.duration(quotaIndex))
 		RunState.quotaStartedAt = Timing.now()
 		setPhase("Quota", duration)
 		PathService.openQuota(quotaIndex)
-		TonyService.say(TonyService.Lines.quotaStart(quotaIndex, target, duration, RunState.isEndless))
+		PennyService.say(PennyService.Lines.quotaStart(quotaIndex, target, duration, RunState.isEndless))
 		runQuotaTimer()
 
 		if #RosterService.active() == 0 then
@@ -298,7 +298,7 @@ local function runLoop()
 		local passed = forcePass or RunState.progress >= target
 		forcePass = false
 		-- Filled before time ran out, with no cash-out choice due: roll straight into the next
-		-- quota. Jobs keep going and nobody is sent back to Tony's.
+		-- quota. Jobs keep going and nobody is sent back to the bank.
 		local rollOver = passed
 			and Config.Match.AdvanceWhenMet
 			and quotaIndex < Config.Match.CashOutAfterQuota
@@ -307,7 +307,7 @@ local function runLoop()
 			PathService.closeQuota("Time's up! Your job was cancelled.")
 		end
 		if not passed then
-			TonyService.say(TonyService.Lines.failed(quotaIndex))
+			PennyService.say(PennyService.Lines.failed(quotaIndex))
 			endRun("Failed")
 			return
 		end
@@ -332,8 +332,8 @@ local function runLoop()
 			result.endsAt = Timing.now() + Config.Match.QuotaPaidBannerSeconds
 			remotes.QuotaResult:fireAll(result)
 		else
-			TonyService.say(TonyService.Lines.passed(quotaIndex, carry))
-			RosterService.gatherAtTony()
+			PennyService.say(PennyService.Lines.passed(quotaIndex, carry))
+			RosterService.gatherAtBank()
 			setPhase("Intermission", Timing.scaled(Config.Match.IntermissionSeconds))
 			result.endsAt = RunState.phaseEndsAt
 			remotes.QuotaResult:fireAll(result)

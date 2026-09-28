@@ -29,11 +29,44 @@ local TICK_SECONDS = 0.1
 local REBALANCE_SECONDS = 1
 local LIGHT_DIM = 0.75
 
-local COP_COLORS: NpcService.Colors = {
-	skin = Color3.fromRGB(234, 184, 146),
-	shirt = Color3.fromRGB(35, 70, 160),
-	pants = Color3.fromRGB(25, 30, 55),
-}
+local UNIFORM = Color3.fromRGB(35, 70, 160)
+local UNIFORM_DARK = Color3.fromRGB(25, 30, 55)
+local BADGE = Color3.fromRGB(255, 200, 60)
+
+-- Any skin tone, always in uniform.
+local function copLook(): NpcService.Look
+	return { skin = NpcService.randomLook().skin, shirt = UNIFORM, pants = UNIFORM_DARK }
+end
+
+-- A peaked police cap with a gold badge, welded to the head.
+local function addCap(model: Model)
+	local head = model:FindFirstChild("Head")
+	if not head or not head:IsA("BasePart") then
+		return
+	end
+	local function piece(name: string, size: Vector3, offset: CFrame, color: Color3, shape: Enum.PartType?)
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Shape = shape or Enum.PartType.Block
+		part.Size = size
+		part.Color = color
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Massless = true
+		part.CastShadow = false
+		part.CFrame = head.CFrame * offset
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = head
+		weld.Part1 = part
+		weld.Parent = part
+		part.Parent = model
+	end
+	local up = CFrame.Angles(0, 0, math.rad(90)) -- cylinders stand along X; turn them upright
+	piece("CapCrown", Vector3.new(0.5, 1.4, 1.4), CFrame.new(0, 0.6, 0) * up, UNIFORM_DARK, Enum.PartType.Cylinder)
+	piece("CapBrim", Vector3.new(1.2, 0.12, 0.55), CFrame.new(0, 0.4, -0.72), Color3.new(0.08, 0.08, 0.1))
+	piece("CapBadge", Vector3.new(0.3, 0.3, 0.08), CFrame.new(0, 0.62, -0.72), BADGE)
+end
 
 type Cop = {
 	model: Model,
@@ -171,7 +204,10 @@ local function spawnCop(target: Player, inCar: boolean)
 		counts.foot += 1
 	end
 	task.spawn(function()
-		local model = NpcService.makeRig("Police", COP_COLORS)
+		local model = NpcService.makeRig("Police", copLook())
+		if not inCar then
+			addCap(model)
+		end
 		if inCar then
 			counts.car = math.max(counts.car - 1, 0)
 		else

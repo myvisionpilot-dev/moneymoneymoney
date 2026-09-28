@@ -123,8 +123,13 @@ local function clearJob(job: Job)
 	for _, prop in job.props do
 		prop:Destroy()
 	end
+	for _, cleanup in job.cleanup do
+		cleanup()
+	end
 	job.prompts = {}
 	job.props = {}
+	job.cleanup = {}
+	job.carried = nil
 	if job.player.Parent then
 		remotes.JobGuide:fireClient(job.player, nil)
 	end
@@ -209,11 +214,16 @@ kit = {
 		return prompt
 	end,
 
-	carry = function(job: Job, name: string, size: Vector3, color: Color3)
-		local prop = Carry.attach(job.player, name, size, color)
+	carry = function(job: Job, name: string, size: Vector3, color: Color3, offset: CFrame?): BasePart?
+		local prop = Carry.attach(job.player, name, size, color, nil, offset)
 		if prop then
 			table.insert(job.props, prop)
 		end
+		return prop
+	end,
+
+	root = function(job: Job): BasePart?
+		return CharacterUtil.getRoot(job.player)
 	end,
 
 	arrived = function(job: Job, position: Vector3): boolean
@@ -263,6 +273,10 @@ local function startJob(player: Player, house: House, kind: DoorJobs.Kind)
 		targets = {},
 		prompts = {},
 		props = {},
+		pieces = {},
+		placed = {},
+		carried = nil,
+		cleanup = {},
 		pay = payFor(kind, house),
 		heat = heatFor(kind, house),
 		heatApplied = false,
@@ -277,7 +291,7 @@ end
 local function spawnResident(offer: Offer)
 	task.spawn(function()
 		local house = offer.house
-		local model = NpcService.makeRig(house.resident.name, NpcService.colorsFromSeed(house.id))
+		local model = NpcService.makeRig(house.resident.name, NpcService.lookFromSeed(house.id))
 		if offer.closed then
 			model:Destroy()
 			return
@@ -421,21 +435,28 @@ local function setupHouse(instance: Instance)
 		warn(`[DoorKnock] {instance:GetFullName()} needs a HouseId attribute and a Door part`)
 		return
 	end
-	local choreSpots: { Attachment } = {}
-	for index = 1, 3 do
-		local spot = instance:FindFirstChild(`Chore{index}`)
-		if spot and spot:IsA("Attachment") then
-			table.insert(choreSpots, spot)
+	local bins: { BasePart } = {}
+	for index = 1, 2 do
+		local bin = instance:FindFirstChild(`Bin{index}`)
+		if bin and bin:IsA("BasePart") then
+			table.insert(bins, bin)
 		end
 	end
-	local backDoor = instance:FindFirstChild("BackDoor")
+	local function attachment(name: string): Attachment?
+		local found = instance:FindFirstChild(name)
+		return if found and found:IsA("Attachment") then found else nil
+	end
+	local lawn = instance:FindFirstChild("Lawn")
 	local house: House = {
 		id = id,
 		part = instance,
-		tier = math.clamp(if typeof(tier) == "number" then tier else 1, 1, 3),
+		tier = math.clamp(if typeof(tier) == "number" then tier else 1, 1, #settings.HouseTierPayMultiplier),
 		door = door,
-		backDoor = if backDoor and backDoor:IsA("Attachment") then backDoor else nil,
-		choreSpots = choreSpots,
+		backDoor = attachment("BackDoor"),
+		lawn = if lawn and lawn:IsA("BasePart") then lawn else nil,
+		bins = bins,
+		kerb = attachment("Kerb"),
+		carSpot = attachment("CarSpot"),
 		resident = Residents.forHouse(id),
 		restUntil = 0,
 	}

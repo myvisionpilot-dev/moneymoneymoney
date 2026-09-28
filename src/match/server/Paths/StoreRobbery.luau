@@ -63,7 +63,7 @@ local function rob(player: Player, store: Store): (boolean, string?)
 		return false, "This register is empty. Come back later."
 	end
 	if EconomyService.isFull(player) then
-		return false, "Your bag is full. Deposit at Tony's first!"
+		return false, "Your bag is full. Deposit at the bank first!"
 	end
 
 	store.closedUntil = os.clock() + settings.CooldownSeconds

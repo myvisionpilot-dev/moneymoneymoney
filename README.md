@@ -1,6 +1,6 @@
 # MONEY MONEY MONEY
 
-A 1–6 player Roblox quota run: pay off Tony every 7 minutes, split the prize by contribution.
+A 1–6 player Roblox quota run: pay the bank each quota (7 minutes, then 9, 11...), split the prize by contribution.
 One universe, two places, each synced from its own Rojo project.
 
 | Place | Place ID | Project file | Rojo port |
@@ -16,12 +16,14 @@ One universe, two places, each synced from its own Rojo project.
    - `rojo serve lobby.project.json`
    - `rojo serve match.project.json`
 
-Maps are grey boxes kept in the place files, not in Rojo. Rebuild them with `tools/build_lobby_map.luau` (then
-`tools/build_lobby_extras.luau` for the cosmetics stand and leaderboards), `tools/build_match_map.luau` and then
-`tools/build_race_track.luau` and `tools/build_stores.luau` (paste into the command bar). Code finds map points by
-CollectionService tags: `QueuePad`, `CosmeticShop`, `Leaderboard`, `TonyDesk`, `TonySpawn`, `DeliveryDepot`,
-`DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`, `StoreZone`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`,
-`AlleyDrop`, `RaceJoin`, `RaceCheckpoint`, `RaceGrid`, `ParkedCar`, `ChopShop`.
+Maps are built from parts by scripts and kept in the place files, not in Rojo. The lobby: `tools/build_lobby_map.luau`
+then `tools/build_lobby_extras.luau` (cosmetics stand and leaderboards), pasted into the command bar. The Match town:
+`tools/build_town.luau` with its pieces in `tools/town/` (layout, roads, bank and shops, 60 houses, park and yards);
+after `scripts/sync-studio.ps1`, run `require(game:GetObjects("rbxasset://mmm/tools.rbxm")[1].build_town)`.
+Code finds map points by CollectionService tags: `QueuePad`, `CosmeticShop`, `Leaderboard`, `BankCounter`,
+`BankSpawn`, `StaffSpot`, `DeliveryDepot`, `DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`,
+`StoreZone`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`, `AlleyDrop`,
+`ParkedCar`, `ChopShop`. No floating labels: buildings carry painted signs.
 
 ## Saving
 
@@ -51,8 +53,8 @@ src/serverCommon/  ServerScriptService.Common: Profiles, Daily, Badges, Cosmetic
                    SafeTeleport, RateLimiter, Admin, Vendor/ProfileStore (both places)
 src/lobby/         QueueService (pads → reserved Match server), cosmetics stand, leaderboard boards, profile panel
 src/match/server/  QuotaRunService (state machine), Economy, Deposit, Prize, Path + Paths/*, Heat, Police, Jail,
-                   Shop, Vehicles, Steal, NPCs, MovementGuard, Sync, Tony, Debug
-src/match/client/  HUD, Tony banner, toasts, job guide, door offers, shop, ride key, race panel, results
+                   Shop, Vehicles, Steal, NPCs, Staff, MovementGuard, Sync, Penny (the bank), Debug
+src/match/client/  HUD, Mr. Penny's banner, next-step guide, job guide, door offers, shop, pickpocket, results
 ```
 
 Every tunable number is in `src/shared/Config.luau`. The server owns all money: clients only send intents

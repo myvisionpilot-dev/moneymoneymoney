@@ -22,7 +22,7 @@ function DecisionController.start()
 	local window = UI.window("💰 CASH OUT OR KEEP GOING?", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -8), -- bottom, clear of Tony's banner
+		Position = UDim2.new(0.5, 0, 1, -8), -- bottom, clear of Mr. Penny's banner
 		Size = UDim2.fromOffset(460, 0),
 	}, root)
 	local panel = window.panel

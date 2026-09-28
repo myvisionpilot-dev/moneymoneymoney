@@ -1,5 +1,5 @@
 --!strict
--- In-run upgrades bought with carried cash at Tony's shop counter. Spending never touches
+-- In-run upgrades bought with carried cash at the upgrades counter. Spending never touches
 -- your contribution (deposits). Upgrades last for this run only.
 
 local CollectionService = game:GetService("CollectionService")
@@ -192,7 +192,7 @@ local function setupCounter(instance: Instance)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ShopPrompt"
 	prompt.ActionText = "Upgrades"
-	prompt.ObjectText = "Tony's shop"
+	prompt.ObjectText = "Upgrades"
 	prompt.MaxActivationDistance = Config.Shop.RangeStuds
 	prompt.RequiresLineOfSight = false
 	prompt.Triggered:Connect(function(player: Player)

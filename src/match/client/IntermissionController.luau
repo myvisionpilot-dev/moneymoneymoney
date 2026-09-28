@@ -83,7 +83,7 @@ function IntermissionController.start()
 	local panel = UI.card(UI.Colors.Money, {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 196), -- below Tony's banner
+		Position = UDim2.new(0.5, 0, 0, 196), -- below Mr. Penny's banner
 		Size = UDim2.fromOffset(420, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Visible = false,

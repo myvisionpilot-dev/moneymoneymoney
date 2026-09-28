@@ -1,6 +1,6 @@
 --!strict
 -- End-of-run screen: podium, everyone's contribution and prize, MVP and Snake, and the Cred you
--- earned. A fanfare for cashing out, a sad sting when Tony wasn't paid.
+-- earned. A fanfare for cashing out, a sad sting when the bank wasn't paid.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -110,7 +110,7 @@ function ResultsController.start()
 	Remotes.match().RunResults:onClient(function(results: Types.RunResults)
 		endsAt = results.endsAt
 		local failed = results.reason == "Failed"
-		window.title.Text = if failed then "💸 TONY WASN'T PAID" else "🎉 YOU CASHED OUT!"
+		window.title.Text = if failed then "💸 THE BANK WASN'T PAID" else "🎉 YOU CASHED OUT!"
 		panel.BackgroundColor3 = if failed then UI.Colors.Danger else UI.Colors.Money
 		subtitle.Text = if failed
 			then `Quotas cleared: {results.highestQuota}. A failed run keeps only part of your prize.`

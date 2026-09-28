@@ -1,5 +1,5 @@
 --!strict
--- Deposits at Tony's desk. Only deposited cash counts toward the quota and your contribution.
+-- Deposits at the bank counter. Only deposited cash counts toward the quota and your contribution.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,8 +16,8 @@ local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
 
-local DESK_TAG = "TonyDesk"
-local DESK_ATTRIBUTE = "TonyDeskPosition" -- on ReplicatedStorage, for guides when the desk isn't streamed in
+local DESK_TAG = "BankCounter"
+local DESK_ATTRIBUTE = "BankCounterPosition" -- on ReplicatedStorage, for guides when the desk isn't streamed in
 local RANGE_SLACK = 3 -- studs, for network lag
 
 local limiter = RateLimiter.new(Config.Security.PromptsPerSecond, 1)
@@ -29,13 +29,13 @@ local function onDeposit(player: Player, desk: BasePart)
 		return
 	end
 	if RunState.phase ~= "Quota" then
-		Notifier.send(player, "Tony only takes deposits during a quota.", "Info")
+		Notifier.send(player, "The bank only takes deposits during a quota.", "Info")
 		return
 	end
 	if CharacterUtil.distanceTo(player, desk.Position) > Config.Economy.DepositRangeStuds + RANGE_SLACK then
 		return
 	end
-	local amount = EconomyService.depositAll(player, "deposit at Tony's")
+	local amount = EconomyService.depositAll(player, "deposit at the bank")
 	if amount <= 0 then
 		Notifier.send(player, "Your bag is empty. Go make some money!", "Info")
 		return
@@ -54,7 +54,7 @@ local function setupDesk(instance: Instance)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "DepositPrompt"
 	prompt.ActionText = "Deposit cash"
-	prompt.ObjectText = "Tony"
+	prompt.ObjectText = "Mr. Penny"
 	prompt.HoldDuration = 0.25
 	prompt.MaxActivationDistance = Config.Economy.DepositRangeStuds
 	prompt.RequiresLineOfSight = false

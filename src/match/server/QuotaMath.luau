@@ -16,6 +16,11 @@ function QuotaMath.base(quotaIndex: number): number
 	return quotas[#quotas] * Config.Match.EndlessQuotaMultiplier ^ (quotaIndex - #quotas)
 end
 
+-- Seconds on the clock for a quota: each one gets a little longer than the last.
+function QuotaMath.duration(quotaIndex: number): number
+	return Config.Match.QuotaBaseSeconds + Config.Match.QuotaExtraSecondsPerQuota * (quotaIndex - 1)
+end
+
 function QuotaMath.scale(playerCount: number): number
 	local scales = Config.Match.PlayerCountScale
 	return scales[math.clamp(playerCount, 1, #scales)]

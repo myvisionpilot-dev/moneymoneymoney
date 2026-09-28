@@ -1,5 +1,5 @@
 --!strict
--- Vehicles on players: your ride (bought at Tony's shop, hop on or off with SetRiding), race
+-- Vehicles on players: your ride (bought at the upgrades counter, hop on or off with SetRiding), race
 -- karts (Paths/Racing) and stolen cars (Paths/CarTheft; SetRiding off ditches one). A vehicle
 -- is a grey-box body welded under you. Your speed comes from the VehicleSpeed character
 -- attribute (read by shared/Movement), and MovementGuard allows it.
@@ -143,7 +143,7 @@ local function onSetRiding(player: Player, payload: unknown)
 		return -- already riding, in a race kart or in a stolen car
 	end
 	if not ShopService.rideSpeed(player) then
-		Notifier.send(player, "You don't have a ride yet. Buy a kart at Tony's shop.", "Info")
+		Notifier.send(player, "You don't have a ride yet. Buy a kart at the hardware store.", "Info")
 		return
 	end
 	if not RosterService.isActive(player) or JailService.isJailed(player) then

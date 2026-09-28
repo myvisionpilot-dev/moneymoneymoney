@@ -5,7 +5,9 @@
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
+local Config = require(script.Parent.Config)
 local Sounds = require(script.Parent.Sounds)
 
 local UI = {}
@@ -57,7 +59,8 @@ local function place<T>(instance: T, defaults: Props, props: Props?, parent: Ins
 end
 
 -- Screen-size scaling: each root is a virtual screen of (viewport / scale), then scaled back up.
--- The virtual screen is at least ~500 tall and MIN_WIDTH wide, so the top panels never overlap.
+-- The virtual screen is at least ~500 tall and MIN_WIDTH wide, so the top panels never overlap,
+-- then everything is shrunk by Config.UI (less on touch screens, so buttons stay tappable).
 type Root = { frame: Frame, scale: UIScale }
 local roots: { Root } = {}
 
@@ -69,7 +72,8 @@ local function computeScale(): number
 		return 1
 	end
 	local viewport = camera.ViewportSize
-	return math.clamp(math.min(viewport.Y / 500, viewport.X / MIN_WIDTH), 0.8, 1.6)
+	local fit = math.clamp(math.min(viewport.Y / 500, viewport.X / MIN_WIDTH), 0.8, 1.6)
+	return fit * (if UserInputService.TouchEnabled then Config.UI.TouchScale else Config.UI.Scale)
 end
 
 local function fit(root: Root)

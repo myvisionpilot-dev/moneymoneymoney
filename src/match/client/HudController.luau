@@ -254,11 +254,11 @@ function HudController.start()
 		end
 
 		if snapshot.phase == "Quota" then
-			phaseStatus = "Deposit cash at Tony's desk"
+			phaseStatus = "Deposit cash at the bank"
 		elseif snapshot.phase == "Waiting" then
 			phaseStatus = "The run starts soon"
 		elseif snapshot.phase == "Intro" then
-			phaseStatus = "Tony's about to name his price"
+			phaseStatus = "Mr. Penny is about to name the price"
 		elseif snapshot.phase == "Intermission" then
 			phaseStatus = "Next quota starts soon"
 		elseif snapshot.phase == "Decision" then

@@ -11,7 +11,8 @@ return {
 		MaxPlayers = 6,
 		QueueWaitSeconds = 20,
 		StartingCash = 500,
-		QuotaDurationSeconds = 420, -- 7 minutes
+		QuotaBaseSeconds = 420, -- quota 1 lasts 7 minutes...
+		QuotaExtraSecondsPerQuota = 120, -- ...and each quota after gets 2 more (9, 11, 13...)
 		IntermissionSeconds = 20,
 		DecisionSeconds = 20,
 		Quotas = { 50_000, 150_000, 300_000, 600_000, 1_000_000 },
@@ -25,7 +26,7 @@ return {
 		IntroSeconds = 8,
 		ResultsSeconds = 12,
 		ArrivalTimeoutSeconds = 30, -- start without players who never arrive
-		TonyWarningSeconds = { 180, 60 },
+		WarningSeconds = { 180, 60 }, -- Mr. Penny warns you at these times left
 	},
 	Prizes = {
 		CredPerPlayerPerQuota = { 100, 250, 500, 900, 1500 },
@@ -66,14 +67,14 @@ return {
 		PickpocketFail = 1, -- they spotted you: a whole star
 		WalletSwipe = 0.5,
 		ShadyPackage = 1,
-		BreakIn = { 1, 1.5, 2 }, -- by house tier
+		BreakIn = { 1, 1.5, 2, 2.5 }, -- by house tier (4 = mansion)
 		StoreRobbery = 2,
 		CarTheft = 1.5,
 	},
 	Economy = {
 		TierPayoutMultiplier = 2.2, -- each unlocked tier pays ~2.2x the previous
 		BaseBagCapacity = 5_000, -- max carried cash before upgrades
-		DepositRangeStuds = 12, -- max distance from Tony's desk
+		DepositRangeStuds = 12, -- max distance from the bank counter
 		MaxPayoutTier = 5, -- payouts stop rising after this quota
 	},
 	Paths = {
@@ -100,11 +101,20 @@ return {
 			KnockRangeStuds = 8,
 			JobTimeLimitSeconds = 90,
 			TargetRadiusStuds = 7, -- how close counts as arriving
-			ChoreHoldSeconds = 2,
 			BaseBreakInHoldSeconds = 6, -- lockpick upgrades shorten this
 			MaxSpeedStudsPerSecond = 80, -- faster than this voids a travel job; keep above the top ride speed
 			MinLetterDistance = 100,
-			HouseTierPayMultiplier = { 1, 1.3, 1.6 },
+			HouseTierPayMultiplier = { 1, 1.3, 1.6, 2.2 }, -- tiers get richer away from the bank; 4 = mansion
+			-- Chores you actually do: mow every patch of long grass, wheel both bins to the kerb,
+			-- scrub every dirt spot off the car.
+			Chores = {
+				MowPatchStuds = 7, -- the lawn is split into patches about this size
+				MowReachStuds = 3.5, -- the mower cuts a patch when you're this close to its middle
+				BinHoldSeconds = 0.5,
+				ScrubHoldSeconds = 1.2,
+				DirtSpots = 5,
+				CleanupSeconds = 20, -- bins go back and the washed car drives off after this long
+			},
 			Pay = { -- tier-1 pay before house and quota multipliers
 				Chore = 900,
 				DogWalk = 1_200,
@@ -112,14 +122,14 @@ return {
 				WalletSwipe = 700,
 				ShadyPackage = 2_200,
 			},
-			BreakInPay = { 1_800, 3_000, 4_500 }, -- by house tier (no house multiplier)
+			BreakInPay = { 1_800, 3_000, 4_500, 8_000 }, -- by house tier (no house multiplier)
 		},
 		Pickpocket = {
 			MinPay = 150, -- tier-1 wallet range; big wallets are rare
 			MaxPay = 1_000,
 			PayRarity = 3, -- higher = big wallets rarer (pay = min + (max - min) * random^rarity)
 			FatWallet = 700, -- tier-1 amount that counts as a fat wallet
-			Pedestrians = 8,
+			Pedestrians = 12,
 			CooldownSeconds = 60, -- per pedestrian
 			RangeStuds = 7,
 			HoldSeconds = 0.4,
@@ -202,12 +212,62 @@ return {
 	},
 	-- The next-step hints and marker (no tutorial): see GuideController.
 	Guide = {
-		HurrySeconds = 60, -- this close to the deadline, with cash in your bag, you're told to pay Tony
+		HurrySeconds = 60, -- this close to the deadline, with cash in your bag, you're told to pay the bank
 	},
 	-- Roblox's normal camera: scroll or pinch to zoom, all the way in for first person.
 	Camera = {
 		MinZoom = 0.5,
 		MaxZoom = 40,
+	},
+	UI = {
+		Scale = 0.75, -- everything on screen, on computers
+		TouchScale = 0.9, -- phones and tablets shrink less so buttons stay easy to tap
+	},
+	-- What NPCs wear: free catalog items made by Roblox (checked to load in Studio).
+	Outfits = {
+		Hair = {
+			63690008, -- Pal Hair
+			451221329, -- True Blue Hair
+			376548738, -- Brown Charmer Hair
+			376524487, -- Blonde Spiked Hair
+			62234425, -- Brown Hair
+			7193454569, -- Braided Hair - Black
+			376526888, -- Straight Blonde Hair
+			9244148336, -- Braided Hair - Blonde
+			9244150641, -- Braided Hair - Cool Brown
+			7193455510, -- Braided Hair - Red
+			2956239660, -- Belle Of Belfast Long Red Hair
+			1103003368, -- Orange Beanie with Black Hair
+		},
+		Hats = {
+			607702162, -- Roblox Baseball Cap
+			417457461, -- ROBLOX 'R' Baseball Cap
+			2646473721, -- Roblox Visor
+		},
+		HatChance = 0.2,
+		Shirts = {
+			3670737444, -- Roblox Shirt - Simple Pattern
+			144076358, -- Blue and Black Motorcycle Shirt
+			398635081, -- Blue Plaid Shirt
+			4047884939, -- My Favorite Pizza Shirt
+			144076436, -- Grey Striped Shirt with Denim Jacket
+			382537085, -- I <3 Pizza Shirt
+			382537702, -- Teal Shirt
+			607785314, -- ROBLOX Jacket
+			398633584, -- Denim Jacket with White Hoodie
+			4047884046, -- Guitar Tee with Black Jacket
+			398634295, -- Pastel Starburst Top with Gray Jacket
+		},
+		Pants = {
+			398634487, -- Beautiful You Jeans
+			144076760, -- Dark Green Jeans
+			398633812, -- Black Jeans with White Shoes
+			382538503, -- Black Jeans with Sneakers
+			382537569, -- Black Jeans
+			382537806, -- Jean Shorts
+			382537950, -- Jean Shorts with White Shoes
+			398635338, -- Ripped Skater Pants
+		},
 	},
 	-- Sound effects from Roblox's audio library (ProSoundEffects and APM are Roblox-licensed).
 	Sounds = {
@@ -246,7 +306,6 @@ return {
 			{ stat = "Delivery", goal = 5, text = "Make 5 deliveries" },
 			{ stat = "Chore", goal = 4, text = "Do 4 chores for residents" },
 			{ stat = "Pickpocket", goal = 6, text = "Pickpocket 6 pedestrians" },
-			{ stat = "RaceWin", goal = 1, text = "Win a race (or set a gold time)" },
 			{ stat = "Escape", goal = 2, text = "Lose the police in a bush twice" },
 			{ stat = "ChopShop", goal = 1, text = "Sell a car to the chop shop" },
 			{ stat = "QuotaCleared", goal = 3, best = true, text = "Clear quota 3 in a run" },

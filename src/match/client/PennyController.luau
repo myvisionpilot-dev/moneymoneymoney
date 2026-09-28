@@ -1,5 +1,5 @@
 --!strict
--- Tony's speech bubble under the quota panel: his portrait, and each line typing out with soft
+-- Mr. Penny's speech bubble under the quota panel: his portrait, and each line typing out with soft
 -- blips. Lines queue up and show one at a time.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,10 +13,10 @@ local UI = require(Shared:WaitForChild("UI"))
 local TYPE_SECONDS = 0.025 -- per letter
 local BLIP_EVERY = 3 -- letters between blips
 
-local TonyController = {}
+local PennyController = {}
 
-function TonyController.start()
-	local root = UI.root(UI.screen("Tony", 10))
+function PennyController.start()
+	local root = UI.root(UI.screen("Penny", 10))
 	local banner = UI.card(UI.Colors.Panel, {
 		Name = "Banner",
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -27,20 +27,20 @@ function TonyController.start()
 	}, root)
 	UI.padding(banner, 10)
 
-	local portrait = UI.card(UI.Colors.Purple, {
+	local portrait = UI.card(UI.Colors.Money, {
 		Size = UDim2.fromOffset(54, 54),
 	}, banner)
 	UI.corner(portrait, 27)
-	UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 34, Text = "🤵" }, portrait)
+	UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 34, Text = "👨‍💼" }, portrait)
 
 	local name = UI.label({
 		Position = UDim2.fromOffset(64, 0),
-		Size = UDim2.fromOffset(120, 22),
+		Size = UDim2.fromOffset(200, 22),
 		Font = UI.Fonts.Heading,
 		TextSize = 22,
 		TextColor3 = UI.Colors.Gold,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "TONY",
+		Text = "MR. PENNY · THE BANK",
 	}, banner)
 	UI.textStroke(name, 2.5)
 
@@ -86,7 +86,7 @@ function TonyController.start()
 		task.delay(math.clamp(#line / 15, 3.5, 7) + #line * TYPE_SECONDS, showNext)
 	end
 
-	Remotes.match().TonySays:onClient(function(line: Types.TonyLine)
+	Remotes.match().PennySays:onClient(function(line: Types.PennyLine)
 		table.insert(queue, line.text)
 		if #queue > 3 then
 			table.remove(queue, 1) -- keep up with the game, drop stale lines
@@ -97,4 +97,4 @@ function TonyController.start()
 	end)
 end
 
-return TonyController
+return PennyController

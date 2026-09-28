@@ -28,7 +28,7 @@ function QueueController.start()
 	local status: Types.QueueStatus? = nil
 
 	local root = UI.root(UI.screen("Queue", 5))
-	local window = UI.window("🚐 HEADING TO TONY'S", {
+	local window = UI.window("🚐 HEADING TO TOWN", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -16),

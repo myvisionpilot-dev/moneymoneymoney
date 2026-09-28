@@ -1,6 +1,6 @@
 --!strict
 -- Dresses up moments the server tells us about: "+$1,500" pops up and floats away when you get
--- paid (coins sound, the bag bar bounces), a big gold "+$X DEPOSITED" at Tony's (ka-ching),
+-- paid (coins sound, the bag bar bounces), a big gold "+$X DEPOSITED" at the bank (ka-ching),
 -- and any sound the server asks for.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

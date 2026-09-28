@@ -103,7 +103,7 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 		return false, "Finish your current job first."
 	end
 	if EconomyService.isFull(player) then
-		return false, "Your bag is full. Deposit at Tony's first!"
+		return false, "Your bag is full. Deposit at the bank first!"
 	end
 	local root = CharacterUtil.getRoot(player)
 	if not root then

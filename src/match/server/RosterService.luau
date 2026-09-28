@@ -16,7 +16,7 @@ local SafeTeleport = require(ServerScriptService.Common.SafeTeleport)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 
-local TONY_SPAWN_TAG = "TonySpawn"
+local BANK_SPAWN_TAG = "BankSpawn"
 local IS_STUDIO = RunService:IsStudio()
 
 export type Member = {
@@ -108,10 +108,10 @@ function RosterService.sendToLobby(players: { Player })
 	end
 end
 
--- Moves every active player to Tony's office.
-function RosterService.gatherAtTony()
+-- Moves every active player into the bank.
+function RosterService.gatherAtBank()
 	local spawns = {}
-	for _, instance in CollectionService:GetTagged(TONY_SPAWN_TAG) do
+	for _, instance in CollectionService:GetTagged(BANK_SPAWN_TAG) do
 		if instance:IsA("BasePart") then
 			table.insert(spawns, instance)
 		end

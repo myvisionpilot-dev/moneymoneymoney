@@ -1,5 +1,5 @@
 --!strict
--- Tony's upgrade shop: opens from the counter in his office. Paid from the cash in your bag.
+-- The upgrade shop: opens from the counter in the hardware store. Paid from the cash in your bag.
 -- One colourful card per upgrade; walking away closes it.
 
 local CollectionService = game:GetService("CollectionService")
@@ -32,7 +32,7 @@ function ShopController.start()
 	local remotes = Remotes.match()
 	local root = UI.root(UI.screen("Shop", 45))
 
-	local window = UI.window("🛒 TONY'S UPGRADES", {
+	local window = UI.window("🛒 UPGRADES", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.55),

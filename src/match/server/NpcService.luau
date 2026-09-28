@@ -1,6 +1,7 @@
 --!strict
--- Grey-box NPCs built from plain R15 rigs (no Creator Store models): pedestrians walking
--- their routes, plus rigs for police and door residents.
+-- NPCs built from R15 rigs (no Creator Store models), dressed in free Roblox-made hair and
+-- clothes from Config.Outfits: pedestrians walking the footpaths, plus rigs for police, door
+-- residents and shopkeepers.
 -- Routes come from parts tagged PedWaypoint with attributes Route (string) and Order (number).
 
 local CollectionService = game:GetService("CollectionService")
@@ -25,6 +26,10 @@ local PEDESTRIAN_NAMES = {
 	"Snack-Run Sally",
 	"Lost Larry",
 	"Chatty Cathy",
+	"Busker Bella",
+	"Hot Dog Hal",
+	"Power-Walk Pam",
+	"Headphones Hugo",
 }
 
 -- NPCs never climb, swim or fall over: switching those off saves the physics some work.
@@ -37,16 +42,26 @@ local UNUSED_STATES = {
 }
 
 local SKIN_TONES = {
-	Color3.fromRGB(234, 184, 146),
-	Color3.fromRGB(204, 142, 105),
-	Color3.fromRGB(160, 110, 80),
-	Color3.fromRGB(105, 64, 40),
+	Color3.fromRGB(255, 224, 196),
+	Color3.fromRGB(241, 194, 158),
+	Color3.fromRGB(224, 172, 132),
+	Color3.fromRGB(198, 134, 94),
+	Color3.fromRGB(172, 112, 76),
+	Color3.fromRGB(141, 85, 54),
+	Color3.fromRGB(110, 64, 40),
+	Color3.fromRGB(80, 48, 32),
 }
 
-export type Colors = {
+-- Body colours show wherever the clothes don't (arms without sleeves, a torso with no shirt).
+-- Clothing and hair are catalog ids; nil leaves that part bare.
+export type Look = {
 	skin: Color3,
 	shirt: Color3,
 	pants: Color3,
+	hair: number?,
+	hat: number?,
+	top: number?, -- a classic shirt
+	bottom: number?, -- classic pants
 }
 
 local NpcService = {
@@ -69,33 +84,59 @@ local function getFolder(): Folder
 	return created
 end
 
-local function colorsFrom(random: Random): Colors
+local function pick(random: Random, list: { number }): number?
+	return if #list > 0 then list[random:NextInteger(1, #list)] else nil
+end
+
+local function lookFrom(random: Random): Look
+	local outfits = Config.Outfits
 	return {
 		skin = SKIN_TONES[random:NextInteger(1, #SKIN_TONES)],
 		shirt = Color3.fromHSV(random:NextNumber(), 0.55, 0.85),
 		pants = Color3.fromHSV(random:NextNumber(), 0.35, 0.45),
+		hair = pick(random, outfits.Hair),
+		hat = if random:NextNumber() < outfits.HatChance then pick(random, outfits.Hats) else nil,
+		top = pick(random, outfits.Shirts),
+		bottom = pick(random, outfits.Pants),
 	}
 end
 
-function NpcService.randomColors(): Colors
-	return colorsFrom(rng)
+function NpcService.randomLook(): Look
+	return lookFrom(rng)
 end
 
--- Same colours every time for the same seed (so a house's resident always looks the same).
-function NpcService.colorsFromSeed(seed: number): Colors
-	return colorsFrom(Random.new(seed))
+-- The same look every time for the same seed (so a house's resident always looks the same).
+function NpcService.lookFromSeed(seed: number): Look
+	return lookFrom(Random.new(seed))
 end
 
--- Builds an unparented R15 rig. Yields while Roblox assembles the model.
-function NpcService.makeRig(name: string, colors: Colors): Model
+local function describe(look: Look): HumanoidDescription
 	local description = Instance.new("HumanoidDescription")
-	description.HeadColor = colors.skin
-	description.LeftArmColor = colors.skin
-	description.RightArmColor = colors.skin
-	description.TorsoColor = colors.shirt
-	description.LeftLegColor = colors.pants
-	description.RightLegColor = colors.pants
-	local model = Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+	description.HeadColor = look.skin
+	description.LeftArmColor = look.skin
+	description.RightArmColor = look.skin
+	description.TorsoColor = look.shirt
+	description.LeftLegColor = look.pants
+	description.RightLegColor = look.pants
+	description.HairAccessory = if look.hair then tostring(look.hair) else ""
+	description.HatAccessory = if look.hat then tostring(look.hat) else ""
+	description.Shirt = look.top or 0
+	description.Pants = look.bottom or 0
+	return description
+end
+
+-- Builds an unparented R15 rig. Yields while Roblox loads the model and its clothes; if the
+-- catalog can't be reached, the NPC still turns up in plain colours.
+function NpcService.makeRig(name: string, look: Look): Model
+	local ok, dressed = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(describe(look), Enum.HumanoidRigType.R15)
+	end)
+	local model = if ok
+		then dressed
+		else Players:CreateHumanoidModelFromDescription(
+			describe({ skin = look.skin, shirt = look.shirt, pants = look.pants }),
+			Enum.HumanoidRigType.R15
+		)
 	model.Name = name
 	local animate = model:FindFirstChild("Animate")
 	if animate then
@@ -195,18 +236,34 @@ local function readRoutes(): { { Vector3 } }
 	return routes
 end
 
+-- Roblox gives up on a MoveTo after 8 seconds, and a footpath can take a minute to walk, so
+-- keep asking until they get there (or stop trying after a while if something blocks them).
+local function walkTo(model: Model, humanoid: Humanoid, target: Vector3)
+	local root = model:FindFirstChild("HumanoidRootPart")
+	local distance = if root and root:IsA("BasePart") then (root.Position - target).Magnitude else 0
+	local tries = math.ceil(distance / math.max(humanoid.WalkSpeed, 1) / 7) + 3
+	for _ = 1, tries do
+		if not model.Parent then
+			return
+		end
+		humanoid:MoveTo(target)
+		if humanoid.MoveToFinished:Wait() then
+			return
+		end
+	end
+end
+
 local function walkRoute(model: Model, humanoid: Humanoid, route: { Vector3 }, startIndex: number)
 	local index = startIndex
 	while model.Parent do
 		index = index % #route + 1
-		humanoid:MoveTo(route[index])
-		humanoid.MoveToFinished:Wait()
+		walkTo(model, humanoid, route[index])
 	end
 end
 
 local function spawnPedestrian(route: { Vector3 }, number: number)
 	local name = PEDESTRIAN_NAMES[(number - 1) % #PEDESTRIAN_NAMES + 1]
-	local model = NpcService.makeRig(name, NpcService.randomColors())
+	local model = NpcService.makeRig(name, NpcService.randomLook())
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		model:Destroy()

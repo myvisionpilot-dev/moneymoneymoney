@@ -150,7 +150,7 @@ local function launch(pad: Pad)
 			end
 			if not sent then
 				for _, player in group do
-					notify(player, "Couldn't reach Tony's town. Step on the pad to try again.", "Bad")
+					notify(player, "Couldn't reach the town. Step on the pad to try again.", "Bad")
 				end
 			end
 		end

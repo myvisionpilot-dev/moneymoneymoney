@@ -1,7 +1,7 @@
 --!strict
 -- The first minute, without a tutorial. When you've nothing on, a gold hint under the quota bar
 -- and a bouncing marker show the next step: fresh into the run, knock on the nearest door; cash
--- earned but nothing paid yet, take it to Tony. After your first deposit it only speaks up when
+-- earned but nothing paid yet, take it to the bank. After your first deposit it only speaks up when
 -- your bag is full or time's nearly up. Quiet while you have a job, a door offer or a race.
 
 local CollectionService = game:GetService("CollectionService")
@@ -21,7 +21,7 @@ local HudController = require(script.Parent.HudController)
 
 local HOUSE_TAG = "House"
 local KNOCK_PROMPT = "KnockPrompt"
-local DESK_ATTRIBUTE = "TonyDeskPosition" -- set by DepositService
+local DESK_ATTRIBUTE = "BankCounterPosition" -- set by DepositService
 local CHECK_SECONDS = 0.25
 local MARKER_HEIGHT = 5
 local BOB_STUDS = 0.5
@@ -51,15 +51,15 @@ local function nearestDoor(from: Vector3): BasePart?
 	return best
 end
 
--- Tony's desk, even when it isn't streamed in.
+-- The bank counter, even when it isn't streamed in.
 local function deskPosition(): Vector3?
 	local value = ReplicatedStorage:GetAttribute(DESK_ATTRIBUTE)
 	return if typeof(value) == "Vector3" then value else nil
 end
 
-local function payTony(hint: string): Step?
+local function payBank(hint: string): Step?
 	local desk = deskPosition()
-	return if desk then { hint = hint, marker = "💰 PAY TONY", target = desk } else nil
+	return if desk then { hint = hint, marker = "🏦 PAY THE BANK", target = desk } else nil
 end
 
 local function currentStep(): Step?
@@ -82,11 +82,11 @@ local function currentStep(): Step?
 	if me.carried <= 0 then
 		return nil
 	elseif me.deposited == 0 then
-		return payTony("👉 Take your cash to Tony's desk")
+		return payBank("👉 Take your cash to the bank")
 	elseif me.carried >= me.bagCapacity then
-		return payTony("🎒 Bag full! Empty it at Tony's desk")
+		return payBank("🎒 Bag full! Empty it at the bank")
 	elseif snapshot.phaseEndsAt - Timing.now() <= Config.Guide.HurrySeconds and snapshot.progress < snapshot.target then
-		return payTony("⏰ Pay Tony before time runs out!")
+		return payBank("⏰ Pay the bank before time runs out!")
 	end
 	return nil
 end

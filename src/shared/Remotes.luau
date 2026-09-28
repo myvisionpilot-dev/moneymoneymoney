@@ -31,7 +31,7 @@ export type LobbyRemotes = {
 
 export type MatchRemotes = {
 	RunSnapshot: ToClient<Types.RunSnapshot>,
-	TonySays: ToClient<Types.TonyLine>,
+	PennySays: ToClient<Types.PennyLine>,
 	Notify: ToClient<Types.Notice>,
 	JobGuide: ToClient<Types.JobGuide?>,
 	QuotaResult: ToClient<Types.QuotaResult>,
@@ -138,7 +138,7 @@ function Remotes.match(): MatchRemotes
 	end
 	local remotes: MatchRemotes = {
 		RunSnapshot = toClient("RunSnapshot"),
-		TonySays = toClient("TonySays"),
+		PennySays = toClient("PennySays"),
 		Notify = toClient("Notify"),
 		JobGuide = toClient("JobGuide"),
 		QuotaResult = toClient("QuotaResult"),
