@@ -12,7 +12,8 @@ $failed = $false
 foreach ($place in @("lobby", "match")) {
 	Write-Host "== ${place}: types =="
 	rojo sourcemap "$place.project.json" -o "sourcemap.$place.json"
-	luau-lsp analyze --definitions=@roblox=globalTypes.d.luau --sourcemap="sourcemap.$place.json" src/shared src/serverCommon "src/$place"
+	# Vendor/ holds third-party code (ProfileStore) that isn't --!strict; it's skipped here and in selene/stylua.
+	luau-lsp analyze --definitions=@roblox=globalTypes.d.luau --sourcemap="sourcemap.$place.json" --ignore="**/Vendor/**" src/shared src/serverCommon "src/$place"
 	if ($LASTEXITCODE -ne 0) { $failed = $true }
 }
 

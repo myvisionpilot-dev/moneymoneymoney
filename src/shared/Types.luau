@@ -148,6 +148,27 @@ export type RunResults = {
 	endsAt: number,
 }
 
+-- Your saved profile, as the lobby shows it.
+export type DailyView = {
+	text: string,
+	progress: number,
+	goal: number,
+	reward: number, -- Cred for finishing it today (streak bonus included)
+	done: boolean,
+}
+
+export type ProfileView = {
+	cred: number,
+	lifetimeCred: number,
+	highestQuota: number,
+	runs: number,
+	owned: { string }, -- cosmetic ids
+	equipped: { [string]: string }, -- slot -> cosmetic id ("" = nothing)
+	badges: { string }, -- earned badge ids
+	daily: DailyView,
+	streak: number, -- days in a row (0 if it lapsed)
+}
+
 export type QueueStatus = {
 	count: number,
 	partySize: number, -- the pad leaves once this many are on it

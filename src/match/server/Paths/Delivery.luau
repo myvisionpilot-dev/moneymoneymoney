@@ -18,6 +18,7 @@ local EconomyService = require(script.Parent.Parent.EconomyService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
+local Stats = require(script.Parent.Parent.Stats)
 
 local DEPOT_TAG = "DeliveryDepot"
 local DROPOFF_TAG = "DeliveryDropoff"
@@ -160,6 +161,7 @@ local function complete(player: Player): (boolean, string?)
 	local pay = payout(player, getContext().tier())
 	local added = EconomyService.addCarried(player, pay, "delivery")
 	PayNotice.send(player, "Delivered!", added, pay)
+	Stats.record(player, "Delivery")
 	return true, nil
 end
 

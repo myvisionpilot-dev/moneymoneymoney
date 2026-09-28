@@ -1,10 +1,16 @@
 --!strict
 -- Lobby server entry point.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local PlayerSetup = require(ServerScriptService.Common.PlayerSetup)
-local QueueService = require(script.QueueService)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Common = ServerScriptService.Common
 
-PlayerSetup.start()
-QueueService.start()
+require(Common.PlayerSetup).start()
+require(Common.Profiles).start()
+require(Common.ProfileSync).start(Remotes.lobby().ProfileSync)
+require(Common.Cosmetics).start()
+require(script.QueueService).start()
+require(script.CosmeticShopService).start()
+require(script.LeaderboardBoards).start()

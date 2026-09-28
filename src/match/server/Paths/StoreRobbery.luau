@@ -15,6 +15,7 @@ local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
+local Stats = require(script.Parent.Parent.Stats)
 
 local COUNTER_TAG = "StoreCounter"
 local RANGE_SLACK = 3
@@ -68,6 +69,7 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	local added = EconomyService.addCarried(player, pay, "store robbery")
 	HeatService.add(player, Config.Heat.StoreRobbery)
 	PayNotice.send(player, "You emptied the register! The alarm is ringing!", added, pay)
+	Stats.record(player, "StoreRobbery")
 	Notifier.others(player, "Alarm! Someone just robbed a store.", "Bad")
 	return true, nil
 end

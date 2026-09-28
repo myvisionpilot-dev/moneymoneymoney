@@ -3,12 +3,15 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Signal = require(ReplicatedStorage.Shared.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local EconomyService = require(script.Parent.EconomyService)
 local PrizeMath = require(script.Parent.PrizeMath)
 local RosterService = require(script.Parent.RosterService)
 
-local PrizeService = {}
+local PrizeService = {
+	locked = Signal.new() :: Signal.Signal<number, number, boolean>, -- (userId, prize, failed): the run ended for them
+}
 
 local quotasCleared = 0
 local poolPerPlayer = 0
@@ -46,6 +49,7 @@ end
 function PrizeService.lock(userId: number, failed: boolean): number
 	local prize = PrizeService.prizeFor(userId, failed)
 	lockedPrizes[userId] = prize
+	PrizeService.locked:Fire(userId, prize, failed)
 	return prize
 end
 

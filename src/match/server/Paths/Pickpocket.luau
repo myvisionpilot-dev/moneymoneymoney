@@ -15,6 +15,7 @@ local Notifier = require(script.Parent.Parent.Notifier)
 local NpcService = require(script.Parent.Parent.NpcService)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
+local Stats = require(script.Parent.Parent.Stats)
 
 local RANGE_SLACK = 3
 
@@ -64,6 +65,7 @@ local function pick(player: Player, pedestrian: Model, prompt: ProximityPrompt):
 	local added = EconomyService.addCarried(player, pay, "pickpocket")
 	HeatService.add(player, Config.Heat.Pickpocket)
 	PayNotice.send(player, `Pickpocketed {pedestrian.Name}!`, added, pay)
+	Stats.record(player, "Pickpocket")
 	return true, nil
 end
 

@@ -26,6 +26,7 @@ local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
 local Residents = require(script.Parent.Parent.Residents)
 local ShopService = require(script.Parent.Parent.ShopService)
+local Stats = require(script.Parent.Parent.Stats)
 
 local HOUSE_TAG = "House"
 local PARK_TAG = "ParkSpot"
@@ -148,6 +149,9 @@ kit = {
 		clearJob(job)
 		local added = EconomyService.addCarried(job.player, job.pay, `door job: {job.kind}`)
 		PayNotice.send(job.player, message, added, job.pay)
+		if job.kind == "Chore" then
+			Stats.record(job.player, "Chore")
+		end
 	end,
 
 	fail = function(job: Job, reason: string)

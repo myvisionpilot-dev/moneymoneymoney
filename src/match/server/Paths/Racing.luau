@@ -24,6 +24,7 @@ local MoneyPath = require(script.Parent.MoneyPath)
 local MovementGuard = require(script.Parent.Parent.MovementGuard)
 local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
+local Stats = require(script.Parent.Parent.Stats)
 local VehicleService = require(script.Parent.Parent.VehicleService)
 
 local JOIN_TAG = "RaceJoin"
@@ -304,6 +305,9 @@ local function finish(racer: Racer, now: number)
 	)
 	local headline = if solo then `{MEDALS[rank]} time! {timeText}` else `{Format.ordinal(rank)} place in {timeText}!`
 	PayNotice.send(player, headline, added, pay)
+	if rank == 1 then
+		Stats.record(player, "RaceWin")
+	end
 	if not solo and rank == 1 then
 		Notifier.others(player, `{player.DisplayName} won the race!`, "Info")
 	end

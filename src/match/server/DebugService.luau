@@ -1,6 +1,7 @@
 --!strict
 -- Debug chat commands for the owner (and anyone in a Studio test):
 --   /cash <amount> [player]   give carried cash (ignores bag size)
+--   /cred <amount>            add saved Cred to yourself (to test the lobby shop)
 --   /skip                     pass the current quota now
 --   /timer <seconds>          set time left in the current phase
 --   /start                    start the run without waiting for arrivals
@@ -17,6 +18,7 @@ local TextChatService = game:GetService("TextChatService")
 
 local Format = require(ReplicatedStorage.Shared.Format)
 local Admin = require(ServerScriptService.Common.Admin)
+local Profiles = require(ServerScriptService.Common.Profiles)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local MovementGuard = require(script.Parent.MovementGuard)
@@ -60,6 +62,19 @@ local handlers: { [string]: Handler } = {
 		end
 		local added = EconomyService.addCarried(target, amount, `debug /cash by {player.Name}`, true)
 		return `Gave {Format.money(added)} to {target.DisplayName}`
+	end,
+
+	cred = function(player: Player, args: { string }): string
+		local amount = tonumber(args[1])
+		local data = Profiles.get(player)
+		if not amount or amount <= 0 then
+			return "Usage: /cred <amount>"
+		elseif not data then
+			return "Your save hasn't loaded yet"
+		end
+		Profiles.addCred(player, data, amount, `debug /cred by {player.Name}`)
+		Profiles.markChanged(player)
+		return `You now have {Format.cred(data.Cred)}`
 	end,
 
 	skip = function(_player: Player, _args: { string }): string

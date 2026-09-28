@@ -186,6 +186,57 @@ return {
 		MaxAirStuds = 16, -- higher than this above the ground for MaxAirChecks checks in a row is flying
 		MaxAirChecks = 3,
 	},
+	Profiles = {
+		StoreName = "Players_v1", -- the DataStore every profile lives in
+		StudioPrefix = "Studio_", -- Studio tests save to their own stores, never the live ones
+	},
+	Daily = {
+		Reward = 150, -- Cred for finishing the day's challenge
+		StreakBonusPerDay = 25, -- extra Cred per day of streak...
+		MaxStreakBonusDays = 7, -- ...up to this many days
+		-- One challenge a day, the same for everyone (by UTC date). best = progress is your best
+		-- single value (e.g. highest quota) rather than a running total.
+		Challenges = {
+			{ stat = "Delivery", goal = 5, text = "Make 5 deliveries" },
+			{ stat = "Chore", goal = 4, text = "Do 4 chores for residents" },
+			{ stat = "Pickpocket", goal = 6, text = "Pickpocket 6 pedestrians" },
+			{ stat = "RaceWin", goal = 1, text = "Win a race (or set a gold time)" },
+			{ stat = "Escape", goal = 2, text = "Lose the police in a bush twice" },
+			{ stat = "ChopShop", goal = 1, text = "Sell a car to the chop shop" },
+			{ stat = "QuotaCleared", goal = 3, best = true, text = "Clear quota 3 in a run" },
+			{ stat = "StoreRobbery", goal = 2, text = "Rob 2 stores" },
+		},
+	},
+	Cosmetics = {
+		ShopRangeStuds = 14,
+		Prices = { -- Cred; items and looks are in shared/Catalog
+			paint_cherry = 400,
+			paint_ocean = 400,
+			paint_lime = 400,
+			paint_midnight = 800,
+			paint_gold = 2_000,
+			trail_cash = 800,
+			trail_fire = 1_500,
+			trail_rainbow = 3_000,
+			title_hustler = 300,
+			title_bigshot = 1_000,
+			title_favourite = 2_500,
+			title_kingpin = 5_000,
+			hat_cap = 600,
+			hat_tophat = 1_500,
+			hat_crown = 4_000,
+		} :: { [string]: number },
+	},
+	Badges = {
+		GettingSeriousQuota = 3,
+		LoadedCred = 10_000, -- lifetime Cred earned
+		RegularStreakDays = 7,
+		MvpMinPlayers = 2,
+	},
+	Leaderboards = {
+		Size = 10,
+		RefreshSeconds = 60,
+	},
 	Security = {
 		PromptsPerSecond = 3, -- per player, per prompt type
 		RemotesPerSecond = 4, -- per player, per remote

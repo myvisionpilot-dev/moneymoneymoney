@@ -21,6 +21,7 @@ local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
+local Stats = require(script.Parent.Parent.Stats)
 local VehicleModels = require(script.Parent.Parent.VehicleModels)
 local VehicleService = require(script.Parent.Parent.VehicleService)
 
@@ -220,6 +221,7 @@ local function deliver(player: Player, job: Job, bay: BasePart)
 	local pay = payout(player, getContext().tier())
 	local added = EconomyService.addCarried(player, pay, "chop shop")
 	PayNotice.send(player, "The chop shop took the car!", added, pay)
+	Stats.record(player, "ChopShop")
 end
 
 local function checkJobs()

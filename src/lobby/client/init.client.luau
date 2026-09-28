@@ -4,10 +4,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
-local Movement = require(Shared:WaitForChild("Movement"))
-local QueueController = require(script:WaitForChild("QueueController"))
 
-FirstPerson.start()
-Movement.start()
-QueueController.start()
+require(Shared:WaitForChild("FirstPerson")).start()
+require(Shared:WaitForChild("Movement")).start()
+require(script:WaitForChild("QueueController")).start()
+require(script:WaitForChild("ProfileHud")).start()
+require(script:WaitForChild("CosmeticShopController")).start()
+require(script:WaitForChild("ProfileState")).start()

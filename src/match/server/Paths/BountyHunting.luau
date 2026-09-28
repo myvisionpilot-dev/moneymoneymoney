@@ -20,6 +20,7 @@ local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
 local RosterService = require(script.Parent.Parent.RosterService)
+local Stats = require(script.Parent.Parent.Stats)
 
 local RANGE_SLACK = 3
 local REFRESH_SECONDS = 0.5
@@ -87,6 +88,7 @@ local function arrest(hunter: Player, target: Player, prompt: ProximityPrompt)
 	JailService.arrest(target, hunter.DisplayName)
 	local added = EconomyService.addCarried(hunter, bounty, `bounty on {target.Name}`)
 	PayNotice.send(hunter, `You arrested {target.DisplayName}! The police paid the bounty.`, added, bounty)
+	Stats.record(hunter, "Bounty")
 end
 
 local function removeMark(player: Player)

@@ -24,6 +24,7 @@ type State = {
 
 local HeatService = {
 	changed = Signal.new() :: Signal.Signal<Player>,
+	escaped = Signal.new() :: Signal.Signal<Player>, -- lost your last star while hidden in a bush
 }
 
 local states: { [Player]: State } = {}
@@ -116,6 +117,7 @@ local function tick(dt: number)
 		local hiding = inHidingSpot(player)
 		local hidden = hiding and not state.spotted
 		local heat = state.heat
+		local starsBefore = math.floor(heat)
 		if heat > 0 and (hidden or now - state.lastCrimeAt >= Config.Heat.DecayDelaySeconds) then
 			local rate = Config.Police.HeatDecayPerSecond
 			if hidden then
@@ -124,6 +126,9 @@ local function tick(dt: number)
 			heat -= rate * dt
 		end
 		setHeat(player, state, heat, hiding)
+		if hidden and starsBefore >= 1 and math.floor(state.heat) == 0 then
+			HeatService.escaped:Fire(player)
+		end
 	end
 end
 

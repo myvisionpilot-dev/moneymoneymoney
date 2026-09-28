@@ -19,6 +19,7 @@ local PrizeService = require(script.Parent.PrizeService)
 local QuotaMath = require(script.Parent.QuotaMath)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local Stats = require(script.Parent.Stats)
 local StealService = require(script.Parent.StealService)
 local TonyService = require(script.Parent.TonyService)
 
@@ -312,6 +313,9 @@ local function runLoop()
 		end
 
 		PrizeService.quotaCleared(quotaIndex)
+		for _, member in RosterService.active() do
+			Stats.record(member.player, "QuotaCleared", quotaIndex)
+		end
 		carry = QuotaMath.carry(RunState.progress, target)
 		local result: Types.QuotaResult = {
 			quotaIndex = quotaIndex,

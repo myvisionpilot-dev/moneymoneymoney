@@ -13,6 +13,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Cosmetics = require(ServerScriptService.Common.Cosmetics)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local JailService = require(script.Parent.JailService)
 local MovementGuard = require(script.Parent.MovementGuard)
@@ -100,7 +101,8 @@ function VehicleService.mount(player: Player, kind: Kind, speed: number, color: 
 	if not character or not root or not humanoid then
 		return false
 	end
-	local model = if kind == "StolenCar" then VehicleModels.car(color) else VehicleModels.kart(color)
+	local paint = if kind == "StolenCar" then nil else Cosmetics.paint(player) -- your kart paint, if you bought one
+	local model = if kind == "StolenCar" then VehicleModels.car(color) else VehicleModels.kart(paint or color)
 	model.Name = `{player.Name}{kind}`
 	VehicleModels.attach(model, root, humanoid, getFolder())
 	mounted[player] = { kind = kind, model = model, speed = speed }

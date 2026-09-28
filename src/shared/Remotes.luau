@@ -21,8 +21,12 @@ export type ToServer<T> = {
 export type LobbyRemotes = {
 	QueueStatus: ToClient<Types.QueueStatus?>,
 	Notify: ToClient<Types.Notice>,
+	ProfileSync: ToClient<Types.ProfileView>,
+	OpenCosmetics: ToClient<nil>, -- you used the cosmetics stand
 	LeaveQueue: ToServer<nil>,
 	SetPartySize: ToServer<number>,
+	BuyCosmetic: ToServer<string>, -- cosmetic id
+	EquipCosmetic: ToServer<string>, -- cosmetic id; equipping what you're wearing takes it off
 }
 
 export type MatchRemotes = {
@@ -114,8 +118,12 @@ function Remotes.lobby(): LobbyRemotes
 	local remotes: LobbyRemotes = {
 		QueueStatus = toClient("QueueStatus"),
 		Notify = toClient("Notify"),
+		ProfileSync = toClient("ProfileSync"),
+		OpenCosmetics = toClient("OpenCosmetics"),
 		LeaveQueue = toServer("LeaveQueue"),
 		SetPartySize = toServer("SetPartySize"),
+		BuyCosmetic = toServer("BuyCosmetic"),
+		EquipCosmetic = toServer("EquipCosmetic"),
 	}
 	lobbyRemotes = remotes
 	return remotes
