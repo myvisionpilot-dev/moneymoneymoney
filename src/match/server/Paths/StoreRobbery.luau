@@ -8,12 +8,12 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
-local Format = require(ReplicatedStorage.Shared.Format)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
+local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
 
 local COUNTER_TAG = "StoreCounter"
@@ -67,11 +67,7 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	local pay = payout(player, ctx.tier())
 	local added = EconomyService.addCarried(player, pay, "store robbery")
 	HeatService.add(player, Config.Heat.StoreRobbery)
-	if added < pay then
-		Notifier.send(player, `The alarm is ringing! Only {Format.money(added)} fit in your bag.`, "Bad")
-	else
-		Notifier.send(player, `You emptied the register! +{Format.money(added)}. The alarm is ringing!`, "Good")
-	end
+	PayNotice.send(player, "You emptied the register! The alarm is ringing!", added, pay)
 	Notifier.others(player, "Alarm! Someone just robbed a store.", "Bad")
 	return true, nil
 end

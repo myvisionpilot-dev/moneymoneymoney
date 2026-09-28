@@ -1,6 +1,7 @@
 --!strict
 -- Heat: 0 to Police.MaxHeat per player; each whole number is a wanted star.
--- Crimes add heat; it drains after a quiet spell, faster in a hiding spot.
+-- Crimes add heat; it drains after a quiet spell. Hidden in a bush (and not spotted by a cop,
+-- which PoliceService reports) it drains faster and straight away.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -17,7 +18,8 @@ local HIDING_MARGIN = 2 -- studs around a hiding spot that still count
 type State = {
 	heat: number,
 	lastCrimeAt: number,
-	hiding: boolean,
+	hiding: boolean, -- in a bush
+	spotted: boolean, -- a cop is close enough to see you anyway
 }
 
 local HeatService = {
@@ -29,7 +31,7 @@ local states: { [Player]: State } = {}
 local function stateOf(player: Player): State
 	local state = states[player]
 	if not state then
-		state = { heat = 0, lastCrimeAt = 0, hiding = false }
+		state = { heat = 0, lastCrimeAt = 0, hiding = false, spotted = false }
 		states[player] = state
 	end
 	return state
@@ -58,6 +60,25 @@ end
 function HeatService.isHiding(player: Player): boolean
 	local state = states[player]
 	return state ~= nil and state.hiding
+end
+
+function HeatService.isSpotted(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and state.spotted
+end
+
+-- In a bush with no cop close enough to see: the police have lost you.
+function HeatService.isHidden(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and state.hiding and not state.spotted
+end
+
+function HeatService.setSpotted(player: Player, spotted: boolean)
+	local state = stateOf(player)
+	if state.spotted ~= spotted then
+		state.spotted = spotted
+		HeatService.changed:Fire(player)
+	end
 end
 
 function HeatService.add(player: Player, amount: number)
@@ -93,10 +114,11 @@ local function tick(dt: number)
 	for _, player in Players:GetPlayers() do
 		local state = stateOf(player)
 		local hiding = inHidingSpot(player)
+		local hidden = hiding and not state.spotted
 		local heat = state.heat
-		if heat > 0 and now - state.lastCrimeAt >= Config.Heat.DecayDelaySeconds then
+		if heat > 0 and (hidden or now - state.lastCrimeAt >= Config.Heat.DecayDelaySeconds) then
 			local rate = Config.Police.HeatDecayPerSecond
-			if hiding then
+			if hidden then
 				rate *= Config.Heat.HidingDecayMultiplier
 			end
 			heat -= rate * dt

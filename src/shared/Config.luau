@@ -43,20 +43,29 @@ return {
 		JailSeconds = 30,
 		CopsPerStar = 1,
 		MaxCops = 6, -- across the whole town
-		CopSpeed = 30, -- studs/s: faster than walking (25), slower than sprinting (35)
+		CopSpeed = 35, -- studs/s on foot: as fast as sprinting
+		CarFromStar = 2, -- the cop for this star and above comes in a police car
+		CarSpeed = 55, -- catches a level-1 ride, matches level 2, loses level 3
 		TagRangeStuds = 4,
+		CarTagRangeStuds = 8, -- a car pulls you over from a little further away
 		RepathSeconds = 1,
 		MinSpawnStuds = 60, -- police appear at the nearest patrol point at least this far from you
+		CarMinSpawnStuds = 150, -- police cars start further out, so you get a head start
+		SpotHiddenStuds = 30, -- a cop this close finds you in a bush; further away, they lose you
+		SearchRadiusStuds = 55, -- cops who lost you circle this far from where they last saw you
+		CarTurnSpeed = 5, -- radians/s: police cars swing round instead of snapping
+		LightFlashSeconds = 0.4,
 	},
 	Heat = {
 		DecayDelaySeconds = 20, -- heat starts draining this long after your last crime
-		HidingDecayMultiplier = 4,
+		HidingDecayMultiplier = 4, -- hidden in a bush (and not spotted): drains this much faster, straight away
 		Steal = 0.5,
 		Pickpocket = 0.5,
 		WalletSwipe = 0.5,
 		ShadyPackage = 1,
 		BreakIn = { 1, 1.5, 2 }, -- by house tier
 		StoreRobbery = 2,
+		CarTheft = 1.5,
 	},
 	Economy = {
 		TierPayoutMultiplier = 2.2, -- each unlocked tier pays ~2.2x the previous
@@ -69,12 +78,15 @@ return {
 			Delivery = 1,
 			DoorKnock = 1,
 			Pickpocket = 1,
+			Racing = 1,
 			StoreRobbery = 2,
+			BountyHunting = 2,
+			CarTheft = 2,
 		},
 		Delivery = {
 			BasePayout = 1_500, -- tier-1 pay per delivery
 			TimeLimitSeconds = 90,
-			MaxSpeedStudsPerSecond = 40, -- faster than this voids the job; keep above Movement.SprintSpeed
+			MaxSpeedStudsPerSecond = 80, -- faster than this voids the job; keep above the top ride speed
 			DropoffRadiusStuds = 8,
 			PromptRangeStuds = 10,
 			MinDropoffDistance = 60, -- skip drop-offs closer than this to the depot
@@ -87,7 +99,7 @@ return {
 			TargetRadiusStuds = 7, -- how close counts as arriving
 			ChoreHoldSeconds = 2,
 			BaseBreakInHoldSeconds = 6, -- lockpick upgrades shorten this
-			MaxSpeedStudsPerSecond = 40, -- faster than this voids a travel job; keep above Movement.SprintSpeed
+			MaxSpeedStudsPerSecond = 80, -- faster than this voids a travel job; keep above the top ride speed
 			MinLetterDistance = 100,
 			HouseTierPayMultiplier = { 1, 1.3, 1.6 },
 			Pay = { -- tier-1 pay before house and quota multipliers
@@ -113,6 +125,34 @@ return {
 			CooldownSeconds = 120, -- per store
 			RangeStuds = 8,
 		},
+		Racing = {
+			KartSpeed = 50, -- everyone races the same kart
+			Laps = 2,
+			GatherSeconds = 15, -- after the first racer joins, others have this long to join
+			CountdownSeconds = 3,
+			TimeLimitSeconds = 120,
+			CooldownSeconds = 20, -- the track rests after each race
+			JoinRangeStuds = 12,
+			LeaveRangeStuds = 60, -- walk this far from the start while gathering and you're out
+			CheckpointRadiusStuds = 18,
+			Pay = { 3_000, 1_800, 900 }, -- tier-1 pay for 1st / 2nd / 3rd (solo: gold / silver / bronze)
+			ParSeconds = { 48, 54, 62 }, -- gold / silver / bronze (a perfect line is ~43s); slower than bronze pays nothing
+		},
+		BountyHunting = {
+			PerStar = 1_000, -- tier-1 reward per star of the player you arrest
+			MinStars = 2, -- players with this many stars can be arrested by teammates
+			HoldSeconds = 1.5,
+			RangeStuds = 8,
+		},
+		CarTheft = {
+			Pay = 3_000, -- tier-1 pay from the chop shop
+			HoldSeconds = 4, -- breaking into a parked car
+			RangeStuds = 8,
+			DriveSpeed = 50,
+			TimeLimitSeconds = 150, -- to get the car to the chop shop
+			RespawnSeconds = 90, -- a new car parks in an empty spot after this long
+			ChopRadiusStuds = 12, -- how close to the chop shop bay counts as delivered
+		},
 	},
 	Shop = {
 		RangeStuds = 14, -- must be near the counter to buy
@@ -126,13 +166,23 @@ return {
 			{ holdSeconds = 3, price = 6_000 },
 			{ holdSeconds = 2, price = 20_000 },
 		},
+		Ride = { -- levels 1-3: kart speed in studs/s (sprinting is 35)
+			{ speed = 45, price = 2_500 },
+			{ speed = 55, price = 10_000 },
+			{ speed = 65, price = 35_000 },
+		},
 	},
 	Movement = {
 		WalkSpeed = 25,
 		SprintSpeed = 35, -- while holding Shift (or the Sprint touch button)
+		FieldOfView = 70,
+		FastFieldOfView = 78, -- while sprinting or driving: a little wider so speed feels faster
+		FieldOfViewTweenSeconds = 0.3,
 		SlackPercent = 0.25,
 		LagAllowanceStuds = 6, -- extra distance allowed per check for network bursts
 		CheckSeconds = 0.5,
+		MaxAirStuds = 16, -- higher than this above the ground for MaxAirChecks checks in a row is flying
+		MaxAirChecks = 3,
 	},
 	Security = {
 		PromptsPerSecond = 3, -- per player, per prompt type

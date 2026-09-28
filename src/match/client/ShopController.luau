@@ -1,15 +1,22 @@
 --!strict
 -- Tony's upgrade shop: opens from the counter in his office. Paid from the cash in your bag.
 
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
 local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
+
+local COUNTER_TAG = "ShopCounter"
+local CLOSE_SLACK = 6
 
 local ShopController = {}
 
@@ -43,10 +50,11 @@ function ShopController.start()
 	UI.textStroke(title)
 	UI.label({
 		LayoutOrder = 2,
-		Size = UDim2.new(1, 0, 0, 18),
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		TextSize = 14,
 		TextColor3 = UI.Colors.Muted,
-		Text = "Paid from your bag. Your deposits are safe. Upgrades last this run.",
+		Text = "Paid from your bag, never your deposits. Upgrades last this run.",
 	}, panel)
 
 	local list = UI.frame({
@@ -126,6 +134,24 @@ function ShopController.start()
 		if snapshot.phase == "Results" or snapshot.phase == "Ended" then
 			panel.Visible = false
 		end
+	end)
+
+	-- Walking away from the counter closes the shop.
+	RunService.Heartbeat:Connect(function()
+		local character = Players.LocalPlayer.Character
+		if not panel.Visible or not character then
+			return
+		end
+		local position = character:GetPivot().Position
+		for _, counter in CollectionService:GetTagged(COUNTER_TAG) do
+			if
+				counter:IsA("BasePart")
+				and (counter.Position - position).Magnitude <= Config.Shop.RangeStuds + CLOSE_SLACK
+			then
+				return
+			end
+		end
+		panel.Visible = false
 	end)
 end
 

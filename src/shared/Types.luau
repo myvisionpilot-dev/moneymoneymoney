@@ -16,9 +16,13 @@ export type PlayerRow = {
 	status: PlayerStatus,
 	decided: boolean,
 	heat: number, -- 0 to Police.MaxHeat; whole numbers are stars
-	hiding: boolean,
+	hiding: boolean, -- in a bush
+	spotted: boolean, -- in a bush, but a cop is close enough to see you
 	jailedUntil: number, -- 0 when free
 	stolen: number, -- total stolen from teammates this run
+	rideLevel: number, -- 0 = no ride bought
+	riding: boolean,
+	bounty: number, -- what a teammate earns for arresting you (0 = can't be arrested)
 }
 
 export type RunSnapshot = {
@@ -65,7 +69,7 @@ export type DoorOffer = {
 	expiresAt: number,
 }
 
-export type UpgradeId = "Bag" | "Lockpick"
+export type UpgradeId = "Bag" | "Lockpick" | "Ride"
 
 export type ShopItem = {
 	id: UpgradeId,
@@ -79,6 +83,22 @@ export type ShopItem = {
 
 export type ShopState = {
 	items: { ShopItem },
+}
+
+export type RaceState = "Gathering" | "Countdown" | "Racing"
+
+-- Sent to each racer; nil means you're not in a race.
+export type RaceUpdate = {
+	state: RaceState,
+	racers: number,
+	solo: boolean, -- a solo race is a time trial against the par times
+	startsAt: number, -- Gathering: when the countdown begins; otherwise when the race starts (GO)
+	endsAt: number, -- Racing: the time limit
+	checkpoint: number, -- checkpoints passed so far
+	total: number, -- checkpoints in the whole race (every lap)
+	laps: number,
+	place: number, -- 1 = leading
+	parSeconds: { number }, -- gold, silver, bronze
 }
 
 export type Contribution = {

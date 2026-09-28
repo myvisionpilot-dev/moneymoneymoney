@@ -11,7 +11,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
-local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -23,6 +22,7 @@ local HeatService = require(script.Parent.Parent.HeatService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
 local NpcService = require(script.Parent.Parent.NpcService)
+local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
 local Residents = require(script.Parent.Parent.Residents)
 local ShopService = require(script.Parent.Parent.ShopService)
@@ -147,11 +147,7 @@ kit = {
 		end
 		clearJob(job)
 		local added = EconomyService.addCarried(job.player, job.pay, `door job: {job.kind}`)
-		if added < job.pay then
-			Notifier.send(job.player, `{message} Only {Format.money(added)} fit in your bag.`, "Bad")
-		else
-			Notifier.send(job.player, `{message} +{Format.money(added)}`, "Good")
-		end
+		PayNotice.send(job.player, message, added, job.pay)
 	end,
 
 	fail = function(job: Job, reason: string)

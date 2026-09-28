@@ -1,15 +1,11 @@
 --!strict
--- Client side of first person (both places): a tiny white dot crosshair, hold Shift (or the
--- Sprint touch button) to sprint, and a free mouse while a clickable panel is open.
+-- Client side of first person (both places): a tiny white dot crosshair, and a free mouse
+-- while a clickable panel is open. Walking and sprinting live in Movement.
 
-local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local Config = require(script.Parent.Config)
-
-local SPRINT_ACTION = "Sprint"
 local DOT_SIZE = 4
 
 local FirstPerson = {}
@@ -57,14 +53,6 @@ local function anyPanelOpen(): boolean
 	return false
 end
 
-local function setSprinting(sprinting: boolean)
-	local character = Players.LocalPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		humanoid.WalkSpeed = if sprinting then Config.Movement.SprintSpeed else Config.Movement.WalkSpeed
-	end
-end
-
 local function makeCrosshair(): Frame
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "Crosshair"
@@ -92,33 +80,6 @@ end
 
 function FirstPerson.start()
 	local dot = makeCrosshair()
-
-	ContextActionService:BindAction(
-		SPRINT_ACTION,
-		function(_name: string, state: Enum.UserInputState, _input: InputObject): Enum.ContextActionResult
-			if state == Enum.UserInputState.Begin then
-				setSprinting(true)
-			elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
-				setSprinting(false)
-			end
-			return Enum.ContextActionResult.Sink
-		end,
-		true, -- adds a Sprint button on touch screens
-		Enum.KeyCode.LeftShift,
-		Enum.KeyCode.RightShift,
-		Enum.KeyCode.ButtonL3
-	)
-	ContextActionService:SetTitle(SPRINT_ACTION, "Sprint")
-
-	Players.LocalPlayer.CharacterAdded:Connect(function(character: Model)
-		character:WaitForChild("Humanoid", 10)
-		setSprinting(false)
-	end)
-	-- Alt-tabbing while holding Shift never sends the release, so stop sprinting on focus loss.
-	UserInputService.WindowFocusReleased:Connect(function()
-		setSprinting(false)
-	end)
-
 	RunService.RenderStepped:Connect(function()
 		local open = anyPanelOpen()
 		UserInputService.MouseIconEnabled = open

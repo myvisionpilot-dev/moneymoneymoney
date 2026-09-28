@@ -35,10 +35,12 @@ export type MatchRemotes = {
 	RunResults: ToClient<Types.RunResults>,
 	DoorOffer: ToClient<Types.DoorOffer?>,
 	ShopOpen: ToClient<Types.ShopState>,
+	RaceUpdate: ToClient<Types.RaceUpdate?>,
 	ClientReady: ToServer<nil>,
 	SubmitDecision: ToServer<Types.Decision>,
 	ChooseDoorOffer: ToServer<number>, -- 1 or 2, or 0 to walk away
 	BuyUpgrade: ToServer<Types.UpgradeId>,
+	SetRiding: ToServer<boolean>, -- get on or off your ride
 }
 
 local IS_SERVER = RunService:IsServer()
@@ -133,10 +135,12 @@ function Remotes.match(): MatchRemotes
 		RunResults = toClient("RunResults"),
 		DoorOffer = toClient("DoorOffer"),
 		ShopOpen = toClient("ShopOpen"),
+		RaceUpdate = toClient("RaceUpdate"),
 		ClientReady = toServer("ClientReady"),
 		SubmitDecision = toServer("SubmitDecision"),
 		ChooseDoorOffer = toServer("ChooseDoorOffer"),
 		BuyUpgrade = toServer("BuyUpgrade"),
+		SetRiding = toServer("SetRiding"),
 	}
 	matchRemotes = remotes
 	return remotes

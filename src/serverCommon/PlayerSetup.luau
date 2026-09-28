@@ -1,6 +1,6 @@
 --!strict
 -- Every player, in both places: locked first-person camera and Movement.WalkSpeed.
--- Sprinting is handled on the client (shared/FirstPerson).
+-- Sprinting is handled on the client (shared/Movement).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

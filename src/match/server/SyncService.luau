@@ -9,12 +9,15 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local BountyHunting = require(script.Parent.Paths.BountyHunting)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local JailService = require(script.Parent.JailService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local ShopService = require(script.Parent.ShopService)
 local StealService = require(script.Parent.StealService)
+local VehicleService = require(script.Parent.VehicleService)
 
 local SEND_INTERVAL = 0.2
 
@@ -40,8 +43,12 @@ function SyncService.build(): Types.RunSnapshot
 			decided = member.decision ~= nil,
 			heat = HeatService.get(member.player),
 			hiding = HeatService.isHiding(member.player),
+			spotted = HeatService.isSpotted(member.player),
 			jailedUntil = JailService.releaseAt(member.player),
 			stolen = StealService.totalStolen(member.userId),
+			rideLevel = ShopService.level(member.player, "Ride"),
+			riding = VehicleService.isRiding(member.player),
+			bounty = BountyHunting.bountyFor(member.player),
 		})
 	end
 	return {
@@ -66,7 +73,11 @@ function SyncService.start()
 	HeatService.changed:Connect(markDirty)
 	JailService.changed:Connect(markDirty)
 	StealService.changed:Connect(markDirty)
+	VehicleService.changed:Connect(markDirty)
 	EconomyService.changed:Connect(function(_userId: number)
+		dirty = true
+	end)
+	ShopService.upgraded:Connect(function(_player: Player, _id: Types.UpgradeId)
 		dirty = true
 	end)
 

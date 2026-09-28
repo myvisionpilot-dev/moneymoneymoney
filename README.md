@@ -16,10 +16,11 @@ One universe, two places, each synced from its own Rojo project.
    - `rojo serve lobby.project.json`
    - `rojo serve match.project.json`
 
-Maps are grey boxes kept in the place files, not in Rojo. Rebuild them with `tools/build_lobby_map.luau`
-and `tools/build_match_map.luau` (paste into the command bar). Code finds map points by CollectionService tags:
-`QueuePad`, `TonyDesk`, `TonySpawn`, `DeliveryDepot`, `DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`,
-`ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`, `AlleyDrop`.
+Maps are grey boxes kept in the place files, not in Rojo. Rebuild them with `tools/build_lobby_map.luau`,
+`tools/build_match_map.luau` and then `tools/build_race_track.luau` (paste into the command bar). Code finds map
+points by CollectionService tags: `QueuePad`, `TonyDesk`, `TonySpawn`, `DeliveryDepot`, `DeliveryDropoff`, `House`,
+`HidingSpot`, `StoreCounter`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`,
+`AlleyDrop`, `RaceJoin`, `RaceCheckpoint`, `RaceGrid`, `ParkedCar`, `ChopShop`.
 
 Place settings (not in Rojo, set in both places): `StarterGui.ScreenOrientation = LandscapeSensor`, so phones
 play sideways (the HUD is laid out for landscape).
@@ -38,12 +39,14 @@ and `tools/load_code.luau` (set `PLACE`) swaps it into the open place.
 src/shared/        ReplicatedStorage.Shared: Config, Remotes, Types, UI helpers (both places)
 src/serverCommon/  ServerScriptService.Common: SafeTeleport, RateLimiter, Admin (both places)
 src/lobby/         QueueService (pads → reserved Match server) + queue panel
-src/match/server/  QuotaRunService (state machine), Economy, Deposit, Prize, Path + Paths/*, Sync, Tony, Debug
-src/match/client/  HUD, Tony banner, toasts, delivery guide, intermission, decision, results
+src/match/server/  QuotaRunService (state machine), Economy, Deposit, Prize, Path + Paths/*, Heat, Police, Jail,
+                   Shop, Vehicles, Steal, NPCs, MovementGuard, Sync, Tony, Debug
+src/match/client/  HUD, Tony banner, toasts, job guide, door offers, shop, ride key, race panel, results
 ```
 
 Every tunable number is in `src/shared/Config.luau`. The server owns all money: clients only send intents
-(`SubmitDecision`, `LeaveQueue`, `ClientReady`); deposits and jobs use server-side ProximityPrompts.
+(`SubmitDecision`, `ChooseDoorOffer`, `BuyUpgrade`, `SetRiding`, `LeaveQueue`, `ClientReady`); jobs, crimes,
+races and arrests use server-checked ProximityPrompts.
 
 ## Debug commands
 
@@ -55,6 +58,8 @@ Chat commands for the game owner, anyone in `Config.Debug.AdminUserIds`, and eve
 | `/skip` | Pass the current quota now |
 | `/timer <seconds>` | Set time left in the current phase |
 | `/start` | Start the run without waiting for arrivals |
+| `/heat <stars>` | Add heat to yourself (negative clears it) |
+| `/tp <x> <y> <z>` | Teleport yourself |
 
 In Studio, `game.ServerStorage.DebugHook:Invoke("cash", "5000")` runs the same commands from the server command bar.
 Set `Config.Debug.Enabled = true` to run every phase timer at `TimerScale` speed.

@@ -7,13 +7,13 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
-local Format = require(ReplicatedStorage.Shared.Format)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
 local NpcService = require(script.Parent.Parent.NpcService)
+local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
 
 local RANGE_SLACK = 3
@@ -63,11 +63,7 @@ local function pick(player: Player, pedestrian: Model, prompt: ProximityPrompt):
 	local pay = payout(player, ctx.tier())
 	local added = EconomyService.addCarried(player, pay, "pickpocket")
 	HeatService.add(player, Config.Heat.Pickpocket)
-	if added < pay then
-		Notifier.send(player, `Pickpocketed {pedestrian.Name}! Only {Format.money(added)} fit in your bag.`, "Bad")
-	else
-		Notifier.send(player, `Pickpocketed {pedestrian.Name}! +{Format.money(added)}`, "Good")
-	end
+	PayNotice.send(player, `Pickpocketed {pedestrian.Name}!`, added, pay)
 	return true, nil
 end
 

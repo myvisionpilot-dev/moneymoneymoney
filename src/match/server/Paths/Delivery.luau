@@ -17,6 +17,7 @@ local Carry = require(script.Parent.Parent.Carry)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
+local PayNotice = require(script.Parent.Parent.PayNotice)
 
 local DEPOT_TAG = "DeliveryDepot"
 local DROPOFF_TAG = "DeliveryDropoff"
@@ -158,11 +159,7 @@ local function complete(player: Player): (boolean, string?)
 	clear(player)
 	local pay = payout(player, getContext().tier())
 	local added = EconomyService.addCarried(player, pay, "delivery")
-	if added < pay then
-		Notifier.send(player, `Delivered! Only {Format.money(added)} fit in your bag. Deposit at Tony's!`, "Bad")
-	else
-		Notifier.send(player, `Delivered! +{Format.money(added)}`, "Good")
-	end
+	PayNotice.send(player, "Delivered!", added, pay)
 	return true, nil
 end
 

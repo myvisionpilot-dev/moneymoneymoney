@@ -11,6 +11,7 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Signal = require(ReplicatedStorage.Shared.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
@@ -22,54 +23,74 @@ local RunState = require(script.Parent.RunState)
 local COUNTER_TAG = "ShopCounter"
 local RANGE_SLACK = 3
 
-type Levels = { Bag: number, Lockpick: number }
+type Levels = { [Types.UpgradeId]: number }
 
 local remotes = Remotes.match()
 local buyLimiter = RateLimiter.new(Config.Security.RemotesPerSecond, 1)
 local openLimiter = RateLimiter.new(Config.Security.PromptsPerSecond, 1)
 
-local ShopService = {}
+local ShopService = {
+	upgraded = Signal.new() :: Signal.Signal<Player, Types.UpgradeId>,
+}
 
 local levels: { [Player]: Levels } = {}
 
 local function levelsOf(player: Player): Levels
 	local current = levels[player]
 	if not current then
-		current = { Bag = 0, Lockpick = 0 }
+		current = { Bag = 0, Lockpick = 0, Ride = 0 }
 		levels[player] = current
 	end
 	return current
 end
 
 function ShopService.level(player: Player, id: Types.UpgradeId): number
-	local current = levelsOf(player)
-	return if id == "Bag" then current.Bag else current.Lockpick
+	return levelsOf(player)[id] or 0
 end
 
 function ShopService.breakInHoldSeconds(player: Player): number
-	local level = levelsOf(player).Lockpick
+	local level = ShopService.level(player, "Lockpick")
 	if level == 0 then
 		return Config.Paths.Doors.BaseBreakInHoldSeconds
 	end
 	return Config.Shop.Lockpick[level].holdSeconds
 end
 
+-- Your kart's speed, or nil if you haven't bought one.
+function ShopService.rideSpeed(player: Player): number?
+	local entry = Config.Shop.Ride[ShopService.level(player, "Ride")]
+	return if entry then entry.speed else nil
+end
+
+local function priceOf(id: Types.UpgradeId, level: number): number?
+	if id == "Bag" then
+		local entry = Config.Shop.Bag[level]
+		return if entry then entry.price else nil
+	elseif id == "Lockpick" then
+		local entry = Config.Shop.Lockpick[level]
+		return if entry then entry.price else nil
+	end
+	local entry = Config.Shop.Ride[level]
+	return if entry then entry.price else nil
+end
+
 local function stateFor(player: Player): Types.ShopState
-	local current = levelsOf(player)
+	local bag = ShopService.level(player, "Bag")
+	local lockpick = ShopService.level(player, "Lockpick")
+	local ride = ShopService.level(player, "Ride")
 
-	local bagCapacity = if current.Bag == 0
-		then Config.Economy.BaseBagCapacity
-		else Config.Shop.Bag[current.Bag].capacity
-	local nextBag = Config.Shop.Bag[current.Bag + 1]
-
-	local nextLockpick = Config.Shop.Lockpick[current.Lockpick + 1]
+	local bagCapacity = if bag == 0 then Config.Economy.BaseBagCapacity else Config.Shop.Bag[bag].capacity
+	local nextBag = Config.Shop.Bag[bag + 1]
+	local nextLockpick = Config.Shop.Lockpick[lockpick + 1]
+	local rideSpeed = ShopService.rideSpeed(player)
+	local nextRide = Config.Shop.Ride[ride + 1]
 
 	return {
 		items = {
 			{
 				id = "Bag",
 				title = "Bag size",
-				level = current.Bag,
+				level = bag,
 				maxLevel = #Config.Shop.Bag,
 				current = `Holds {Format.money(bagCapacity)}`,
 				nextEffect = if nextBag then `Holds {Format.money(nextBag.capacity)}` else nil,
@@ -78,11 +99,20 @@ local function stateFor(player: Player): Types.ShopState
 			{
 				id = "Lockpick",
 				title = "Lockpick",
-				level = current.Lockpick,
+				level = lockpick,
 				maxLevel = #Config.Shop.Lockpick,
 				current = `{ShopService.breakInHoldSeconds(player)}s break-ins`,
 				nextEffect = if nextLockpick then `{nextLockpick.holdSeconds}s break-ins` else nil,
 				nextPrice = if nextLockpick then nextLockpick.price else nil,
+			},
+			{
+				id = "Ride",
+				title = "Ride (press R)",
+				level = ride,
+				maxLevel = #Config.Shop.Ride,
+				current = if rideSpeed then `Kart, {rideSpeed} speed` else "On foot",
+				nextEffect = if nextRide then `Kart, {nextRide.speed} speed` else nil,
+				nextPrice = if nextRide then nextRide.price else nil,
 			},
 		},
 	}
@@ -110,42 +140,46 @@ local function canShop(player: Player): boolean
 end
 
 local function onBuy(player: Player, payload: unknown)
-	if not buyLimiter:allow(player) or (payload ~= "Bag" and payload ~= "Lockpick") then
+	if not buyLimiter:allow(player) then
+		return
+	end
+	local id: Types.UpgradeId
+	if payload == "Bag" then
+		id = "Bag"
+	elseif payload == "Lockpick" then
+		id = "Lockpick"
+	elseif payload == "Ride" then
+		id = "Ride"
+	else
 		return
 	end
 	if not canShop(player) or not nearCounter(player) then
 		return
 	end
 	local current = levelsOf(player)
-	local price: number
-	if payload == "Bag" then
-		local nextLevel = Config.Shop.Bag[current.Bag + 1]
-		if not nextLevel then
-			return
-		end
-		price = nextLevel.price
-	else
-		local nextLevel = Config.Shop.Lockpick[current.Lockpick + 1]
-		if not nextLevel then
-			return
-		end
-		price = nextLevel.price
+	local newLevel = (current[id] or 0) + 1
+	local price = priceOf(id, newLevel)
+	if not price then
+		return
 	end
-
 	if EconomyService.account(player).carried < price then
 		Notifier.send(player, `You need {Format.money(price)} in your bag for that.`, "Bad")
 		return
 	end
-	if payload == "Bag" then
-		current.Bag += 1
-		EconomyService.removeCarried(player, price, `shop: bag level {current.Bag}`)
-		EconomyService.setBagCapacity(player, Config.Shop.Bag[current.Bag].capacity)
-		Notifier.send(player, `Bigger bag! It now holds {Format.money(Config.Shop.Bag[current.Bag].capacity)}.`, "Good")
-	else
-		current.Lockpick += 1
-		EconomyService.removeCarried(player, price, `shop: lockpick level {current.Lockpick}`)
+
+	current[id] = newLevel
+	EconomyService.removeCarried(player, price, `shop: {id:lower()} level {newLevel}`)
+	if id == "Bag" then
+		local capacity = Config.Shop.Bag[newLevel].capacity
+		EconomyService.setBagCapacity(player, capacity)
+		Notifier.send(player, `Bigger bag! It now holds {Format.money(capacity)}.`, "Good")
+	elseif id == "Lockpick" then
 		Notifier.send(player, `Better lockpick! Break-ins take {ShopService.breakInHoldSeconds(player)}s.`, "Good")
+	else
+		local speed = Config.Shop.Ride[newLevel].speed
+		Notifier.send(player, `New kart (speed {speed})! Press R to hop on or off.`, "Good")
 	end
+	ShopService.upgraded:Fire(player, id)
 	remotes.ShopOpen:fireClient(player, stateFor(player))
 end
 

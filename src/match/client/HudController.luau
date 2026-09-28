@@ -144,7 +144,13 @@ function HudController.start()
 	UI.corner(heatMeter, 3)
 	local heatMeterFill = UI.frame({ Size = UDim2.fromScale(0, 1), BackgroundColor3 = UI.Colors.Risk }, heatMeter)
 	UI.corner(heatMeterFill, 3)
-	local job = row(7, "", UI.Colors.Gold)
+	local bountyLabel = row(7, "", UI.Colors.Danger)
+	bountyLabel.Visible = false
+	local rideLabel = row(8, "", UI.Colors.Info)
+	rideLabel.Visible = false
+	local job = row(9, "", UI.Colors.Gold)
+	job.Size = UDim2.fromScale(1, 0) -- long job titles wrap onto a second line
+	job.AutomaticSize = Enum.AutomaticSize.Y
 	job.Visible = false
 	jobLabel = job
 
@@ -206,13 +212,23 @@ function HudController.start()
 
 			local stars = math.floor(me.heat)
 			local shown = string.rep("★", stars) .. string.rep("☆", Config.Police.MaxHeat - stars)
-			heatLabel.Text = `HEAT {shown}` .. (if me.hiding and me.heat > 0 then "  hiding" else "")
+			local hideText = if not me.hiding
+				then ""
+				elseif me.spotted then "  SPOTTED!"
+				elseif me.heat > 0 then "  hidden"
+				else ""
+			heatLabel.Text = `HEAT {shown}{hideText}`
 			heatLabel.TextColor3 = if stars >= 1
 				then UI.Colors.Danger
 				elseif me.heat > 0 then UI.Colors.Risk
 				else UI.Colors.Muted
 			heatMeter.Visible = me.heat > 0 and stars < Config.Police.MaxHeat
 			heatMeterFill.Size = UDim2.fromScale(me.heat - stars, 1)
+
+			bountyLabel.Visible = me.bounty > 0
+			bountyLabel.Text = `BOUNTY ON YOU {Format.money(me.bounty)}`
+			rideLabel.Visible = me.rideLevel > 0
+			rideLabel.Text = if me.riding then "RIDING · R to walk" else "KART · R to ride"
 		end
 	end
 
