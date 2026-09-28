@@ -1,5 +1,6 @@
 --!strict
--- End-of-run screen: podium, everyone's contribution and prize, MVP, and the Cred you earned.
+-- End-of-run screen: podium, everyone's contribution and prize, MVP and Snake, and the Cred you
+-- earned. A fanfare for cashing out, a sad sting when Tony wasn't paid.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,11 +9,12 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Sounds = require(Shared:WaitForChild("Sounds"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 
-local PLACES = { "1st", "2nd", "3rd" }
+local MEDALS = { "🥇", "🥈", "🥉" }
 
 local ResultsController = {}
 
@@ -32,18 +34,17 @@ end
 local function resultRow(parent: Instance, index: number, row: Types.ResultRow, results: Types.RunResults)
 	local isMe = row.userId == Players.LocalPlayer.UserId
 	local color = if isMe then UI.Colors.Gold else UI.Colors.Text
-	local frame = UI.frame({
+	local frame = UI.card(if isMe then UI.Colors.PanelDark else UI.Colors.Panel, {
 		LayoutOrder = index + 1,
-		Size = UDim2.new(1, 0, 0, 24),
-		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, 30),
 	}, parent)
-	local place = PLACES[index] or `{index}th`
-	local name = `{place}  {row.name}`
+	UI.padding(frame, 4)
+	local name = `{MEDALS[index] or Format.ordinal(index)} {row.name}`
 	if row.userId == results.mvpUserId then
-		name ..= "  [MVP]"
+		name ..= " 👑"
 	end
 	if row.userId == results.snakeUserId then
-		name ..= "  [SNAKE]"
+		name ..= " 🐍"
 	end
 	if row.status == "Left" then
 		name ..= " (left)"
@@ -60,70 +61,61 @@ function ResultsController.start()
 		Name = "Overlay",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.new(0, 0, 0),
-		BackgroundTransparency = 0.35,
+		BackgroundTransparency = 0.4,
 		Visible = false,
 	}, root)
-	local panel = UI.frame({
+	local window = UI.window("", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(460, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 0.02,
+		Size = UDim2.fromOffset(480, 0),
+		Visible = true,
 	}, overlay)
-	UI.corner(panel, 16)
-	local stroke = UI.stroke(panel, 3, UI.Colors.Gold)
-	UI.padding(panel, 14)
-	UI.list(panel, Enum.FillDirection.Vertical, 6)
+	local panel = window.panel
+	window.title.TextXAlignment = Enum.TextXAlignment.Center
+	window.title.Size = UDim2.fromScale(1, 1)
+	window.title.TextSize = 32
+	UI.list(window.body, Enum.FillDirection.Vertical, 6)
 
-	local title = UI.label({
-		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 36),
-		Font = UI.Fonts.Heading,
-		TextSize = 32,
-	}, panel)
-	UI.textStroke(title)
 	local subtitle = UI.label({
-		LayoutOrder = 2,
+		LayoutOrder = 1,
 		Size = UDim2.new(1, 0, 0, 20),
 		TextSize = 16,
-		TextColor3 = UI.Colors.Muted,
-	}, panel)
+	}, window.body)
 	local earned = UI.label({
-		LayoutOrder = 3,
-		Size = UDim2.new(1, 0, 0, 40),
+		LayoutOrder = 2,
+		Size = UDim2.new(1, 0, 0, 44),
 		Font = UI.Fonts.Heading,
-		TextSize = 36,
+		TextSize = 38,
 		TextColor3 = UI.Colors.Gold,
-	}, panel)
-	UI.textStroke(earned)
+	}, window.body)
+	UI.textStroke(earned, 3)
 
 	local table_ = UI.frame({
-		LayoutOrder = 4,
+		LayoutOrder = 3,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
-	}, panel)
-	UI.list(table_, Enum.FillDirection.Vertical, 2)
+	}, window.body)
+	UI.list(table_, Enum.FillDirection.Vertical, 4)
 
 	local footer = UI.label({
-		LayoutOrder = 5,
+		LayoutOrder = 4,
 		Size = UDim2.new(1, 0, 0, 20),
 		TextSize = 16,
-	}, panel)
+	}, window.body)
 
 	local endsAt = 0
 
 	Remotes.match().RunResults:onClient(function(results: Types.RunResults)
 		endsAt = results.endsAt
 		local failed = results.reason == "Failed"
-		title.Text = if failed then "TONY WASN'T PAID" else "YOU CASHED OUT!"
-		title.TextColor3 = if failed then UI.Colors.Danger else UI.Colors.Money
-		stroke.Color = if failed then UI.Colors.Danger else UI.Colors.Gold
+		window.title.Text = if failed then "💸 TONY WASN'T PAID" else "🎉 YOU CASHED OUT!"
+		panel.BackgroundColor3 = if failed then UI.Colors.Danger else UI.Colors.Money
 		subtitle.Text = if failed
 			then `Quotas cleared: {results.highestQuota}. A failed run keeps only part of your prize.`
 			else `Quotas cleared: {results.highestQuota}`
-		earned.Text = `+{Format.cred(results.yourPrize)}`
+		earned.Text = `⭐ +{Format.cred(results.yourPrize)}`
 
 		for _, child in table_:GetChildren() do
 			if child:IsA("Frame") then
@@ -131,10 +123,10 @@ function ResultsController.start()
 			end
 		end
 		local header = UI.frame({ LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1 }, table_)
-		cell(header, 0, 0.44, "PLAYER", UI.Colors.Muted, Enum.TextXAlignment.Left)
-		cell(header, 0.44, 0.22, "DEPOSITED", UI.Colors.Muted, Enum.TextXAlignment.Right)
-		cell(header, 0.68, 0.14, "SHARE", UI.Colors.Muted, Enum.TextXAlignment.Right)
-		cell(header, 0.84, 0.16, "CRED", UI.Colors.Muted, Enum.TextXAlignment.Right)
+		cell(header, 0, 0.44, "PLAYER", UI.Colors.Text, Enum.TextXAlignment.Left)
+		cell(header, 0.44, 0.22, "DEPOSITED", UI.Colors.Text, Enum.TextXAlignment.Right)
+		cell(header, 0.68, 0.14, "SHARE", UI.Colors.Text, Enum.TextXAlignment.Right)
+		cell(header, 0.84, 0.16, "CRED", UI.Colors.Text, Enum.TextXAlignment.Right)
 		for _, label in header:GetChildren() do
 			if label:IsA("TextLabel") then
 				label.TextSize = 13
@@ -145,11 +137,14 @@ function ResultsController.start()
 		end
 
 		overlay.Visible = true
+		UI.pop(panel, 0.08)
+		UI.pop(earned, 0.4)
+		Sounds.play(if failed then "Fail" else "Fanfare")
 	end)
 
 	RunService.RenderStepped:Connect(function()
 		if overlay.Visible then
-			footer.Text = `Back to the lobby in {Format.clock(endsAt - Timing.now())}`
+			footer.Text = `🏠 Back to the lobby in {Format.clock(endsAt - Timing.now())}`
 		end
 	end)
 end

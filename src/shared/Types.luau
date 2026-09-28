@@ -148,6 +148,31 @@ export type RunResults = {
 	endsAt: number,
 }
 
+-- Moments the client dresses up with sounds and effects.
+export type JuiceKind = "Paid" | "Deposited" | "Sound"
+
+export type JuiceEvent = {
+	kind: JuiceKind,
+	amount: number?, -- Paid / Deposited
+	position: Vector3?, -- where the money pops up
+	sound: string?, -- Sound: a Config.Sounds name
+}
+
+-- The pickpocket minigame: one round per zone. The needle bounces along the bar at the round's
+-- speed (bar lengths per second); press while it's inside the zone.
+export type PickpocketZone = {
+	start: number, -- 0 to 1 along the bar
+	width: number,
+	speed: number,
+}
+
+export type PickpocketGame = {
+	target: string, -- the pedestrian's name
+	zones: { PickpocketZone },
+	roundSeconds: number,
+	pauseSeconds: number,
+}
+
 -- Your saved profile, as the lobby shows it.
 export type DailyView = {
 	text: string,

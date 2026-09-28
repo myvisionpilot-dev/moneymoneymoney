@@ -63,6 +63,7 @@ return {
 		HidingDecayMultiplier = 4, -- hidden in a bush (and not spotted): drains this much faster, straight away
 		Steal = 0.5,
 		Pickpocket = 0.5,
+		PickpocketFail = 1, -- they spotted you: a whole star
 		WalletSwipe = 0.5,
 		ShadyPackage = 1,
 		BreakIn = { 1, 1.5, 2 }, -- by house tier
@@ -114,18 +115,31 @@ return {
 			BreakInPay = { 1_800, 3_000, 4_500 }, -- by house tier (no house multiplier)
 		},
 		Pickpocket = {
-			Pay = 300,
+			MinPay = 150, -- tier-1 wallet range; big wallets are rare
+			MaxPay = 1_000,
+			PayRarity = 3, -- higher = big wallets rarer (pay = min + (max - min) * random^rarity)
+			FatWallet = 700, -- tier-1 amount that counts as a fat wallet
 			Pedestrians = 8,
 			CooldownSeconds = 60, -- per pedestrian
 			RangeStuds = 7,
 			HoldSeconds = 0.4,
 			WalkSpeed = 8,
+			-- The minigame: a needle sweeps a bar; press when it's in the green, once per round.
+			Minigame = {
+				ZoneWidths = { 0.24, 0.18, 0.13 }, -- share of the bar, one per round
+				Speeds = { 0.9, 1.25, 1.6 }, -- bar lengths per second
+				RoundSeconds = 4, -- press within this long each round
+				PauseSeconds = 0.35, -- between rounds
+				Tolerance = 0.03, -- forgiveness either side of the zone
+				LatencySlack = 0.5, -- seconds of network lag allowed on the whole game
+			},
 		},
 		StoreRobbery = {
 			Pay = 4_000,
 			HoldSeconds = 8,
 			CooldownSeconds = 120, -- per store
 			RangeStuds = 8,
+			AlarmSeconds = 15, -- the store alarm rings this long
 		},
 		Racing = {
 			KartSpeed = 50, -- everyone races the same kart
@@ -186,6 +200,29 @@ return {
 		MaxAirStuds = 16, -- higher than this above the ground for MaxAirChecks checks in a row is flying
 		MaxAirChecks = 3,
 	},
+	-- Sound effects from Roblox's audio library (ProSoundEffects and APM are Roblox-licensed).
+	Sounds = {
+		Click = { id = 122835655736085, volume = 0.5 },
+		Open = { id = 9126047581, volume = 0.35 },
+		Paid = { id = 135483737426662, volume = 0.6 },
+		Deposit = { id = 120891770644830, volume = 0.6 },
+		Purchase = { id = 9118777639, volume = 0.6 },
+		StoreBell = { id = 9125935023, volume = 0.6 },
+		Alarm = { id = 138656991212198, volume = 0.7 },
+		Siren = { id = 4832498807, volume = 0.45 },
+		Knock = { id = 138990412937492, volume = 0.8 },
+		Whistle = { id = 9117260548, volume = 0.6 },
+		JailDoor = { id = 9117911726, volume = 0.7 },
+		Wanted = { id = 1846885714, volume = 0.4 },
+		Fail = { id = 125909120236588, volume = 0.45 },
+		Ding = { id = 18448089848, volume = 0.5 },
+		Beep = { id = 9117060347, volume = 0.5 },
+		Horn = { id = 9114075424, volume = 0.35 },
+		Fanfare = { id = 1840091947, volume = 0.45 },
+		Badge = { id = 1841980129, volume = 0.45 },
+		Rustle = { id = 9114519078, volume = 0.5 },
+		Swipe = { id = 9126283592, volume = 0.6 },
+	} :: { [string]: { id: number, volume: number } },
 	Profiles = {
 		StoreName = "Players_v1", -- the DataStore every profile lives in
 		StudioPrefix = "Studio_", -- Studio tests save to their own stores, never the live ones

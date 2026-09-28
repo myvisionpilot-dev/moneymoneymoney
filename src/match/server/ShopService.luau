@@ -16,6 +16,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
 local JailService = require(script.Parent.JailService)
+local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
@@ -180,6 +181,7 @@ local function onBuy(player: Player, payload: unknown)
 		Notifier.send(player, `New kart (speed {speed})! Press R to hop on or off.`, "Good")
 	end
 	ShopService.upgraded:Fire(player, id)
+	Juice.sound(player, "Purchase")
 	remotes.ShopOpen:fireClient(player, stateFor(player))
 end
 

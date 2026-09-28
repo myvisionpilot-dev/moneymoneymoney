@@ -5,6 +5,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Sounds = require(Shared:WaitForChild("Sounds"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
@@ -48,24 +49,36 @@ function HidingController.start()
 	}, root)
 	UI.textStroke(hint)
 
+	local wasHiding = false
+	local wasSpotted = false
 	ClientState.changed:Connect(function(_snapshot: Types.RunSnapshot)
 		local me = ClientState.me()
 		local hiding = me ~= nil and me.hiding
 		leaves.Enabled = hiding
 		hint.Visible = hiding
+		if hiding and not wasHiding then
+			Sounds.play("Rustle")
+		end
+		wasHiding = hiding
 		if not me or not hiding then
+			wasSpotted = false
 			return
 		end
 		if me.spotted then
-			hint.Text = "SPOTTED! A cop can see you!"
+			hint.Text = "🚨 SPOTTED! A cop can see you!"
 			hint.TextColor3 = UI.Colors.Danger
+			if not wasSpotted then
+				Sounds.play("Whistle")
+				UI.pop(hint, 0.3)
+			end
 		elseif me.heat > 0 then
-			hint.Text = "Hidden! The police lost you."
+			hint.Text = "🌿 Hidden! The police lost you."
 			hint.TextColor3 = UI.Colors.Money
 		else
-			hint.Text = "Hiding spot: lose the police here."
+			hint.Text = "🌿 Hiding spot: lose the police here."
 			hint.TextColor3 = UI.Colors.Text
 		end
+		wasSpotted = me.spotted
 	end)
 end
 

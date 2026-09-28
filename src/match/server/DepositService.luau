@@ -10,6 +10,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
+local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
@@ -40,6 +41,7 @@ local function onDeposit(player: Player, desk: BasePart)
 	end
 	QuotaRunService.addProgress(amount)
 	Notifier.send(player, `Deposited {Format.money(amount)}`, "Good")
+	Juice.deposited(player, amount)
 end
 
 local function setupDesk(instance: Instance)

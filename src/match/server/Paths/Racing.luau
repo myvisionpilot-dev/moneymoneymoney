@@ -20,6 +20,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
+local Juice = require(script.Parent.Parent.Juice)
 local MoneyPath = require(script.Parent.MoneyPath)
 local MovementGuard = require(script.Parent.Parent.MovementGuard)
 local Notifier = require(script.Parent.Parent.Notifier)
@@ -307,6 +308,7 @@ local function finish(racer: Racer, now: number)
 	PayNotice.send(player, headline, added, pay)
 	if rank == 1 then
 		Stats.record(player, "RaceWin")
+		Juice.sound(player, "Fanfare")
 	end
 	if not solo and rank == 1 then
 		Notifier.others(player, `{player.DisplayName} won the race!`, "Info")

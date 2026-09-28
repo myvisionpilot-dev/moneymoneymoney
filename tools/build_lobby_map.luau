@@ -72,7 +72,13 @@ part("SignPostEast", Vector3.new(2, 8, 2), Vector3.new(18, 5, -40), Color3.fromR
 
 -- Two queue pads so two groups can form at once.
 for index, x in { -22, 22 } do
-	local pad = part(`QueuePad{index}`, Vector3.new(16, 1, 16), Vector3.new(x, 1.1, -8), Color3.fromRGB(60, 200, 90), Enum.Material.Neon)
+	local pad = part(
+		`QueuePad{index}`,
+		Vector3.new(16, 1, 16),
+		Vector3.new(x, 1.1, -8),
+		Color3.fromRGB(60, 200, 90),
+		Enum.Material.Neon
+	)
 	pad.Transparency = 0.2
 	CollectionService:AddTag(pad, "QueuePad")
 end

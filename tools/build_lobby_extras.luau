@@ -62,18 +62,30 @@ local counter = part(
 CollectionService:AddTag(counter, "CosmeticShop")
 label(counter, "COSMETICS\nspend your Cred", 9, Color3.fromRGB(255, 196, 50))
 for index, z in { standZ - 6, standZ + 6 } do
-	part(`AwningPost{index}`, Vector3.new(0.8, 10, 0.8), Vector3.new(standX + 1.5, FLOOR_Y + 5, z), Color3.fromRGB(235, 235, 235))
+	part(
+		`AwningPost{index}`,
+		Vector3.new(0.8, 10, 0.8),
+		Vector3.new(standX + 1.5, FLOOR_Y + 5, z),
+		Color3.fromRGB(235, 235, 235)
+	)
 end
 part("Awning", Vector3.new(7, 0.8, 14), Vector3.new(standX, FLOOR_Y + 10.4, standZ), Color3.fromRGB(255, 196, 50))
 -- A row of paint samples on the counter.
-for index, color in {
-	Color3.fromRGB(220, 40, 50),
-	Color3.fromRGB(40, 110, 220),
-	Color3.fromRGB(140, 220, 60),
-	Color3.fromRGB(30, 30, 45),
-	Color3.fromRGB(255, 196, 50),
-} do
-	local sample = part(`Sample{index}`, Vector3.new(1.2, 1.2, 1.2), Vector3.new(standX, FLOOR_Y + 4.6, standZ - 5 + index * 1.7), color)
+for index, color in
+	{
+		Color3.fromRGB(220, 40, 50),
+		Color3.fromRGB(40, 110, 220),
+		Color3.fromRGB(140, 220, 60),
+		Color3.fromRGB(30, 30, 45),
+		Color3.fromRGB(255, 196, 50),
+	}
+do
+	local sample = part(
+		`Sample{index}`,
+		Vector3.new(1.2, 1.2, 1.2),
+		Vector3.new(standX, FLOOR_Y + 4.6, standZ - 5 + index * 1.7),
+		color
+	)
 	sample.Shape = Enum.PartType.Ball
 	sample.CanCollide = false
 end
@@ -84,7 +96,8 @@ for _, info in { { "Cred", -30 }, { "Quota", 12 } } do
 	local board, x = info[1], info[2]
 	local position = Vector3.new(x, FLOOR_Y + 1 + BOARD_SIZE.Y / 2, -40)
 	part(`{board}BoardBase`, Vector3.new(20, 1, 3), Vector3.new(x, FLOOR_Y + 0.5, -40), Color3.fromRGB(60, 60, 66))
-	local sign = part(`{board}Board`, BOARD_SIZE, CFrame.lookAt(position, position + Vector3.zAxis), Color3.fromRGB(22, 28, 24))
+	local sign =
+		part(`{board}Board`, BOARD_SIZE, CFrame.lookAt(position, position + Vector3.zAxis), Color3.fromRGB(22, 28, 24))
 	sign:SetAttribute("Board", board)
 	CollectionService:AddTag(sign, "Leaderboard")
 end

@@ -16,6 +16,7 @@ local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local JailService = require(script.Parent.JailService)
+local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local PromptGuard = require(script.Parent.PromptGuard)
 local RosterService = require(script.Parent.RosterService)
@@ -93,6 +94,8 @@ local function onSteal(thief: Player, victim: Player, prompt: ProximityPrompt)
 	stolenTotals[thief.UserId] = (stolenTotals[thief.UserId] or 0) + moved
 	HeatService.add(thief, Config.Heat.Steal)
 	Notifier.all(`{thief.DisplayName} stole {Format.money(moved)} from {victim.DisplayName}!`, "Bad")
+	Juice.sound(thief, "Swipe")
+	Juice.sound(victim, "Whistle")
 	StealService.changed:Fire(thief.UserId)
 end
 

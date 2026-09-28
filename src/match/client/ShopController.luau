@@ -1,5 +1,6 @@
 --!strict
 -- Tony's upgrade shop: opens from the counter in his office. Paid from the cash in your bag.
+-- One colourful card per upgrade; walking away closes it.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -17,6 +18,13 @@ local ClientState = require(script.Parent.ClientState)
 
 local COUNTER_TAG = "ShopCounter"
 local CLOSE_SLACK = 6
+local CARD_SIZE = UDim2.fromOffset(134, 178)
+
+local LOOKS: { [string]: { icon: string, color: Color3 } } = {
+	Bag = { icon = "🎒", color = UI.Colors.Pink },
+	Lockpick = { icon = "🔑", color = UI.Colors.Risk },
+	Ride = { icon = "🏎️", color = UI.Colors.Purple },
+}
 
 local ShopController = {}
 
@@ -24,91 +32,70 @@ function ShopController.start()
 	local remotes = Remotes.match()
 	local root = UI.root(UI.screen("Shop", 45))
 
-	local panel = UI.frame({
+	local window = UI.window("🛒 TONY'S UPGRADES", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.55),
-		Size = UDim2.fromOffset(420, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 0.05,
-		Visible = false,
-	}, root)
-	UI.corner(panel, 16)
-	UI.stroke(panel, 3, UI.Colors.Gold)
-	UI.padding(panel, 14)
+		Size = UDim2.fromOffset(460, 0),
+	}, root, true)
+	local panel = window.panel
 	FirstPerson.registerPanel(panel)
-	UI.list(panel, Enum.FillDirection.Vertical, 8)
+	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
-	local title = UI.label({
-		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 30),
-		Font = UI.Fonts.Heading,
-		TextSize = 28,
-		TextColor3 = UI.Colors.Gold,
-		Text = "TONY'S UPGRADES",
-	}, panel)
-	UI.textStroke(title)
+	local bagPill = UI.pill("💵", UI.Colors.Money, { LayoutOrder = 1, Size = UDim2.fromOffset(220, 34) }, window.body)
 	UI.label({
 		LayoutOrder = 2,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		TextSize = 14,
-		TextColor3 = UI.Colors.Muted,
+		TextColor3 = UI.Colors.Text,
 		Text = "Paid from your bag, never your deposits. Upgrades last this run.",
-	}, panel)
-
-	local list = UI.frame({
+	}, window.body)
+	local cards = UI.frame({
 		LayoutOrder = 3,
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, CARD_SIZE.Y.Offset),
 		BackgroundTransparency = 1,
-	}, panel)
-	UI.list(list, Enum.FillDirection.Vertical, 8)
+	}, window.body)
+	UI.grid(cards, CARD_SIZE, 8)
 
-	local close = UI.button({
-		LayoutOrder = 4,
-		Size = UDim2.fromOffset(140, 40),
-		BackgroundColor3 = UI.Colors.PanelLight,
-		Text = "Close",
-	}, panel)
-	close.Activated:Connect(function()
-		panel.Visible = false
-	end)
-
-	local function itemRow(item: Types.ShopItem, carried: number)
-		local rowFrame = UI.frame({
-			Size = UDim2.new(1, 0, 0, 58),
-			BackgroundColor3 = UI.Colors.PanelLight,
-		}, list)
-		UI.corner(rowFrame, 10)
+	local function card(order: number, item: Types.ShopItem, carried: number)
+		local look = LOOKS[item.id] or { icon = "⭐", color = UI.Colors.Info }
+		local frame = UI.card(look.color, { LayoutOrder = order }, cards)
+		UI.label(
+			{ Position = UDim2.fromOffset(0, 4), Size = UDim2.new(1, 0, 0, 40), TextSize = 34, Text = look.icon },
+			frame
+		)
 		UI.label({
-			Position = UDim2.fromOffset(10, 6),
-			Size = UDim2.new(1, -170, 0, 22),
+			Position = UDim2.fromOffset(6, 44),
+			Size = UDim2.new(1, -12, 0, 22),
 			Font = UI.Fonts.Heading,
-			TextSize = 19,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Text = `{item.title}  (level {item.level}/{item.maxLevel})`,
-		}, rowFrame)
+			TextSize = 18,
+			Text = item.title,
+		}, frame)
 		UI.label({
-			Position = UDim2.fromOffset(10, 30),
-			Size = UDim2.new(1, -170, 0, 20),
+			Position = UDim2.fromOffset(6, 66),
+			Size = UDim2.new(1, -12, 0, 18),
 			TextSize = 14,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = UI.Colors.Muted,
-			Text = if item.nextEffect then `{item.current}  →  {item.nextEffect}` else `{item.current} (max)`,
-		}, rowFrame)
+			TextColor3 = UI.Colors.Gold,
+			Text = `Level {item.level}/{item.maxLevel}`,
+		}, frame)
+		UI.label({
+			Position = UDim2.fromOffset(6, 84),
+			Size = UDim2.new(1, -12, 0, 40),
+			TextSize = 13,
+			Text = if item.nextEffect then `{item.current}\n➡️ {item.nextEffect}` else `{item.current}\n(max)`,
+		}, frame)
 
 		local price = item.nextPrice
 		local affordable = price ~= nil and carried >= price
 		local buy = UI.button({
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -8, 0.5, 0),
-			Size = UDim2.fromOffset(150, 44),
-			BackgroundColor3 = if affordable then UI.Colors.Money else UI.Colors.PanelLight,
-			TextSize = 18,
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -16, 0, 36),
+			BackgroundColor3 = if affordable then UI.Colors.Money else UI.Colors.Grey,
+			TextSize = 17,
 			Text = if price then `BUY {Format.money(price)}` else "MAXED",
-		}, rowFrame)
-		buy.AutoButtonColor = affordable
+		}, frame)
 		buy.Activated:Connect(function()
 			if price then
 				remotes.BuyUpgrade:fire(item.id)
@@ -117,15 +104,16 @@ function ShopController.start()
 	end
 
 	remotes.ShopOpen:onClient(function(state: Types.ShopState)
-		for _, child in list:GetChildren() do
+		for _, child in cards:GetChildren() do
 			if child:IsA("Frame") then
 				child:Destroy()
 			end
 		end
 		local me = ClientState.me()
 		local carried = if me then me.carried else 0
-		for _, item in state.items do
-			itemRow(item, carried)
+		bagPill.Text = `{Format.money(carried)} in your bag`
+		for order, item in state.items do
+			card(order, item, carried)
 		end
 		panel.Visible = true
 	end)

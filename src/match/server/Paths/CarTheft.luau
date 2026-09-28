@@ -17,6 +17,7 @@ local Timing = require(ReplicatedStorage.Shared.Timing)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
+local Juice = require(script.Parent.Parent.Juice)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
@@ -191,6 +192,7 @@ steal = function(player: Player, spot: Spot): (boolean, string?)
 		return false, nil
 	end
 	HeatService.add(player, Config.Heat.CarTheft)
+	Juice.sound(player, "Beep")
 
 	local root = CharacterUtil.getRoot(player)
 	local now = Timing.now()

@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local HeatService = require(script.Parent.HeatService)
 local JailService = require(script.Parent.JailService)
 local NpcService = require(script.Parent.NpcService)
@@ -82,7 +83,12 @@ local function putInCar(model: Model, humanoid: Humanoid, root: BasePart): Align
 		end
 	end
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-	VehicleModels.attach(VehicleModels.policeCar(), root, humanoid, model)
+	local car = VehicleModels.policeCar()
+	VehicleModels.attach(car, root, humanoid, model)
+	local roof = car:FindFirstChild("Cabin")
+	if roof then
+		Sounds.at("Siren", roof, true) -- goes when the car does
+	end
 
 	local attachment = root:FindFirstChild("RootAttachment")
 	if not attachment or not attachment:IsA("Attachment") then
@@ -187,6 +193,9 @@ local function spawnCop(target: Player, inCar: boolean)
 		local turner = if inCar then putInCar(model, humanoid, root) else nil
 		local minStuds = if inCar then Config.Police.CarMinSpawnStuds else Config.Police.MinSpawnStuds
 		NpcService.place(model, CFrame.new(spawnPosition(target, minStuds)), true)
+		if not inCar then
+			Sounds.at("Whistle", root)
+		end
 		table.insert(cops, {
 			model = model,
 			humanoid = humanoid,

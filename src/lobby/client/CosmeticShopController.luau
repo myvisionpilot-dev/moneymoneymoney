@@ -1,7 +1,7 @@
 --!strict
--- The cosmetics shop panel: tabs for kart paint, trails, titles and hats (buy with Cred, then
--- equip), plus a Badges tab showing what you've earned. Opens from the stand; walking away
--- closes it.
+-- The cosmetics shop: a grid of item cards for kart paint, trails, titles and hats (buy with
+-- Cred, then wear), plus a Badges tab showing what you've earned. Tabs sit along the bottom.
+-- Opens from the stand; walking away closes it.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -14,6 +14,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local FirstPerson = require(Shared:WaitForChild("FirstPerson"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Sounds = require(Shared:WaitForChild("Sounds"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ProfileState = require(script.Parent.ProfileState)
@@ -21,75 +22,122 @@ local ProfileState = require(script.Parent.ProfileState)
 local SHOP_TAG = "CosmeticShop"
 local CLOSE_SLACK = 8
 local BADGES_TAB = "Badges"
-local ROW_HEIGHT = 50
-local VISIBLE_ROWS = 5
+local CARD_SIZE = UDim2.fromOffset(108, 136)
+local CARD_GAP = 8
+local VISIBLE_ROWS = 2
+
+local TABS: { [string]: { icon: string, color: Color3 } } = {
+	Paint = { icon = "🏎️", color = UI.Colors.Pink },
+	Trail = { icon = "✨", color = UI.Colors.Purple },
+	Title = { icon = "🏷️", color = UI.Colors.Info },
+	Hat = { icon = "🎩", color = UI.Colors.Risk },
+	[BADGES_TAB] = { icon = "🏅", color = UI.Colors.Gold },
+}
+
+local HAT_ICONS: { [string]: string } = { Cap = "🧢", TopHat = "🎩", Crown = "👑" }
 
 local CosmeticShopController = {}
+
+-- The top of an item card: what the cosmetic looks like.
+local function preview(item: Catalog.Cosmetic, card: Frame)
+	local area = UI.frame({
+		Position = UDim2.fromOffset(0, 6),
+		Size = UDim2.new(1, 0, 0, 48),
+		BackgroundTransparency = 1,
+	}, card)
+	if item.slot == "Paint" then
+		local swatch = UI.frame({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(44, 44),
+			BackgroundColor3 = item.colors[1],
+		}, area)
+		UI.corner(swatch, 22)
+		UI.stroke(swatch, 3)
+		UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 24, Text = "🏎️" }, swatch)
+	elseif item.slot == "Trail" then
+		local strip = UI.frame({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(84, 20),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+		}, area)
+		UI.corner(strip, 10)
+		UI.stroke(strip, 3)
+		local keypoints = {}
+		for index, color in item.colors do
+			local time = if #item.colors == 1 then 0 else (index - 1) / (#item.colors - 1)
+			table.insert(keypoints, ColorSequenceKeypoint.new(time, color))
+		end
+		if #keypoints == 1 then
+			table.insert(keypoints, ColorSequenceKeypoint.new(1, item.colors[1]))
+		end
+		local gradient = Instance.new("UIGradient")
+		gradient.Color = ColorSequence.new(keypoints)
+		gradient.Parent = strip
+	elseif item.slot == "Title" then
+		local tag = UI.frame({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(1, -12, 0, 30),
+			BackgroundColor3 = UI.Colors.Ink,
+		}, area)
+		UI.corner(tag, 8)
+		UI.label({
+			Size = UDim2.fromScale(1, 1),
+			TextSize = 15,
+			TextColor3 = item.colors[1],
+			Text = item.text or item.name,
+		}, tag)
+	else
+		UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 36, Text = HAT_ICONS[item.hat or ""] or "🎩" }, area)
+	end
+end
 
 function CosmeticShopController.start()
 	local remotes = Remotes.lobby()
 	local root = UI.root(UI.screen("Cosmetics", 40))
 
-	local panel = UI.frame({
+	local window = UI.window("🎨 COSMETICS", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.52),
 		Size = UDim2.fromOffset(520, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 0.05,
-		Visible = false,
-	}, root)
-	UI.corner(panel, 16)
-	UI.stroke(panel, 3, UI.Colors.Gold)
-	UI.padding(panel, 14)
+	}, root, true)
+	local panel = window.panel
 	FirstPerson.registerPanel(panel)
-	UI.list(panel, Enum.FillDirection.Vertical, 8)
+	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
-	local title = UI.label({
-		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 30),
-		Font = UI.Fonts.Heading,
-		TextSize = 28,
-		TextColor3 = UI.Colors.Gold,
-		Text = "COSMETICS",
-	}, panel)
-	UI.textStroke(title)
-	local balance = UI.label({
-		LayoutOrder = 2,
-		Size = UDim2.new(1, 0, 0, 20),
-		TextSize = 16,
-		TextColor3 = UI.Colors.Muted,
-	}, panel)
-
-	local tabs = UI.frame({
-		LayoutOrder = 3,
-		Size = UDim2.new(1, 0, 0, 34),
-		BackgroundTransparency = 1,
-	}, panel)
-	UI.list(tabs, Enum.FillDirection.Horizontal, 6)
+	-- Your Cred sits in the title bar, next to the X.
+	window.title.Size = UDim2.new(1, -210, 1, 0)
+	local credPill = UI.pill("⭐", UI.Colors.Gold, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -46, 0.5, 0),
+		Size = UDim2.fromOffset(150, 34),
+	}, window.title.Parent)
 
 	-- Scrolls, so a long list (badges) never runs off a small screen.
 	local list = Instance.new("ScrollingFrame")
-	list.LayoutOrder = 4
-	list.Size = UDim2.new(1, 0, 0, VISIBLE_ROWS * (ROW_HEIGHT + 6))
+	list.LayoutOrder = 1
+	list.Size = UDim2.new(1, 0, 0, VISIBLE_ROWS * (CARD_SIZE.Y.Offset + CARD_GAP) + 4)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
+	list.ScrollBarImageColor3 = UI.Colors.Ink
 	list.ScrollingDirection = Enum.ScrollingDirection.Y
 	list.CanvasSize = UDim2.new()
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	list.Parent = panel
-	UI.list(list, Enum.FillDirection.Vertical, 6)
+	list.Parent = window.body
+	UI.padding(list, 4)
+	UI.grid(list, CARD_SIZE, CARD_GAP)
 
-	local close = UI.button({
-		LayoutOrder = 5,
-		Size = UDim2.fromOffset(140, 38),
-		BackgroundColor3 = UI.Colors.PanelLight,
-		Text = "Close",
+	-- Tabs along the bottom of the window, below the light inset.
+	local tabs = UI.frame({
+		LayoutOrder = 3,
+		Size = UDim2.new(1, 0, 0, 40),
+		BackgroundTransparency = 1,
 	}, panel)
-	close.Activated:Connect(function()
-		panel.Visible = false
-	end)
+	UI.list(tabs, Enum.FillDirection.Horizontal, 6)
 
 	local currentTab = Catalog.Slots[1] :: string
 	local tabButtons: { [string]: TextButton } = {}
@@ -102,87 +150,67 @@ function CosmeticShopController.start()
 		end
 	end
 
-	local function row(order: number): Frame
-		local frame = UI.frame({
-			LayoutOrder = order,
-			Size = UDim2.new(1, -10, 0, ROW_HEIGHT), -- room for the scroll bar
-			BackgroundColor3 = UI.Colors.PanelLight,
-		}, list)
-		UI.corner(frame, 10)
-		return frame
-	end
-
-	local function itemRow(order: number, item: Catalog.Cosmetic, view: Types.ProfileView)
-		local frame = row(order)
-		local swatch = UI.frame({
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 10, 0.5, 0),
-			Size = UDim2.fromOffset(28, 28),
-			BackgroundColor3 = item.colors[1],
-		}, frame)
-		UI.corner(swatch, 14)
+	local function itemCard(order: number, item: Catalog.Cosmetic, view: Types.ProfileView)
+		local look = TABS[item.slot]
+		local card = UI.card(look.color, { LayoutOrder = order }, list)
+		preview(item, card)
 		UI.label({
-			Position = UDim2.fromOffset(48, 0),
-			Size = UDim2.new(1, -220, 1, 0),
+			Position = UDim2.fromOffset(4, 56),
+			Size = UDim2.new(1, -8, 0, 32),
 			Font = UI.Fonts.Heading,
-			TextSize = 19,
-			TextXAlignment = Enum.TextXAlignment.Left,
+			TextSize = 15,
 			Text = item.name,
-		}, frame)
+		}, card)
 
 		local owned = table.find(view.owned, item.id) ~= nil
 		local wearing = view.equipped[item.slot] == item.id
 		local price = Catalog.price(item.id) or 0
 		local affordable = view.cred >= price
 		local button = UI.button({
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -8, 0.5, 0),
-			Size = UDim2.fromOffset(160, 38),
-			TextSize = 17,
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -14, 0, 36),
+			TextSize = if owned then 16 else 13,
 			BackgroundColor3 = if wearing
 				then UI.Colors.Gold
-				elseif owned or affordable then UI.Colors.Money
-				else UI.Colors.PanelLight,
-			Text = if wearing then "WEARING (take off)" elseif owned then "WEAR" else `BUY {Format.number(price)}`,
-		}, frame)
+				elseif owned then UI.Colors.Info
+				elseif affordable then UI.Colors.Money
+				else UI.Colors.Grey,
+			Text = if wearing then "✅ ON" elseif owned then "WEAR" else `BUY\n⭐ {Format.number(price)}`,
+		}, card)
 		button.Activated:Connect(function()
 			if owned then
 				remotes.EquipCosmetic:fire(item.id)
-			else
+			elseif affordable then
 				remotes.BuyCosmetic:fire(item.id)
+			else
+				Sounds.play("Fail", 1, 0.6)
 			end
 		end)
 	end
 
-	local function badgeRow(order: number, badge: Catalog.Badge, earned: boolean)
-		local frame = row(order)
+	local function badgeCard(order: number, badge: Catalog.Badge, earned: boolean)
+		local card = UI.card(if earned then UI.Colors.Gold else UI.Colors.Grey, { LayoutOrder = order }, list)
 		UI.label({
-			Position = UDim2.fromOffset(12, 4),
-			Size = UDim2.new(1, -130, 0, 22),
+			Position = UDim2.fromOffset(0, 6),
+			Size = UDim2.new(1, 0, 0, 38),
+			TextSize = 32,
+			Text = if earned then "🏅" else "🔒",
+		}, card)
+		UI.label({
+			Position = UDim2.fromOffset(4, 44),
+			Size = UDim2.new(1, -8, 0, 32),
 			Font = UI.Fonts.Heading,
-			TextSize = 18,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = if earned then UI.Colors.Gold else UI.Colors.Text,
-			Text = badge.name,
-		}, frame)
-		UI.label({
-			Position = UDim2.fromOffset(12, 26),
-			Size = UDim2.new(1, -130, 0, 18),
 			TextSize = 14,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = UI.Colors.Muted,
-			Text = badge.text,
-		}, frame)
+			Text = badge.name,
+		}, card)
 		UI.label({
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -12, 0.5, 0),
-			Size = UDim2.fromOffset(110, 24),
-			Font = UI.Fonts.Heading,
-			TextSize = 17,
-			TextXAlignment = Enum.TextXAlignment.Right,
-			TextColor3 = if earned then UI.Colors.Money else UI.Colors.Muted,
-			Text = if earned then "EARNED" else "Locked",
-		}, frame)
+			Position = UDim2.fromOffset(5, 78),
+			Size = UDim2.new(1, -10, 1, -84),
+			TextSize = 12,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Text = badge.text,
+		}, card)
 	end
 
 	local function render()
@@ -190,14 +218,14 @@ function CosmeticShopController.start()
 		if not view then
 			return
 		end
-		balance.Text = `You have {Format.cred(view.cred)}. Win runs to earn more.`
+		credPill.Text = Format.cred(view.cred)
 		for name, button in tabButtons do
-			button.BackgroundColor3 = if name == currentTab then UI.Colors.Gold else UI.Colors.PanelLight
+			button.BackgroundColor3 = if name == currentTab then UI.Colors.Gold else UI.Colors.PanelDark
 		end
 		clearList()
 		if currentTab == BADGES_TAB then
 			for order, badge in Catalog.Badges do
-				badgeRow(order, badge, table.find(view.badges, badge.id) ~= nil)
+				badgeCard(order, badge, table.find(view.badges, badge.id) ~= nil)
 			end
 			return
 		end
@@ -205,7 +233,7 @@ function CosmeticShopController.start()
 		for _, item in Catalog.Cosmetics do
 			if item.slot == currentTab then
 				order += 1
-				itemRow(order, item, view)
+				itemCard(order, item, view)
 			end
 		end
 	end
@@ -219,9 +247,9 @@ function CosmeticShopController.start()
 		local button = UI.button({
 			LayoutOrder = order,
 			Size = UDim2.new(1 / #tabList, -5, 1, 0),
-			TextSize = 15,
-			BackgroundColor3 = UI.Colors.PanelLight,
-			Text = tab.text,
+			TextSize = 14,
+			BackgroundColor3 = UI.Colors.PanelDark,
+			Text = `{TABS[tab.key].icon} {tab.text}`,
 		}, tabs)
 		button.Activated:Connect(function()
 			currentTab = tab.key
@@ -235,10 +263,22 @@ function CosmeticShopController.start()
 		panel.Visible = true
 		render()
 	end)
-	ProfileState.changed:Connect(function(_view: Types.ProfileView)
+
+	-- A cash-register ding when something new lands in your collection.
+	local ownedCount = if ProfileState.view then #ProfileState.view.owned else -1
+	local lastCred: number? = nil
+	ProfileState.changed:Connect(function(view: Types.ProfileView)
+		if ownedCount >= 0 and #view.owned > ownedCount then
+			Sounds.play("Purchase")
+		end
+		ownedCount = #view.owned
 		if panel.Visible then
 			render()
+			if lastCred and lastCred ~= view.cred then
+				UI.pop(credPill, 0.3)
+			end
 		end
+		lastCred = view.cred
 	end)
 
 	-- Walking away from the stand closes the shop.

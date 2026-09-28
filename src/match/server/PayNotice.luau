@@ -1,9 +1,11 @@
 --!strict
--- The pay-out pop-up every money path uses, including when the bag was (nearly) full.
+-- The pay-out pop-up every money path uses, including when the bag was (nearly) full, plus the
+-- money pop-up and coin sound.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Format = require(ReplicatedStorage.Shared.Format)
+local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 
 local PayNotice = {}
@@ -17,6 +19,7 @@ function PayNotice.send(player: Player, headline: string, added: number, pay: nu
 	else
 		Notifier.send(player, `{headline} But your bag was full, so you got nothing. Deposit at Tony's!`, "Bad")
 	end
+	Juice.paid(player, added)
 end
 
 return PayNotice

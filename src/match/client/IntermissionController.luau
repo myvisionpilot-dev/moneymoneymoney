@@ -10,12 +10,41 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Sounds = require(Shared:WaitForChild("Sounds"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
 
+local CONFETTI_PIECES = 40
+local CONFETTI_SECONDS = 2.2
+local CONFETTI_COLORS = { UI.Colors.Gold, UI.Colors.Money, UI.Colors.Pink, UI.Colors.Panel, UI.Colors.Purple }
+
 local IntermissionController = {}
+
+local rng = Random.new()
+
+-- Paper confetti raining down the screen.
+local function confetti(parent: Instance)
+	for _ = 1, CONFETTI_PIECES do
+		local piece = UI.frame({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(rng:NextNumber(), 0, 0, rng:NextInteger(-60, -10)),
+			Size = UDim2.fromOffset(rng:NextInteger(6, 11), rng:NextInteger(10, 16)),
+			BackgroundColor3 = CONFETTI_COLORS[rng:NextInteger(1, #CONFETTI_COLORS)],
+			Rotation = rng:NextInteger(0, 360),
+			ZIndex = 5,
+		}, parent)
+		local seconds = CONFETTI_SECONDS * rng:NextNumber(0.7, 1.1)
+		UI.tween(piece, seconds, {
+			Position = UDim2.new(piece.Position.X.Scale + rng:NextNumber(-0.08, 0.08), 0, 1, 40),
+			Rotation = piece.Rotation + rng:NextInteger(-360, 360),
+		})
+		task.delay(seconds, function()
+			piece:Destroy()
+		end)
+	end
+end
 
 local function contributionRow(parent: Instance, order: number, contribution: Types.Contribution)
 	local isMe = contribution.userId == Players.LocalPlayer.UserId
@@ -37,7 +66,7 @@ local function contributionRow(parent: Instance, order: number, contribution: Ty
 		Position = UDim2.fromScale(0.5, 0),
 		Size = UDim2.fromScale(0.3, 1),
 		TextXAlignment = Enum.TextXAlignment.Right,
-		TextColor3 = UI.Colors.Money,
+		TextColor3 = color,
 		Text = Format.money(contribution.deposited),
 	}, row)
 	UI.label({
@@ -51,33 +80,28 @@ end
 
 function IntermissionController.start()
 	local root = UI.root(UI.screen("Intermission", 30))
-	local panel = UI.frame({
+	local panel = UI.card(UI.Colors.Money, {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 196), -- below Tony's banner
-		Size = UDim2.fromOffset(400, 0),
+		Size = UDim2.fromOffset(420, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 0.05,
 		Visible = false,
 	}, root)
-	UI.corner(panel, 16)
-	UI.stroke(panel, 3, UI.Colors.Money)
 	UI.padding(panel, 14)
 	UI.list(panel, Enum.FillDirection.Vertical, 6)
 
 	local title = UI.label({
 		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 34),
+		Size = UDim2.new(1, 0, 0, 36),
 		Font = UI.Fonts.Heading,
-		TextSize = 30,
-		TextColor3 = UI.Colors.Money,
+		TextSize = 32,
 	}, panel)
-	UI.textStroke(title)
+	UI.textStroke(title, 3)
 	local subtitle = UI.label({
 		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, 20),
 		TextSize = 16,
-		TextColor3 = UI.Colors.Muted,
 	}, panel)
 	local rows = UI.frame({
 		LayoutOrder = 3,
@@ -103,8 +127,10 @@ function IntermissionController.start()
 
 	Remotes.match().QuotaResult:onClient(function(result: Types.QuotaResult)
 		current = result
-		title.Text = if result.passed then `QUOTA {result.quotaIndex} PAID!` else `QUOTA {result.quotaIndex} MISSED`
-		title.TextColor3 = if result.passed then UI.Colors.Money else UI.Colors.Danger
+		title.Text = if result.passed
+			then `🎉 QUOTA {result.quotaIndex} PAID!`
+			else `QUOTA {result.quotaIndex} MISSED`
+		panel.BackgroundColor3 = if result.passed then UI.Colors.Money else UI.Colors.Danger
 		subtitle.Text = `Team deposited {Format.money(result.total)} of {Format.money(result.target)}`
 
 		for _, child in rows:GetChildren() do
@@ -125,6 +151,11 @@ function IntermissionController.start()
 			nextLabel.Text = `Next: Quota {result.nextQuotaIndex} · {Format.money(result.nextTarget)}`
 		end
 		panel.Visible = true
+		UI.pop(panel, 0.1)
+		if result.passed then
+			Sounds.play("Fanfare")
+			confetti(root)
+		end
 	end)
 
 	ClientState.changed:Connect(function(snapshot: Types.RunSnapshot)

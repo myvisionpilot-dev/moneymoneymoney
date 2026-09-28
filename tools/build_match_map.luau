@@ -5,12 +5,13 @@
 --   TonyDesk, TonySpawn, ShopCounter        Tony's office
 --   House (+ HouseId, Tier attributes; children: Door part, BackDoor + Chore1-3 attachments)
 --   DeliveryDepot, DeliveryDropoff           deliveries
---   StoreCounter                             store robberies
+--   StoreCounter, StoreZone                  store robberies, the door bell (build_stores.luau)
 --   PoliceSpawn, JailCell, JailExit          police and jail
 --   HidingSpot, ParkSpot, AlleyDrop          heat and door jobs
 --   ParkedCar, ChopShop                      car theft
 --   PedWaypoint (+ Route, Order attributes)  pedestrian routes
--- The race track up north is built separately: run build_race_track.luau after this.
+-- The race track and the walk-in stores are built separately: run build_race_track.luau and
+-- build_stores.luau after this.
 
 local CollectionService = game:GetService("CollectionService")
 
@@ -161,17 +162,8 @@ for index, x in { -12, 0, 12 } do
 	CollectionService:AddTag(spawn, "TonySpawn")
 end
 
--- Downtown: stores, police and jail, the alley drop, placeholders.
+-- Downtown: police and jail, the alley drop, placeholders. The stores come from build_stores.luau.
 local downtown = folder("Downtown")
-label(block(downtown, "StoreA", 36, 14, 26, -100, -95, Color3.fromRGB(120, 200, 160)), "CORNER STORE", 10)
-local counterA =
-	part(downtown, "StoreCounterA", Vector3.new(3, 4, 8), Vector3.new(-80, 2, -95), Color3.fromRGB(90, 150, 120))
-CollectionService:AddTag(counterA, "StoreCounter")
-label(block(downtown, "StoreB", 36, 14, 26, 100, 95, Color3.fromRGB(120, 200, 160)), "MINI MART", 10)
-local counterB =
-	part(downtown, "StoreCounterB", Vector3.new(3, 4, 8), Vector3.new(80, 2, 95), Color3.fromRGB(90, 150, 120))
-CollectionService:AddTag(counterB, "StoreCounter")
-
 label(block(downtown, "PoliceStation", 40, 16, 30, 100, -100, Color3.fromRGB(60, 90, 170)), "POLICE", 11)
 marker(downtown, "PoliceSpawnA", Vector3.new(74, 3, -95), "PoliceSpawn")
 marker(downtown, "PoliceSpawnB", Vector3.new(74, 3, -105), "PoliceSpawn")

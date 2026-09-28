@@ -3,11 +3,13 @@
 -- Each store closes for StoreRobbery.CooldownSeconds afterwards. Unlocks at Paths.Unlocks.StoreRobbery.
 
 local CollectionService = game:GetService("CollectionService")
+local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
@@ -70,6 +72,10 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	HeatService.add(player, Config.Heat.StoreRobbery)
 	PayNotice.send(player, "You emptied the register! The alarm is ringing!", added, pay)
 	Stats.record(player, "StoreRobbery")
+	local alarm = Sounds.at("Alarm", store.counter, true)
+	if alarm then
+		Debris:AddItem(alarm, settings.AlarmSeconds)
+	end
 	Notifier.others(player, "Alarm! Someone just robbed a store.", "Bad")
 	return true, nil
 end

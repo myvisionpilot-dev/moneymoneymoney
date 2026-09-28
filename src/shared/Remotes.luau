@@ -40,7 +40,10 @@ export type MatchRemotes = {
 	DoorOffer: ToClient<Types.DoorOffer?>,
 	ShopOpen: ToClient<Types.ShopState>,
 	RaceUpdate: ToClient<Types.RaceUpdate?>,
+	Juice: ToClient<Types.JuiceEvent>,
+	PickpocketGame: ToClient<Types.PickpocketGame?>, -- nil ends it
 	ClientReady: ToServer<nil>,
+	PickpocketPresses: ToServer<{ number }>, -- seconds into each round when you pressed
 	SubmitDecision: ToServer<Types.Decision>,
 	ChooseDoorOffer: ToServer<number>, -- 1 or 2, or 0 to walk away
 	BuyUpgrade: ToServer<Types.UpgradeId>,
@@ -144,7 +147,10 @@ function Remotes.match(): MatchRemotes
 		DoorOffer = toClient("DoorOffer"),
 		ShopOpen = toClient("ShopOpen"),
 		RaceUpdate = toClient("RaceUpdate"),
+		Juice = toClient("Juice"),
+		PickpocketGame = toClient("PickpocketGame"),
 		ClientReady = toServer("ClientReady"),
+		PickpocketPresses = toServer("PickpocketPresses"),
 		SubmitDecision = toServer("SubmitDecision"),
 		ChooseDoorOffer = toServer("ChooseDoorOffer"),
 		BuyUpgrade = toServer("BuyUpgrade"),

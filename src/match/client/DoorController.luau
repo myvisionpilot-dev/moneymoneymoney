@@ -1,6 +1,7 @@
 --!strict
--- The door offer panel: the resident's greeting and their two jobs (chore or wildcard),
--- each showing pay and heat, plus Walk away. Sits at the bottom so you can see who answered.
+-- The door offer: the resident's greeting and their two jobs as big cards (green = legal,
+-- orange = illegal), each with pay and heat, plus Walk away. Sits at the bottom so you can see
+-- who answered.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -13,7 +14,30 @@ local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 
-local OPTION_HEIGHT = 124
+local OPTION_HEIGHT = 150
+
+-- An emoji for a job, from words in its title.
+local ICONS: { { word: string, icon: string } } = {
+	{ word = "dog", icon = "🐕" },
+	{ word = "letter", icon = "✉️" },
+	{ word = "wallet", icon = "👛" },
+	{ word = "package", icon = "📦" },
+	{ word = "break", icon = "🔓" },
+	{ word = "mow", icon = "🌱" },
+	{ word = "lawn", icon = "🌱" },
+	{ word = "bin", icon = "🗑️" },
+	{ word = "wash", icon = "🧽" },
+}
+
+local function iconFor(option: Types.DoorOfferOption): string
+	local title = option.title:lower()
+	for _, entry in ICONS do
+		if title:find(entry.word, 1, true) then
+			return entry.icon
+		end
+	end
+	return if option.legal then "🧹" else "🦹"
+end
 
 local DoorController = {}
 
@@ -21,59 +45,45 @@ function DoorController.start()
 	local remotes = Remotes.match()
 	local root = UI.root(UI.screen("DoorOffer", 35))
 
-	local panel = UI.frame({
+	local window = UI.window("🚪", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -16),
-		Size = UDim2.fromOffset(470, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 0.05,
-		Visible = false,
+		Size = UDim2.fromOffset(480, 0),
 	}, root)
-	UI.corner(panel, 16)
-	UI.stroke(panel, 3, UI.Colors.Gold)
-	UI.padding(panel, 12)
+	local panel = window.panel
 	FirstPerson.registerPanel(panel)
-	UI.list(panel, Enum.FillDirection.Vertical, 8)
+	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
-	local name = UI.label({
-		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 26),
-		Font = UI.Fonts.Heading,
-		TextSize = 24,
-		TextColor3 = UI.Colors.Gold,
-	}, panel)
-	UI.textStroke(name)
 	local greeting = UI.label({
-		LayoutOrder = 2,
+		LayoutOrder = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		TextSize = 16,
-		TextColor3 = UI.Colors.Muted,
-	}, panel)
+	}, window.body)
 
 	local row = UI.frame({
-		LayoutOrder = 3,
+		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, OPTION_HEIGHT),
 		BackgroundTransparency = 1,
-	}, panel)
+	}, window.body)
 	UI.list(row, Enum.FillDirection.Horizontal, 10)
 
 	local footer = UI.frame({
-		LayoutOrder = 4,
-		Size = UDim2.new(1, 0, 0, 36),
+		LayoutOrder = 3,
+		Size = UDim2.new(1, 0, 0, 38),
 		BackgroundTransparency = 1,
-	}, panel)
+	}, window.body)
 	local walkAway = UI.button({
-		Size = UDim2.fromOffset(140, 36),
-		BackgroundColor3 = UI.Colors.PanelLight,
+		Size = UDim2.fromOffset(150, 38),
+		BackgroundColor3 = UI.Colors.Grey,
 		TextSize = 18,
 		Text = "Walk away",
 	}, footer)
 	local countdown = UI.label({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.fromScale(1, 0),
-		Size = UDim2.new(1, -150, 1, 0),
+		Size = UDim2.new(1, -160, 1, 0),
 		TextSize = 15,
 		TextXAlignment = Enum.TextXAlignment.Right,
 	}, footer)
@@ -96,39 +106,39 @@ function DoorController.start()
 		choose(0)
 	end)
 
-	local function optionButton(option: Types.DoorOfferOption)
-		local button = UI.button({
+	local function optionCard(option: Types.DoorOfferOption)
+		local card = UI.button({
 			LayoutOrder = option.slot,
 			Size = UDim2.new(0.5, -5, 1, 0),
 			BackgroundColor3 = if option.legal then UI.Colors.Money else UI.Colors.Risk,
 			Text = "",
 		}, row)
-		UI.padding(button, 8)
-		UI.list(button, Enum.FillDirection.Vertical, 4)
-		local title = UI.label({
-			LayoutOrder = 1,
+		UI.padding(card, 8)
+		UI.list(card, Enum.FillDirection.Vertical, 2)
+		UI.label({ LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 34), TextSize = 30, Text = iconFor(option) }, card)
+		UI.label({
+			LayoutOrder = 2,
 			Size = UDim2.new(1, 0, 0, 22),
 			Font = UI.Fonts.Heading,
 			TextSize = 18,
 			Text = option.title,
-		}, button)
-		UI.textStroke(title)
+		}, card)
 		UI.label({
-			LayoutOrder = 2,
-			Size = UDim2.new(1, 0, 0, 52),
+			LayoutOrder = 3,
+			Size = UDim2.new(1, 0, 0, 36),
 			TextSize = 13,
 			Text = option.detail,
-		}, button)
-		local risk = if option.heat > 0 then `+{option.heat} heat` else "No heat"
-		local payLine = UI.label({
-			LayoutOrder = 3,
-			Size = UDim2.new(1, 0, 0, 20),
+		}, card)
+		local risk = if option.heat > 0 then `🚨 +{option.heat} heat` else "😇 No heat"
+		UI.label({
+			LayoutOrder = 4,
+			Size = UDim2.new(1, 0, 0, 22),
 			Font = UI.Fonts.Heading,
-			TextSize = 16,
-			Text = `{Format.money(option.pay)}  ·  {risk}`,
-		}, button)
-		UI.textStroke(payLine)
-		button.Activated:Connect(function()
+			TextSize = 17,
+			TextColor3 = UI.Colors.Gold,
+			Text = `💵 {Format.money(option.pay)}  ·  {risk}`,
+		}, card)
+		card.Activated:Connect(function()
 			choose(option.slot)
 		end)
 	end
@@ -144,10 +154,10 @@ function DoorController.start()
 			return
 		end
 		offer = newOffer
-		name.Text = newOffer.residentName
+		window.title.Text = `🚪 {newOffer.residentName}`
 		greeting.Text = `"{newOffer.greeting}"`
 		for _, option in newOffer.options do
-			optionButton(option)
+			optionCard(option)
 		end
 		panel.Visible = true
 	end)
@@ -155,7 +165,7 @@ function DoorController.start()
 	RunService.RenderStepped:Connect(function()
 		local current = offer
 		if current and panel.Visible then
-			countdown.Text = `Door closes in {Format.clock(current.expiresAt - Timing.now())}`
+			countdown.Text = `⏳ Door closes in {Format.clock(current.expiresAt - Timing.now())}`
 		end
 	end)
 end

@@ -18,9 +18,9 @@ One universe, two places, each synced from its own Rojo project.
 
 Maps are grey boxes kept in the place files, not in Rojo. Rebuild them with `tools/build_lobby_map.luau` (then
 `tools/build_lobby_extras.luau` for the cosmetics stand and leaderboards), `tools/build_match_map.luau` and then
-`tools/build_race_track.luau` (paste into the command bar). Code finds map points by CollectionService tags:
-`QueuePad`, `CosmeticShop`, `Leaderboard`, `TonyDesk`, `TonySpawn`, `DeliveryDepot`, `DeliveryDropoff`, `House`,
-`HidingSpot`, `StoreCounter`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`,
+`tools/build_race_track.luau` and `tools/build_stores.luau` (paste into the command bar). Code finds map points by
+CollectionService tags: `QueuePad`, `CosmeticShop`, `Leaderboard`, `TonyDesk`, `TonySpawn`, `DeliveryDepot`,
+`DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`, `StoreZone`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`,
 `AlleyDrop`, `RaceJoin`, `RaceCheckpoint`, `RaceGrid`, `ParkedCar`, `ChopShop`.
 
 ## Saving

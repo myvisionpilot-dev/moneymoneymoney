@@ -19,41 +19,29 @@ local DecisionController = {}
 function DecisionController.start()
 	local remotes = Remotes.match()
 	local root = UI.root(UI.screen("Decision", 40))
-	local panel = UI.frame({
+	local window = UI.window("💰 CASH OUT OR KEEP GOING?", {
 		Name = "Panel",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 196), -- below Tony's banner
-		Size = UDim2.fromOffset(440, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 0.05,
-		Visible = false,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -8), -- bottom, clear of Tony's banner
+		Size = UDim2.fromOffset(460, 0),
 	}, root)
-	UI.corner(panel, 16)
-	UI.stroke(panel, 3, UI.Colors.Gold)
-	UI.padding(panel, 14)
+	local panel = window.panel
+	window.title.TextSize = 24
 	FirstPerson.registerPanel(panel)
-	UI.list(panel, Enum.FillDirection.Vertical, 8)
+	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
-	local title = UI.label({
-		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 32),
-		Font = UI.Fonts.Heading,
-		TextSize = 28,
-		TextColor3 = UI.Colors.Gold,
-		Text = "CASH OUT OR KEEP GOING?",
-	}, panel)
-	UI.textStroke(title)
 	local prizeLabel = UI.label({
-		LayoutOrder = 2,
+		LayoutOrder = 1,
 		Size = UDim2.new(1, 0, 0, 24),
 		TextSize = 20,
-	}, panel)
+		TextColor3 = UI.Colors.Gold,
+	}, window.body)
 
 	local buttons = UI.frame({
-		LayoutOrder = 3,
-		Size = UDim2.new(1, 0, 0, 96),
+		LayoutOrder = 2,
+		Size = UDim2.new(1, 0, 0, 76),
 		BackgroundTransparency = 1,
-	}, panel)
+	}, window.body)
 	UI.list(buttons, Enum.FillDirection.Horizontal, 12)
 	local cashOut = UI.button({
 		LayoutOrder = 1,
@@ -64,21 +52,20 @@ function DecisionController.start()
 	local keepGoing = UI.button({
 		LayoutOrder = 2,
 		Size = UDim2.new(0.5, -6, 1, 0),
-		BackgroundColor3 = UI.Colors.Risk,
+		BackgroundColor3 = UI.Colors.Danger,
 		TextSize = 18,
 	}, buttons)
 
 	local riskLabel = UI.label({
-		LayoutOrder = 4,
+		LayoutOrder = 3,
 		Size = UDim2.new(1, 0, 0, 36),
 		TextSize = 15,
-		TextColor3 = UI.Colors.Muted,
-	}, panel)
+	}, window.body)
 	local countdown = UI.label({
-		LayoutOrder = 5,
+		LayoutOrder = 4,
 		Size = UDim2.new(1, 0, 0, 20),
 		TextSize = 16,
-	}, panel)
+	}, window.body)
 
 	local prompt: Types.DecisionPrompt? = nil
 	local chosen: Types.Decision? = nil
@@ -113,9 +100,9 @@ function DecisionController.start()
 		setButtons(true)
 		cashOut.BackgroundTransparency = 0
 		keepGoing.BackgroundTransparency = 0
-		prizeLabel.Text = `Your prize right now: {Format.cred(newPrompt.prizeNow)}`
-		cashOut.Text = `CASH OUT\nTake {Format.cred(newPrompt.prizeNow)}`
-		keepGoing.Text = `KEEP GOING\nQuota {newPrompt.nextQuotaIndex}: {Format.money(newPrompt.nextTarget)}`
+		prizeLabel.Text = `⭐ Your prize right now: {Format.cred(newPrompt.prizeNow)}`
+		cashOut.Text = `💰 CASH OUT\nTake {Format.cred(newPrompt.prizeNow)}`
+		keepGoing.Text = `🔥 KEEP GOING\nQuota {newPrompt.nextQuotaIndex}: {Format.money(newPrompt.nextTarget)}`
 		local keepPercent = Format.percent(Config.Match.FailKeepPercent)
 		riskLabel.Text =
 			`Keep going and fail: you keep only {keepPercent} ({Format.cred(newPrompt.prizeIfFail)}). No answer = cash out.`
@@ -147,7 +134,7 @@ function DecisionController.start()
 			then "You're cashing out. "
 			elseif chosen == "Continue" then "You're staying in. "
 			else ""
-		countdown.Text = `{choiceText}{Format.clock(current.endsAt - Timing.now())} · {decided}/{active} decided`
+		countdown.Text = `⏳ {choiceText}{Format.clock(current.endsAt - Timing.now())} · {decided}/{active} decided`
 	end)
 end
 

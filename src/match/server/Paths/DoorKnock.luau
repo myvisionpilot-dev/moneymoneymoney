@@ -12,6 +12,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
@@ -345,6 +346,7 @@ local function knock(player: Player, house: House): (boolean, string?)
 		return false, `Nobody's home. Try again in {math.ceil(house.restUntil - now)}s.`
 	end
 	house.restUntil = now + settings.HouseRestSeconds
+	Sounds.at("Knock", house.door)
 
 	local resident = house.resident
 	local options: { Types.DoorOfferOption } = {
