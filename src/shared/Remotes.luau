@@ -42,11 +42,13 @@ export type MatchRemotes = {
 	RaceUpdate: ToClient<Types.RaceUpdate?>,
 	Juice: ToClient<Types.JuiceEvent>,
 	PickpocketGame: ToClient<Types.PickpocketGame?>, -- nil ends it
+	BlasterFx: ToClient<Types.BlasterFx>, -- someone fired a blaster
 	ClientReady: ToServer<nil>,
 	PickpocketPresses: ToServer<{ number }>, -- seconds into each round when you pressed
 	SubmitDecision: ToServer<Types.Decision>,
 	ChooseDoorOffer: ToServer<number>, -- 1 or 2, or 0 to walk away
-	BuyUpgrade: ToServer<Types.UpgradeId>,
+	BuyItem: ToServer<string>, -- an item id from the shop you're at
+	FireBlaster: ToServer<Vector3>, -- where you aimed
 	SetRiding: ToServer<boolean>, -- get on or off your ride
 }
 
@@ -149,11 +151,13 @@ function Remotes.match(): MatchRemotes
 		RaceUpdate = toClient("RaceUpdate"),
 		Juice = toClient("Juice"),
 		PickpocketGame = toClient("PickpocketGame"),
+		BlasterFx = toClient("BlasterFx"),
 		ClientReady = toServer("ClientReady"),
 		PickpocketPresses = toServer("PickpocketPresses"),
 		SubmitDecision = toServer("SubmitDecision"),
 		ChooseDoorOffer = toServer("ChooseDoorOffer"),
-		BuyUpgrade = toServer("BuyUpgrade"),
+		BuyItem = toServer("BuyItem"),
+		FireBlaster = toServer("FireBlaster"),
 		SetRiding = toServer("SetRiding"),
 	}
 	matchRemotes = remotes

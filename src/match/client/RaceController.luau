@@ -1,5 +1,5 @@
 --!strict
--- The race panel (top left): who's in, your place, checkpoints, laps and time, plus the par
+-- The street race panel (top left): who's in, your place, checkpoints, laps and time, plus the par
 -- times for a solo race; and a big 3-2-1-GO in the middle of the screen. The next checkpoint's
 -- marker comes from JobGuideController.
 
@@ -101,12 +101,12 @@ function RaceController.start()
 			`Gold {Format.raceTime(pars[1])} · Silver {Format.raceTime(pars[2])} · Bronze {Format.raceTime(pars[3])}`
 
 		if current.state == "Gathering" then
-			title.Text = if current.solo then "⏱️ TIME TRIAL" else "🏁 RACE"
+			title.Text = if current.solo then "⏱️ TIME TRIAL" else "🏁 STREET RACE"
 			progress.Text = `{current.racers} racer{if current.racers == 1 then "" else "s"} · starts in {Format.clock(
 				current.startsAt - now
 			)}`
 			clock.Text = "Stay by the start line"
-			hint.Text = if current.solo then parText else "Top 3 get paid"
+			hint.Text = if current.solo then parText else "Top 3: entry fee back + a prize"
 			countdown.Visible = false
 			return
 		end

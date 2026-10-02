@@ -70,6 +70,8 @@ return {
 		BreakIn = { 1, 1.5, 2, 2.5 }, -- by house tier (4 = mansion)
 		StoreRobbery = 2,
 		CarTheft = 1.5,
+		BlastPlayer = 1, -- stunning a teammate with a blaster
+		BlastCop = 0.5, -- stunning a cop
 	},
 	Economy = {
 		TierPayoutMultiplier = 2.2, -- each unlocked tier pays ~2.2x the previous
@@ -151,18 +153,20 @@ return {
 			RangeStuds = 8,
 			AlarmSeconds = 15, -- the store alarm rings this long
 		},
+		-- Street races round the town loop, from Speedy's Garage in a loaner car.
 		Racing = {
-			KartSpeed = 50, -- everyone races the same kart
+			EntryFee = 3_000, -- paid from your bag; the top 3 get it back (a solo racer needs a medal)
+			CarSpeed = 50, -- everyone races the same loaner car
 			Laps = 2,
 			GatherSeconds = 15, -- after the first racer joins, others have this long to join
 			CountdownSeconds = 3,
-			TimeLimitSeconds = 120,
-			CooldownSeconds = 20, -- the track rests after each race
+			TimeLimitSeconds = 170,
+			CooldownSeconds = 20, -- the garage rests after each race
 			JoinRangeStuds = 12,
 			LeaveRangeStuds = 60, -- walk this far from the start while gathering and you're out
 			CheckpointRadiusStuds = 18,
-			Pay = { 3_000, 1_800, 900 }, -- tier-1 pay for 1st / 2nd / 3rd (solo: gold / silver / bronze)
-			ParSeconds = { 48, 54, 62 }, -- gold / silver / bronze (a perfect line is ~43s); slower than bronze pays nothing
+			Pay = { 3_000, 1_800, 900 }, -- tier-1 prize for 1st / 2nd / 3rd (solo: gold / silver / bronze), on top of the fee back
+			ParSeconds = { 112, 124, 140 }, -- gold / silver / bronze (a perfect line is ~104s); slower than bronze pays nothing
 		},
 		BountyHunting = {
 			PerStar = 1_000, -- tier-1 reward per star of the player you arrest
@@ -197,6 +201,27 @@ return {
 			{ speed = 55, price = 10_000 },
 			{ speed = 65, price = 35_000 },
 		},
+	},
+	-- Five-minute treats from the convenience stores. Different ones stack; buying one you
+	-- already have starts its clock again.
+	Boosts = {
+		Seconds = 300,
+		Energy = { price = 800, speed = 2 }, -- energy drink: walking and sprinting (not karts) this much faster
+		Disguise = { price = 1_200, heat = 0.5 }, -- heat builds this much as fast
+		Candy = { price = 600, zone = 1.5 }, -- the pickpocket green zone is this much wider
+		Gloves = { price = 1_000, breakIn = 0.5 }, -- break-ins take this much as long
+		Scanner = { price = 1_500 }, -- police radio: see every cop through walls
+	},
+	-- Tony's cartoon stun blasters (no damage, nobody gets hurt: a zap, stars and a sit-down).
+	Blasters = {
+		UnlockQuota = 2, -- Tony opens up at this quota
+		Zapper = { price = 6_000, range = 45, cooldown = 2.5, copStunSeconds = 3 },
+		MegaZapper = { price = 20_000, range = 75, cooldown = 1.5, copStunSeconds = 5 },
+		PlayerStunSeconds = 3, -- a blasted player sits down this long...
+		DropPercent = 0.2, -- ...and drops this share of their bag as a cash bundle anyone can grab
+		BundleSeconds = 30, -- an unclaimed bundle goes back to its owner after this long
+		HoldUpSpeed = 2, -- robbing a store with a blaster out is this much faster...
+		HoldUpPay = 1.5, -- ...and pays this much more
 	},
 	Movement = {
 		WalkSpeed = 25,
@@ -291,6 +316,8 @@ return {
 		Badge = { id = 1841980129, volume = 0.45 },
 		Rustle = { id = 9114519078, volume = 0.5 },
 		Swipe = { id = 9126283592, volume = 0.6 },
+		Zap = { id = 9114277757, volume = 0.5 }, -- Electric Zaps 12 (Pro Sound Effects)
+		Stun = { id = 9116421639, volume = 0.6 }, -- Magic Transformation 8: cartoon boinks
 	} :: { [string]: { id: number, volume: number } },
 	Profiles = {
 		StoreName = "Players_v1", -- the DataStore every profile lives in
@@ -306,6 +333,7 @@ return {
 			{ stat = "Delivery", goal = 5, text = "Make 5 deliveries" },
 			{ stat = "Chore", goal = 4, text = "Do 4 chores for residents" },
 			{ stat = "Pickpocket", goal = 6, text = "Pickpocket 6 pedestrians" },
+			{ stat = "RaceWin", goal = 1, text = "Win a street race (or set a gold time)" },
 			{ stat = "Escape", goal = 2, text = "Lose the police in a bush twice" },
 			{ stat = "ChopShop", goal = 1, text = "Sell a car to the chop shop" },
 			{ stat = "QuotaCleared", goal = 3, best = true, text = "Clear quota 3 in a run" },

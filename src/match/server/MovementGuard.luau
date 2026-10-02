@@ -25,11 +25,12 @@ local MovementGuard = {}
 
 local tracks: { [Player]: Track } = {}
 local speedOverrides: { [Player]: number } = {} -- kart speeds
+local boosts: { [Player]: number } = {} -- the energy drink: on foot only
 local graces: { [Player]: { speed: number, untilAt: number } } = {} -- old speed, briefly, after slowing down
 
 -- Sprinting is client-side, so the guard always allows sprint speed.
 local function allowedSpeed(player: Player): number
-	local speed = speedOverrides[player] or settings.SprintSpeed
+	local speed = speedOverrides[player] or settings.SprintSpeed * (boosts[player] or 1)
 	local grace = graces[player]
 	if grace then
 		if os.clock() < grace.untilAt then
@@ -49,6 +50,19 @@ function MovementGuard.setAllowedSpeed(player: Player, speed: number?)
 		speedOverrides[player] = speed
 	else
 		speedOverrides[player] = nil
+	end
+	if allowedSpeed(player) < before then
+		graces[player] = { speed = before, untilAt = os.clock() + settings.CheckSeconds * 2 }
+	end
+end
+
+-- The energy drink multiplies on-foot speed (1 = none). Wearing off keeps the old limit briefly.
+function MovementGuard.setBoost(player: Player, multiplier: number)
+	local before = allowedSpeed(player)
+	if multiplier ~= 1 then
+		boosts[player] = multiplier
+	else
+		boosts[player] = nil
 	end
 	if allowedSpeed(player) < before then
 		graces[player] = { speed = before, untilAt = os.clock() + settings.CheckSeconds * 2 }
@@ -141,6 +155,7 @@ function MovementGuard.start()
 	Players.PlayerRemoving:Connect(function(player: Player)
 		tracks[player] = nil
 		speedOverrides[player] = nil
+		boosts[player] = nil
 		graces[player] = nil
 	end)
 	Players.PlayerAdded:Connect(function(player: Player)

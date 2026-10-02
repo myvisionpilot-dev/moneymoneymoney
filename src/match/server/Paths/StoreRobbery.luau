@@ -1,5 +1,6 @@
 --!strict
--- Store robberies: hold E at a store's register for a big payout and a lot of heat.
+-- Store robberies: hold E at a store's register for a big payout and a lot of heat. With a
+-- blaster out it's a hold-up: quicker, and it pays more.
 -- Each store closes for StoreRobbery.CooldownSeconds afterwards. Unlocks at Paths.Unlocks.StoreRobbery.
 
 local CollectionService = game:GetService("CollectionService")
@@ -11,6 +12,7 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local BlasterService = require(script.Parent.Parent.BlasterService)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local MoneyPath = require(script.Parent.MoneyPath)
@@ -53,7 +55,10 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	if not ctx.isOpen() then
 		return false, `Stores unlock at quota {unlockQuota}.`
 	end
-	if not ctx.canWork(player) or not PromptGuard.held(store.prompt, player) then
+	-- A hold-up (blaster out) is quicker and pays more.
+	local holdUp = BlasterService.drawn(player)
+	local hold = if holdUp then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds
+	if not ctx.canWork(player) or not PromptGuard.held(store.prompt, player, hold) then
 		return false, nil
 	end
 	if CharacterUtil.distanceTo(player, store.counter.Position) > settings.RangeStuds + RANGE_SLACK then
@@ -67,10 +72,14 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	end
 
 	store.closedUntil = os.clock() + settings.CooldownSeconds
-	local pay = payout(player, ctx.tier())
-	local added = EconomyService.addCarried(player, pay, "store robbery")
+	local basePay = payout(player, ctx.tier())
+	local pay = if holdUp then math.floor(basePay * Config.Blasters.HoldUpPay + 0.5) else basePay
+	local added = EconomyService.addCarried(player, pay, if holdUp then "store hold-up" else "store robbery")
 	HeatService.add(player, Config.Heat.StoreRobbery)
-	PayNotice.send(player, "You emptied the register! The alarm is ringing!", added, pay)
+	local headline = if holdUp
+		then "Hold-up! They handed over the whole till! The alarm is ringing!"
+		else "You emptied the register! The alarm is ringing!"
+	PayNotice.send(player, headline, added, pay)
 	Stats.record(player, "StoreRobbery")
 	local alarm = Sounds.at("Alarm", store.counter, true)
 	if alarm then
@@ -97,7 +106,9 @@ local function setupCounter(instance: Instance)
 	prompt.Name = "RobPrompt"
 	prompt.ActionText = "Rob the register"
 	prompt.ObjectText = "Store"
-	prompt.HoldDuration = settings.HoldSeconds
+	-- The quickest hold (a hold-up); each player's own screen shows their real hold time
+	-- (BlasterController), and rob() checks it.
+	prompt.HoldDuration = settings.HoldSeconds / Config.Blasters.HoldUpSpeed
 	prompt.MaxActivationDistance = settings.RangeStuds
 	prompt.RequiresLineOfSight = false
 	PromptGuard.watch(prompt)

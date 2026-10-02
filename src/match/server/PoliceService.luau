@@ -83,6 +83,7 @@ type Cop = {
 	searchAngle: number,
 	searchPoint: Vector3?,
 	searchPointAt: number, -- when they set off for it (a blocked cop moves on)
+	stunnedUntil: number, -- os.clock(); zapped by a blaster, they stand still until then
 }
 
 type Counts = { foot: number, car: number }
@@ -247,6 +248,7 @@ local function spawnCop(target: Player, inCar: boolean)
 			searchAngle = 0,
 			searchPoint = nil,
 			searchPointAt = 0,
+			stunnedUntil = 0,
 		})
 	end)
 end
@@ -388,6 +390,10 @@ local function chase(cop: Cop)
 		removeCop(cop)
 		return
 	end
+	if os.clock() < cop.stunnedUntil then
+		cop.humanoid:MoveTo(cop.root.Position)
+		return
+	end
 	if HeatService.isHidden(cop.target) then
 		search(cop, targetRoot.Position)
 		return
@@ -440,6 +446,27 @@ end
 
 function PoliceService.copCount(): number
 	return #cops
+end
+
+-- True if this model is one of the police.
+function PoliceService.isCop(model: Model): boolean
+	for _, cop in cops do
+		if cop.model == model then
+			return true
+		end
+	end
+	return false
+end
+
+-- Zapped by a blaster: the cop freezes for a few seconds (and can't arrest anyone).
+function PoliceService.stun(model: Model, seconds: number)
+	for _, cop in cops do
+		if cop.model == model then
+			cop.stunnedUntil = os.clock() + seconds
+			cop.humanoid:MoveTo(cop.root.Position)
+			return
+		end
+	end
 end
 
 function PoliceService.start()

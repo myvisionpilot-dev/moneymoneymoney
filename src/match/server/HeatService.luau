@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
+local BoostService = require(script.Parent.BoostService)
 
 local HIDING_TAG = "HidingSpot"
 local TICK_SECONDS = 0.5
@@ -82,10 +83,13 @@ function HeatService.setSpotted(player: Player, spotted: boolean)
 	end
 end
 
+-- Crimes add heat (a disguise from the convenience store halves it). The debug command can
+-- pass a negative amount to cool you down.
 function HeatService.add(player: Player, amount: number)
 	local state = stateOf(player)
 	state.lastCrimeAt = os.clock()
-	setHeat(player, state, state.heat + amount, state.hiding)
+	local scaled = if amount > 0 then amount * BoostService.heatMultiplier(player) else amount
+	setHeat(player, state, state.heat + scaled, state.hiding)
 end
 
 function HeatService.clear(player: Player)

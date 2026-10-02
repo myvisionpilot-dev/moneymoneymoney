@@ -2,7 +2,8 @@
 -- hiding bushes, parked-car spots, police patrol points and the pedestrian routes.
 --
 -- Tags placed here: ParkSpot, JailCell, JailExit, PoliceSpawn, ChopShop, ParkedCar,
--- HidingSpot (via Kit.bush), PedWaypoint (+ Route, Order attributes).
+-- HidingSpot (via Kit.bush), PedWaypoint (+ Route, Order attributes), RaceJoin, RaceGrid and
+-- RaceCheckpoint (+ Order).
 
 local Kit = require(script.Parent.Kit)
 local Layout = require(script.Parent.Layout)
@@ -155,12 +156,81 @@ local function depotYard(parent)
 	Kit.bush(folder, "Bush", Vector3.new(290, 0.3, 150))
 end
 
--- Parked cars (the server parks a car on each spot): along the roads, away from the garage.
+-- The street race: sign up on the pad beside Speedy's Garage, line up on the side road just
+-- south of the finish line, then two laps round the town loop (x = +-330, z = +-310).
+local RACE_CHECKPOINTS = {
+	{ -330, -150 },
+	{ -330, -310 },
+	{ -165, -310 },
+	{ 0, -310 },
+	{ 165, -310 },
+	{ 330, -310 },
+	{ 330, -150 },
+	{ 330, 0 },
+	{ 330, 150 },
+	{ 330, 310 },
+	{ 165, 310 },
+	{ 0, 310 },
+	{ -165, 310 },
+	{ -330, 310 },
+	{ -330, 150 },
+	{ -330, 40 }, -- the finish line
+}
+
+local function streetRace(parent)
+	local folder = Kit.folder(parent, "StreetRace")
+	local pad = Kit.part(
+		folder,
+		"RaceStart",
+		Vector3.new(10, 0.3, 10),
+		Vector3.new(-298, 0.45, 84),
+		Color3.fromRGB(245, 245, 245),
+		Enum.Material.Neon
+	)
+	pad.Transparency = 0.3
+	pad.CanCollide = false
+	Kit.tag(pad, "RaceJoin")
+	local board = Kit.part(
+		folder,
+		"RaceSign",
+		Vector3.new(14, 5, 0.6),
+		CFrame.lookAt(Vector3.new(-309, 7, 84), Vector3.new(-340, 7, 84)),
+		Color3.fromRGB(230, 60, 60)
+	)
+	Kit.sign(board, Enum.NormalId.Front, "🏁 STREET RACE · $3,000 ENTRY", Color3.fromRGB(230, 60, 60))
+	for _, z in { 80.5, 87.5 } do
+		Kit.quiet(Kit.part(folder, "SignPost", Vector3.new(0.6, 9, 0.6), Vector3.new(-309, 4.5, z), Kit.Colors.White))
+	end
+	Kit.decor(Kit.part(folder, "FinishLine", Vector3.new(24, 0.05, 2), Vector3.new(-330, 0.23, 40), Kit.Colors.White))
+	local slot = 0
+	for _, z in { 52, 64, 76 } do
+		for _, x in { -336, -324 } do
+			slot += 1
+			local grid = Kit.marker(
+				folder,
+				`Grid{slot}`,
+				CFrame.lookAt(Vector3.new(x, 1, z), Vector3.new(x, 1, z - 10)),
+				"RaceGrid"
+			)
+			grid:SetAttribute("Order", slot)
+			Kit.decor(
+				Kit.part(folder, "GridLine", Vector3.new(6, 0.05, 0.6), Vector3.new(x, 0.23, z - 4), Kit.Colors.White)
+			)
+		end
+	end
+	for order, point in RACE_CHECKPOINTS do
+		local checkpoint = Kit.marker(folder, `Checkpoint{order}`, Vector3.new(point[1], 3, point[2]), "RaceCheckpoint")
+		checkpoint:SetAttribute("Order", order)
+	end
+end
+
+-- Parked cars (the server parks a car on each spot): along the roads, away from the garage
+-- and off the race loop.
 local PARKING = {
-	{ Vector3.new(-322, 0.5, -110), Vector3.zAxis },
-	{ Vector3.new(322, 0.5, 110), Vector3.zAxis },
-	{ Vector3.new(-322, 0.5, 250), Vector3.zAxis },
-	{ Vector3.new(322, 0.5, -250), Vector3.zAxis },
+	{ Vector3.new(-157, 0.5, -250), Vector3.zAxis },
+	{ Vector3.new(157, 0.5, 250), Vector3.zAxis },
+	{ Vector3.new(-157, 0.5, 370), Vector3.zAxis },
+	{ Vector3.new(157, 0.5, -370), Vector3.zAxis },
 	{ Vector3.new(100, 0.5, -182), Vector3.xAxis },
 	{ Vector3.new(-100, 0.5, 182), Vector3.xAxis },
 	{ Vector3.new(-80, 0.5, -438), Vector3.xAxis },
@@ -211,6 +281,7 @@ function Outdoors.build(map)
 	policeYard(folder)
 	garageLot(folder)
 	depotYard(folder)
+	streetRace(folder)
 
 	-- A bush in the middle of each turning circle.
 	for index, center in Layout.bulbs do

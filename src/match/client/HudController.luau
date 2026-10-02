@@ -18,6 +18,9 @@ local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
 
 local COUNTDOWN_BEEPS = 10 -- seconds left in a quota when the beeps start
+local BOOST_ORDER = { "Energy", "Disguise", "Candy", "Gloves", "Scanner" }
+local BOOST_ICONS: { [string]: string } =
+	{ Energy = "⚡", Disguise = "🧢", Candy = "🍫", Gloves = "🧤", Scanner = "📻" }
 
 local PHASE_TITLES: { [Types.Phase]: string } = {
 	Waiting = "WAITING FOR CREW",
@@ -207,6 +210,8 @@ function HudController.start()
 	job.AutomaticSize = Enum.AutomaticSize.Y
 	job.Visible = false
 	jobLabel = job
+	local boostsLabel = row(10, "", UI.Colors.Gold) -- convenience-store boosts and their time left
+	boostsLabel.Visible = false
 
 	-- Jail banner (centre of the screen while you're locked up)
 	local jailBanner = UI.card(UI.Colors.Danger, {
@@ -324,6 +329,15 @@ function HudController.start()
 	local lastBeep = -1
 	RunService.RenderStepped:Connect(function()
 		local me = ClientState.me()
+		local shown: { string } = {}
+		for _, id in BOOST_ORDER do
+			local endsAt = me and me.boosts[id]
+			if endsAt and endsAt > Timing.now() then
+				table.insert(shown, `{BOOST_ICONS[id]} {Format.clock(endsAt - Timing.now())}`)
+			end
+		end
+		boostsLabel.Visible = #shown > 0
+		boostsLabel.Text = table.concat(shown, "  ")
 		local jailLeft = if me then me.jailedUntil - Timing.now() else 0
 		jailBanner.Visible = jailLeft > 0
 		if jailLeft > 0 then

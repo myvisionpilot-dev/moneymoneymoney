@@ -10,6 +10,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local BountyHunting = require(script.Parent.Paths.BountyHunting)
+local BoostService = require(script.Parent.BoostService)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local JailService = require(script.Parent.JailService)
@@ -49,6 +50,7 @@ function SyncService.build(): Types.RunSnapshot
 			rideLevel = ShopService.level(member.player, "Ride"),
 			riding = VehicleService.isRiding(member.player),
 			bounty = BountyHunting.bountyFor(member.player),
+			boosts = BoostService.list(member.player),
 		})
 	end
 	return {
@@ -74,6 +76,7 @@ function SyncService.start()
 	JailService.changed:Connect(markDirty)
 	StealService.changed:Connect(markDirty)
 	VehicleService.changed:Connect(markDirty)
+	BoostService.changed:Connect(markDirty)
 	EconomyService.changed:Connect(function(_userId: number)
 		dirty = true
 	end)

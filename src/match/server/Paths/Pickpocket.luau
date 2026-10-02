@@ -15,6 +15,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local BoostService = require(script.Parent.Parent.BoostService)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local Juice = require(script.Parent.Parent.Juice)
@@ -147,7 +148,9 @@ local function begin(player: Player, pedestrian: Model, prompt: ProximityPrompt)
 	prompt.Enabled = false
 	setFrozen(pedestrian, true)
 	local zones: { Types.PickpocketZone } = {}
-	for index, width in minigame.ZoneWidths do
+	local wider = BoostService.zoneMultiplier(player) -- a candy bar steadies your hands
+	for index, baseWidth in minigame.ZoneWidths do
+		local width = math.min(baseWidth * wider, 0.5)
 		table.insert(zones, {
 			start = rng:NextNumber(0.08, 0.92 - width),
 			width = width,

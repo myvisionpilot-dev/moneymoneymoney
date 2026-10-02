@@ -1,8 +1,10 @@
 --!strict
--- Racing: hold E at the start pad to join. Once someone joins, others have Racing.GatherSeconds
--- to join too; then everyone lines up on the grid in identical karts, counts down and races
--- Racing.Laps laps through the checkpoints in order. Pay goes by finish place; a solo racer
--- races the par times instead (gold, silver, bronze). Slower than bronze par pays nothing.
+-- Street races from Speedy's Garage: pay the Racing.EntryFee at the start pad (from your bag)
+-- and the garage lends you a car. Once someone joins, others have Racing.GatherSeconds to join
+-- too; then everyone lines up on the grid in identical cars, counts down and races Racing.Laps
+-- laps round the town loop through the checkpoints in order. The top 3 get their fee back
+-- plus a prize by place; a solo racer races the par times instead (gold, silver, bronze).
+-- Anyone else loses the fee. Leaving before the start, or the race being called off, refunds it.
 -- Map tags: RaceJoin (start pad), RaceCheckpoint (Order 1..n, the last is the finish line),
 -- RaceGrid (Order 1..n, facing the way to go).
 
@@ -32,9 +34,9 @@ local JOIN_TAG = "RaceJoin"
 local CHECKPOINT_TAG = "RaceCheckpoint"
 local GRID_TAG = "RaceGrid"
 local UPDATE_SECONDS = 0.5
-local KART_COLOR = Color3.fromRGB(225, 75, 65)
+local CAR_COLOR = Color3.fromRGB(225, 75, 65)
 local MEDALS = { "Gold", "Silver", "Bronze" }
-local MIN_TIME_SLACK = 1.3 -- a finish faster than straight lines at this x kart speed is voided
+local MIN_TIME_SLACK = 1.3 -- a finish faster than straight lines at this x car speed is voided
 
 type Phase = "Idle" | "Gathering" | "Countdown" | "Racing" | "Cooldown"
 
@@ -42,6 +44,7 @@ type Racer = {
 	player: Player,
 	passed: number,
 	finishedAt: number?,
+	fee: number, -- entry fee still held by the garage (refunded or kept at the end)
 }
 
 local settings = Config.Paths.Racing
@@ -188,10 +191,18 @@ local function guide(racer: Racer)
 	})
 end
 
--- Takes a racer out of the race screens and their kart (they stay in the list for standings).
+-- Gives the entry fee back (it was theirs, so it fits even in a full bag).
+local function refund(racer: Racer, reason: string)
+	if racer.fee > 0 and racer.player.Parent then
+		EconomyService.addCarried(racer.player, racer.fee, reason, true)
+	end
+	racer.fee = 0
+end
+
+-- Takes a racer out of the race screens and their loaner car (they stay in the list for standings).
 local function release(racer: Racer)
 	local player = racer.player
-	if VehicleService.kind(player) == "RaceKart" then
+	if VehicleService.kind(player) == "RaceCar" then
 		VehicleService.dismount(player)
 	end
 	if player.Parent then
@@ -210,8 +221,9 @@ end
 local function cancel(reason: string)
 	for _, racer in racers do
 		if not racer.finishedAt then
+			refund(racer, "street race called off")
 			release(racer)
-			Notifier.send(racer.player, reason, "Bad")
+			Notifier.send(racer.player, `{reason} Your entry fee is back in your bag.`, "Bad")
 		end
 	end
 	reset("Idle", 0)
@@ -243,6 +255,9 @@ local function leave(racer: Racer, message: string?)
 		return
 	end
 	table.remove(racers, index)
+	if phase == "Gathering" then
+		refund(racer, "left the street race before the start")
+	end
 	release(racer)
 	if message then
 		Notifier.send(racer.player, message, "Info")
@@ -261,7 +276,7 @@ local function minimumSeconds(): number
 		local nextOne = course[index % #course + 1]
 		length += (nextOne.Position - checkpoint.Position).Magnitude
 	end
-	return length * settings.Laps / (settings.KartSpeed * MIN_TIME_SLACK)
+	return length * settings.Laps / (settings.CarSpeed * MIN_TIME_SLACK)
 end
 
 local function finish(racer: Racer, now: number)
@@ -292,12 +307,14 @@ local function finish(racer: Racer, now: number)
 	local timeText = Format.raceTime(time)
 	local bronze = Format.raceTime(settings.ParSeconds[#settings.ParSeconds])
 	if not rank then
+		racer.fee = 0 -- the garage keeps it
 		local text = if solo
-			then `{timeText}: no medal (bronze is {bronze}).`
-			else `{Format.ordinal(finishers)} place in {timeText}. No prize.`
+			then `{timeText}: no medal (bronze is {bronze}), so the garage keeps your entry fee.`
+			else `{Format.ordinal(finishers)} place in {timeText}. No prize, and the garage keeps your entry fee.`
 		Notifier.send(player, text, "Info")
 		return
 	end
+	refund(racer, "street race entry back")
 	local pay = payFor(rank)
 	local added = EconomyService.addCarried(
 		player,
@@ -332,12 +349,14 @@ local function startCountdown()
 		if phase ~= "Countdown" then
 			return -- everyone dropped out
 		elseif not slot then
-			leave(racer, "The grid was full, sorry!")
+			refund(racer, "street race grid was full")
+			leave(racer, "The grid was full, sorry! Your entry fee is back.")
 		else
 			MovementGuard.teleport(racer.player, slot.CFrame + Vector3.new(0, 3, 0))
-			if VehicleService.mount(racer.player, "RaceKart", 0, KART_COLOR) then
+			if VehicleService.mount(racer.player, "RaceCar", 0, CAR_COLOR) then
 				guide(racer)
 			else
+				refund(racer, "no loaner car for the street race")
 				leave(racer, nil)
 			end
 		end
@@ -351,7 +370,7 @@ local function go()
 	phase = "Racing"
 	phaseEndsAt = goAt + settings.TimeLimitSeconds
 	for _, racer in racers do
-		VehicleService.setSpeed(racer.player, settings.KartSpeed)
+		VehicleService.setSpeed(racer.player, settings.CarSpeed)
 		guide(racer)
 	end
 	sendUpdates()
@@ -387,18 +406,22 @@ local function join(player: Player): (boolean, string?)
 	if #racers >= #slots then
 		return false, "This race is full."
 	end
+	if EconomyService.account(player).carried < settings.EntryFee then
+		return false, `The entry fee is {Format.money(settings.EntryFee)}, paid from your bag.`
+	end
 
-	table.insert(racers, { player = player, passed = 0, finishedAt = nil })
+	EconomyService.removeCarried(player, settings.EntryFee, "street race entry")
+	table.insert(racers, { player = player, passed = 0, finishedAt = nil, fee = settings.EntryFee })
 	if phase == "Idle" then
 		phase = "Gathering"
 		phaseEndsAt = Timing.now() + settings.GatherSeconds
 		Notifier.others(
 			player,
-			`{player.DisplayName} is starting a race up north! Join within {settings.GatherSeconds}s.`,
+			`{player.DisplayName} is starting a street race at Speedy's Garage! Join within {settings.GatherSeconds}s.`,
 			"Info"
 		)
 	end
-	Notifier.send(player, "You're in! Stay by the start line.", "Good")
+	Notifier.send(player, "You're in! The garage has lent you a car. Stay by the start line.", "Good")
 	sendUpdates()
 	return true, nil
 end
@@ -418,7 +441,7 @@ local function refreshPrompt()
 	elseif phase == "Cooldown" then
 		prompt.ObjectText = `Next race in {math.ceil(phaseEndsAt - Timing.now())}s`
 	else
-		prompt.ObjectText = `Race track: win up to {Format.money(payFor(1))}`
+		prompt.ObjectText = `{Format.money(settings.EntryFee)} entry · 1st wins {Format.money(payFor(1))} more`
 	end
 end
 
@@ -477,8 +500,8 @@ local function setupPad(instance: Instance)
 	local pad: BasePart = instance
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "RacePrompt"
-	prompt.ActionText = "Join race"
-	prompt.ObjectText = "Race track"
+	prompt.ActionText = "Enter street race"
+	prompt.ObjectText = "Speedy's Garage"
 	prompt.HoldDuration = 0.3
 	prompt.MaxActivationDistance = settings.JoinRangeStuds
 	prompt.RequiresLineOfSight = false

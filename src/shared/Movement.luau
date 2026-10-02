@@ -1,7 +1,8 @@
 --!strict
 -- Client movement (both places): walk, hold Shift to sprint (on touch screens, tap the Sprint
 -- button to toggle it), and vehicle speed while the server has you in a kart or car (the
--- VehicleSpeed attribute on your character). The view widens a little while you're going fast.
+-- VehicleSpeed attribute on your character). An energy drink multiplies on-foot speed (the
+-- SpeedBoost attribute). The view widens a little while you're going fast.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -16,6 +17,7 @@ local UI = require(script.Parent.UI)
 
 local SPRINT_ACTION = "Sprint"
 local VEHICLE_ATTRIBUTE = "VehicleSpeed"
+local BOOST_ATTRIBUTE = "SpeedBoost"
 local SIT_ANIMATION = "rbxassetid://2506281703" -- Roblox's default R15 sit pose
 local MOVING = 0.1 -- MoveDirection length that counts as trying to move
 
@@ -69,7 +71,9 @@ local function apply()
 	if speed then
 		humanoid.WalkSpeed = speed
 	else
-		humanoid.WalkSpeed = if sprinting then Config.Movement.SprintSpeed else Config.Movement.WalkSpeed
+		local boost = character:GetAttribute(BOOST_ATTRIBUTE) -- the energy drink (Match only)
+		local onFoot = if sprinting then Config.Movement.SprintSpeed else Config.Movement.WalkSpeed
+		humanoid.WalkSpeed = onFoot * (if typeof(boost) == "number" then boost else 1)
 	end
 	-- Karts and cars don't jump.
 	humanoid.JumpHeight = if speed then 0 else StarterPlayer.CharacterJumpHeight
@@ -101,6 +105,7 @@ local function onCharacter(character: Model)
 	sitTrack = nil -- it belonged to the old character
 	character:WaitForChild("Humanoid", 10)
 	character:GetAttributeChangedSignal(VEHICLE_ATTRIBUTE):Connect(apply)
+	character:GetAttributeChangedSignal(BOOST_ATTRIBUTE):Connect(apply)
 	apply()
 end
 

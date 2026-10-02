@@ -1,6 +1,6 @@
 --!strict
--- Vehicles on players: your ride (bought at the upgrades counter, hop on or off with SetRiding), race
--- karts (Paths/Racing) and stolen cars (Paths/CarTheft; SetRiding off ditches one). A vehicle
+-- Vehicles on players: your ride (a kart from the garage, hop on or off with SetRiding), race
+-- cars lent by the garage (Paths/Racing) and stolen cars (Paths/CarTheft; SetRiding off ditches one). A vehicle
 -- is a grey-box body welded under you. Your speed comes from the VehicleSpeed character
 -- attribute (read by shared/Movement), and MovementGuard allows it.
 
@@ -30,7 +30,7 @@ local RIDE_COLORS = { -- by ride level
 	Color3.fromRGB(255, 196, 50),
 }
 
-export type Kind = "Ride" | "RaceKart" | "StolenCar"
+export type Kind = "Ride" | "RaceCar" | "StolenCar"
 
 type Mounted = {
 	kind: Kind,
@@ -101,8 +101,9 @@ function VehicleService.mount(player: Player, kind: Kind, speed: number, color: 
 	if not character or not root or not humanoid then
 		return false
 	end
-	local paint = if kind == "StolenCar" then nil else Cosmetics.paint(player) -- your kart paint, if you bought one
-	local model = if kind == "StolenCar" then VehicleModels.car(color) else VehicleModels.kart(paint or color)
+	-- Your own kart wears your paint; race cars (a garage loaner) and stolen cars are cars.
+	local paint = if kind == "Ride" then Cosmetics.paint(player) else nil
+	local model = if kind == "Ride" then VehicleModels.kart(paint or color) else VehicleModels.car(color)
 	model.Name = `{player.Name}{kind}`
 	VehicleModels.attach(model, root, humanoid, getFolder())
 	mounted[player] = { kind = kind, model = model, speed = speed }
@@ -134,7 +135,7 @@ local function onSetRiding(player: Player, payload: unknown)
 	end
 	local current = mounted[player]
 	if not payload then
-		if current and current.kind ~= "RaceKart" then
+		if current and current.kind ~= "RaceCar" then
 			VehicleService.dismount(player) -- off your ride, or ditching a stolen car
 		end
 		return
@@ -143,7 +144,7 @@ local function onSetRiding(player: Player, payload: unknown)
 		return -- already riding, in a race kart or in a stolen car
 	end
 	if not ShopService.rideSpeed(player) then
-		Notifier.send(player, "You don't have a ride yet. Buy a kart at the hardware store.", "Info")
+		Notifier.send(player, "You don't have a ride yet. Buy a kart at Speedy's Garage.", "Info")
 		return
 	end
 	if not RosterService.isActive(player) or JailService.isJailed(player) then

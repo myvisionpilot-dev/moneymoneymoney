@@ -38,6 +38,15 @@ function StealService.totalStolen(userId: number): number
 	return stolenTotals[userId] or 0
 end
 
+-- Counts money taken from a teammate some other way (grabbing a blasted player's cash).
+function StealService.record(thief: Player, amount: number)
+	if amount <= 0 then
+		return
+	end
+	stolenTotals[thief.UserId] = (stolenTotals[thief.UserId] or 0) + amount
+	StealService.changed:Fire(thief.UserId)
+end
+
 -- The Snake: whoever stole the most (nil if nobody stole anything).
 function StealService.snakeUserId(): number?
 	local best: number? = nil

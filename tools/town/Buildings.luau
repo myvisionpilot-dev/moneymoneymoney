@@ -1,8 +1,9 @@
 -- The bank on the plaza and every shop along the main roads.
 --
--- Tags placed here: BankCounter + BankSpawn (deposits, spawning), StaffSpot (Mr. Penny, Tony),
--- StoreCounter + StoreZone (convenience stores), ShopCounter (upgrades, at the hardware store for
--- now), DeliveryDepot, AlleyDrop.
+-- Tags placed here: BankCounter + BankSpawn + SafeZone (deposits, spawning, no blasting),
+-- StaffSpot (Mr. Penny, Tony), StoreCounter + StoreZone (convenience store tills and the door
+-- bell), ShopCounter with a Shop attribute (Clothes, Hardware, Garage, Guns, and each convenience
+-- store's snack fridge), DeliveryDepot, AlleyDrop.
 
 local Kit = require(script.Parent.Kit)
 local Layout = require(script.Parent.Layout)
@@ -232,7 +233,8 @@ local function shelves(model, cf, width)
 	end
 end
 
-local function counter(model, cf, width, z, color, tag)
+-- A counter; `shop` makes it a ShopCounter for that shop (Clothes, Hardware, Garage, Guns...).
+local function counter(model, cf, width, z, color, tag, shop)
 	local desk = piece(
 		model,
 		cf,
@@ -246,6 +248,10 @@ local function counter(model, cf, width, z, color, tag)
 	)
 	if tag then
 		Kit.tag(desk, tag)
+	end
+	if shop then
+		Kit.tag(desk, "ShopCounter")
+		desk:SetAttribute("Shop", shop)
 	end
 	return desk
 end
@@ -269,6 +275,42 @@ local function convenience(parent, name, slot, sign, wall)
 		)
 	)
 	shelves(model, cf, slot.width)
+	-- The snack fridge by the door: where you buy boosts (the till at the back is for robbing).
+	local fridge =
+		piece(model, cf, "SnackFridge", Vector3.new(6, 7, 2.5), -12, 3.9, -15, Kit.Colors.White, Enum.Material.Metal)
+	Kit.tag(fridge, "ShopCounter")
+	fridge:SetAttribute("Shop", "Convenience")
+	local door = Kit.decor(
+		piece(
+			model,
+			cf,
+			"FridgeGlass",
+			Vector3.new(5.4, 6.2, 0.2),
+			-12,
+			3.9,
+			-13.7,
+			Kit.Colors.Glass,
+			Enum.Material.Glass
+		)
+	)
+	door.Transparency = 0.4
+	for row, y in { 2, 4, 6 } do
+		for column = -2, 2 do
+			Kit.decor(
+				piece(
+					model,
+					cf,
+					`Drink{row}`,
+					Vector3.new(0.6, 1.2, 0.6),
+					-12 + column,
+					y,
+					-14.6,
+					PRODUCT_COLORS[(row + column) % #PRODUCT_COLORS + 1],
+					Enum.Material.Neon
+				)
+			)
+		end
+	end
 	local zone = piece(model, cf, "StoreZone", Vector3.new(slot.width - 4, 10, DEPTH - 4), 0, 5.4, 0)
 	zone.Transparency = 1
 	zone.CanCollide = false
@@ -283,7 +325,7 @@ local function hardware(parent, slot)
 		accent = Color3.fromRGB(200, 90, 30),
 		sign = "🔧 HANDY HANK'S HARDWARE",
 	})
-	counter(model, cf, 14, 12, Color3.fromRGB(160, 110, 70), "ShopCounter")
+	counter(model, cf, 14, 12, Color3.fromRGB(160, 110, 70), nil, "Hardware")
 	shelves(model, cf, slot.width)
 end
 
@@ -294,7 +336,7 @@ local function clothes(parent, slot)
 		slot,
 		{ wall = Color3.fromRGB(240, 170, 210), accent = Color3.fromRGB(200, 80, 160), sign = "👕 THREADS" }
 	)
-	counter(model, cf, 12, 12, Color3.fromRGB(200, 170, 220))
+	counter(model, cf, 12, 12, Color3.fromRGB(200, 170, 220), nil, "Clothes")
 	for index, x in { -12, 0, 12 } do
 		Kit.quiet(
 			piece(
@@ -334,7 +376,7 @@ local function gunStore(parent, slot)
 		slot,
 		{ wall = Color3.fromRGB(90, 90, 110), accent = Color3.fromRGB(40, 180, 220), sign = "🔫 TONY'S BLASTERS" }
 	)
-	counter(model, cf, 16, 12, Color3.fromRGB(60, 60, 75))
+	counter(model, cf, 16, 12, Color3.fromRGB(60, 60, 75), nil, "Guns")
 	for index, x in { -13, 13 } do
 		local case = Kit.quiet(
 			piece(
@@ -460,7 +502,8 @@ local function garage(parent, slot)
 	piece(model, cf, "Roof", Vector3.new(width + 1, 1, DEPTH + 1), 0, height + 0.5, 0, Kit.Colors.White)
 	local sign = piece(model, cf, "Sign", Vector3.new(32, 3.4, 0.5), 0, height - 2, -DEPTH / 2 - 0.3, accent)
 	Kit.sign(sign, Enum.NormalId.Front, "🔧 SPEEDY'S GARAGE", accent, Color3.new(1, 1, 1))
-	counter(model, cf, 8, 10, Color3.fromRGB(80, 80, 90)).CFrame = cf * CFrame.new(-width / 2 + 6, 1.9, 10)
+	counter(model, cf, 8, 10, Color3.fromRGB(80, 80, 90), nil, "Garage").CFrame = cf
+		* CFrame.new(-width / 2 + 6, 1.9, 10)
 	Kit.decor(piece(model, cf, "TyreStack", Vector3.new(3, 4, 3), width / 2 - 4, 2.4, -12, Color3.fromRGB(30, 30, 32)))
 	ceilingLight(model, cf, 16, height)
 end
@@ -741,6 +784,13 @@ local function bank(parent)
 	local desk =
 		piece(model, cf, "Counter", Vector3.new(28, 3, 3), 0, 2, -4, Color3.fromRGB(110, 70, 40), Enum.Material.Wood)
 	Kit.tag(desk, "BankCounter")
+	-- No blasting in the bank.
+	local safe = Kit.part(model, "SafeZone", Vector3.new(W, H, D), Vector3.new(0, H / 2, 0))
+	safe.Transparency = 1
+	safe.CanCollide = false
+	safe.CanQuery = false
+	safe.CanTouch = false
+	Kit.tag(safe, "SafeZone")
 	Kit.decor(piece(model, cf, "CounterTop", Vector3.new(28.6, 0.4, 3.6), 0, 3.7, -4, gold, Enum.Material.Marble))
 	local penny =
 		Kit.marker(model, "PennySpot", CFrame.lookAt(Vector3.new(0, 1.0, -8), Vector3.new(0, 1.0, 0)), "StaffSpot")

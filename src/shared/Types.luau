@@ -23,6 +23,7 @@ export type PlayerRow = {
 	rideLevel: number, -- 0 = no ride bought
 	riding: boolean,
 	bounty: number, -- what a teammate earns for arresting you (0 = can't be arrested)
+	boosts: { [string]: number }, -- BoostId -> when it wears off (server time)
 }
 
 export type RunSnapshot = {
@@ -70,19 +71,35 @@ export type DoorOffer = {
 }
 
 export type UpgradeId = "Bag" | "Lockpick" | "Ride"
+export type BoostId = "Energy" | "Disguise" | "Candy" | "Gloves" | "Scanner"
+export type BlasterId = "Zapper" | "MegaZapper"
+export type ShopId = "Convenience" | "Clothes" | "Hardware" | "Garage" | "Guns"
+export type ShopItemKind = "Upgrade" | "Boost" | "Blaster"
 
 export type ShopItem = {
-	id: UpgradeId,
+	id: string, -- an UpgradeId, BoostId or BlasterId
+	kind: ShopItemKind,
+	icon: string,
 	title: string,
-	level: number, -- 0 = not bought
-	maxLevel: number,
-	current: string, -- what you have now, e.g. "$5,000 bag"
-	nextEffect: string?, -- nil at max level
-	nextPrice: number?,
+	detail: string, -- what it does (upgrades: what you have ➡️ what's next)
+	status: string?, -- a short line such as "Level 1/3", "Active 3:12" or "Yours"
+	price: number?, -- nil when there's nothing left to buy
 }
 
 export type ShopState = {
+	shop: ShopId,
+	title: string,
+	note: string,
 	items: { ShopItem },
+	locked: string?, -- set while the shop isn't open yet (the items still show)
+}
+
+-- A blaster shot, for everyone's screen: the beam, and who (if anyone) got stunned.
+export type BlasterFx = {
+	from: Vector3,
+	to: Vector3,
+	hit: Model?,
+	stunSeconds: number,
 }
 
 export type RaceState = "Gathering" | "Countdown" | "Racing"
