@@ -23,7 +23,10 @@ after `scripts/sync-studio.ps1`, run `require(game:GetObjects("rbxasset://mmm/to
 Code finds map points by CollectionService tags: `QueuePad`, `PerkShop`, `Leaderboard`, `BankCounter`,
 `BankSpawn`, `StaffSpot`, `DeliveryDepot`, `DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`,
 `StoreZone`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`, `AlleyDrop`,
-`ParkedCar`, `ChopShop`. No floating labels: buildings carry painted signs.
+`ParkedCar`, `ChopShop`, and for the legal jobs `TaxiDesk`, `TaxiSpawn`, `TaxiStop`, `BurgerCounter`, `BurgerGrill`,
+`BurgerFryer`, `BurgerShake`, `BurgerCustomer`, `CarWashDesk`, `CarWashBay`, `CarWashLever`, `FlipWreck`, `TyreStack`,
+`PaintBooth`, `FoodCartCounter`. No floating labels: buildings carry painted signs. After changing the town, run
+`tools/find_zfighting.luau` to check for flickering faces.
 
 ## Saving
 

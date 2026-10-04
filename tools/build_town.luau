@@ -13,6 +13,11 @@
 --   HidingSpot, ParkSpot, AlleyDrop             heat and door jobs
 --   ParkedCar, ChopShop                         car theft
 --   PedWaypoint (+ Route, Order)                pedestrian routes
+--   TaxiDesk, TaxiSpawn, TaxiStop               taxi shifts
+--   BurgerCounter/Grill/Fryer/Shake/Customer    Burger Barn
+--   CarWashDesk, CarWashBay, CarWashLever       Sudz car wash
+--   FlipWreck, TyreStack, PaintBooth            car flipping
+--   FoodCartCounter                             the hot-dog cart
 
 local town = script.Parent:WaitForChild("town")
 local Buildings = require(town.Buildings)

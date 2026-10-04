@@ -3,7 +3,7 @@
 --
 -- Tags placed here: ParkSpot, JailCell, JailExit, PoliceSpawn, ChopShop, ParkedCar,
 -- HidingSpot (via Kit.bush), PedWaypoint (+ Route, Order attributes), RaceJoin, RaceGrid and
--- RaceCheckpoint (+ Order).
+-- RaceCheckpoint (+ Order), FlipWreck, TyreStack, PaintBooth, TaxiStop.
 
 local Kit = require(script.Parent.Kit)
 local Layout = require(script.Parent.Layout)
@@ -135,6 +135,51 @@ local function garageLot(parent)
 			)
 		)
 	end
+
+	-- Car flipping (Paths/CarFlip): two wreck spots facing the road to the south, a stack of
+	-- tyres, and a paint booth to drive through.
+	for index, x in { -235, -205 } do
+		local spot = Vector3.new(x, 0.8, 110)
+		Kit.marker(folder, `FlipWreck{index}`, CFrame.lookAt(spot, spot + Vector3.zAxis), "FlipWreck")
+	end
+	for level = 0, 2 do
+		local tyre = Kit.cylinder(
+			folder,
+			`Tyre{level + 1}`,
+			0.9,
+			2.6,
+			Vector3.new(-260, 0.75 + level * 0.9, 112),
+			Color3.fromRGB(30, 30, 32)
+		)
+		if level == 0 then
+			Kit.tag(tyre, "TyreStack")
+		end
+	end
+	local booth = Kit.model(folder, "PaintBooth")
+	local boothColor = Color3.fromRGB(215, 220, 230)
+	for _, x in { -148.5, -131.5 } do
+		Kit.quiet(Kit.part(booth, "BoothWall", Vector3.new(1, 10, 18), Vector3.new(x, 5.3, 110), boothColor))
+		Kit.decor(
+			Kit.part(
+				booth,
+				"BoothLight",
+				Vector3.new(0.3, 0.6, 16),
+				Vector3.new(x + (if x < -140 then 0.65 else -0.65), 8.5, 110),
+				Color3.fromRGB(255, 255, 240),
+				Enum.Material.Neon
+			)
+		)
+	end
+	Kit.part(booth, "BoothRoof", Vector3.new(19, 1, 18.4), Vector3.new(-140, 10.8, 110), boothColor)
+	local boothSign = Kit.part(
+		booth,
+		"BoothSign",
+		Vector3.new(10, 2, 0.4),
+		Vector3.new(-140, 12.3, 100.6),
+		Color3.fromRGB(150, 60, 220)
+	)
+	Kit.sign(boothSign, Enum.NormalId.Front, "PAINT", Color3.fromRGB(150, 60, 220)) -- faces north
+	Kit.marker(booth, "PaintBoothZone", Vector3.new(-140, 1, 110), "PaintBooth")
 end
 
 local function depotYard(parent)
@@ -237,6 +282,47 @@ local PARKING = {
 	{ Vector3.new(80, 0.5, 438), Vector3.xAxis },
 }
 
+-- Taxi stops (Paths/Taxi) on the footpaths: x, z and the way to the road.
+local TAXI_STOPS = {
+	{ -200, -15, Vector3.zAxis },
+	{ 200, 15, -Vector3.zAxis },
+	{ -15, -250, Vector3.xAxis },
+	{ 15, 250, -Vector3.xAxis },
+	{ -315, -100, -Vector3.xAxis },
+	{ 315, 100, Vector3.xAxis },
+	{ -100, -175, -Vector3.zAxis },
+	{ 100, 175, Vector3.zAxis },
+	{ 250, -205, Vector3.zAxis },
+	{ -250, 205, -Vector3.zAxis },
+	{ -100, -295, -Vector3.zAxis },
+	{ 100, 325, -Vector3.zAxis },
+	{ -220, -415, -Vector3.zAxis },
+	{ 180, 445, -Vector3.zAxis },
+}
+
+local function taxiStops(parent)
+	local folder = Kit.folder(parent, "TaxiStops")
+	for index, stop in TAXI_STOPS do
+		local position, toRoad = Vector3.new(stop[1], 1, stop[2]), stop[3]
+		Kit.marker(folder, `TaxiStop{index}`, CFrame.lookAt(position, position + toRoad), "TaxiStop")
+		-- A post at the back of the footpath with a sign facing the road.
+		local post = position - toRoad * 2
+		Kit.decor(
+			Kit.part(folder, "TaxiStopPost", Vector3.new(0.4, 7, 0.4), post + Vector3.new(0, 3, 0), Kit.Colors.White)
+		)
+		local sign = Kit.decor(
+			Kit.part(
+				folder,
+				"TaxiStopSign",
+				Vector3.new(2.4, 1.2, 0.2),
+				CFrame.lookAt(post + Vector3.new(0, 6, 0) + toRoad * 0.3, post + Vector3.new(0, 6, 0) + toRoad * 2),
+				Color3.fromRGB(255, 205, 40)
+			)
+		)
+		Kit.sign(sign, Enum.NormalId.Front, "TAXI", Color3.fromRGB(255, 205, 40), Color3.fromRGB(30, 30, 35))
+	end
+end
+
 -- Police appear from the nearest of these (at least Police.MinSpawnStuds from you).
 local PATROLS = {
 	Vector3.new(-330, 3, 0),
@@ -282,6 +368,7 @@ function Outdoors.build(map)
 	garageLot(folder)
 	depotYard(folder)
 	streetRace(folder)
+	taxiStops(folder)
 
 	-- Bushes on the grass either side of each dead end, clear of the road.
 	for index, deadEnd in Layout.deadEnds do

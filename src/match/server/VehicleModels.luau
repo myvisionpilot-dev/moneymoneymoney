@@ -123,6 +123,22 @@ function VehicleModels.car(color: Color3): Model
 	return sedan("Car", color, color)
 end
 
+-- A City Cabs taxi: yellow, with a TAXI sign on the roof.
+function VehicleModels.taxi(): Model
+	local yellow = Color3.fromRGB(255, 205, 40)
+	local model = sedan("Taxi", yellow, yellow)
+	local upper = model:FindFirstChild("Upper")
+	if upper and upper:IsA("BasePart") then
+		sideLabel(upper, Enum.NormalId.Left, "CITY CABS")
+		sideLabel(upper, Enum.NormalId.Right, "CITY CABS")
+	end
+	local sign = piece(model, "RoofSign", Vector3.new(2.6, 0.9, 1), Vector3.new(0, 5.75, 0.8), Color3.new(1, 1, 1))
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		sideLabel(sign, face, "TAXI")
+	end
+	return model
+end
+
 function VehicleModels.policeCar(): Model
 	local model = sedan("PoliceCar", BLACK, Color3.fromRGB(240, 240, 240))
 	local upper = model:FindFirstChild("Upper")

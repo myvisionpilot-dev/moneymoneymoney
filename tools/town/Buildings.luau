@@ -437,7 +437,45 @@ local function burger(parent, slot)
 		slot,
 		{ wall = Color3.fromRGB(250, 210, 90), accent = Color3.fromRGB(220, 60, 50), sign = "BURGER BARN" }
 	)
-	counter(model, cf, 18, 12, Color3.fromRGB(220, 60, 50))
+	counter(model, cf, 18, 12, Color3.fromRGB(220, 60, 50), "BurgerCounter")
+	-- The kitchen behind the counter (Paths/BurgerBarn), and where customers wait.
+	local steel = Color3.fromRGB(170, 175, 185)
+	Kit.tag(
+		piece(
+			model,
+			cf,
+			"Grill",
+			Vector3.new(5, 3.2, 2.6),
+			-8,
+			2,
+			18.5,
+			Color3.fromRGB(60, 60, 66),
+			Enum.Material.Metal
+		),
+		"BurgerGrill"
+	)
+	Kit.tag(
+		piece(model, cf, "Fryer", Vector3.new(3.6, 3.2, 2.6), 0, 2, 18.5, steel, Enum.Material.Metal),
+		"BurgerFryer"
+	)
+	Kit.decor(
+		piece(
+			model,
+			cf,
+			"FryerOil",
+			Vector3.new(3, 0.1, 2),
+			0,
+			3.65,
+			18.5,
+			Color3.fromRGB(230, 180, 60),
+			Enum.Material.Glass
+		)
+	)
+	Kit.tag(
+		piece(model, cf, "ShakeMachine", Vector3.new(2.6, 4.6, 2.4), 8, 2.7, 18.6, Color3.fromRGB(245, 170, 200)),
+		"BurgerShake"
+	)
+	Kit.marker(model, "BurgerCustomer", cf * CFrame.new(0, 0.9, 8) * CFrame.Angles(0, math.pi, 0), "BurgerCustomer")
 	local menu = piece(model, cf, "Menu", Vector3.new(16, 5, 0.4), 0, 9, DEPTH / 2 - 1.2, Color3.fromRGB(30, 30, 35))
 	Kit.sign(
 		menu,
@@ -627,6 +665,28 @@ local function carWash(parent, slot)
 	end
 	local sign = piece(model, cf, "Sign", Vector3.new(30, 3.4, 0.5), 0, 11.5, -DEPTH / 2 - 0.4, accent)
 	Kit.sign(sign, Enum.NormalId.Front, "SUDZ CAR WASH", accent)
+	-- Paths/CarWash: the cashier, the bay a car stops in between the brushes (driving in from the
+	-- road and out the back) and the rinse lever.
+	Kit.tag(
+		piece(model, cf, "Cashier", Vector3.new(4, 3, 2.4), -17, 1.9, -16, accent, Enum.Material.Wood),
+		"CarWashDesk"
+	)
+	Kit.marker(model, "CarWashBay", cf * CFrame.new(0, 0.9, 0) * CFrame.Angles(0, math.pi, 0), "CarWashBay")
+	Kit.tag(
+		piece(
+			model,
+			cf,
+			"RinseLever",
+			Vector3.new(0.6, 4, 0.6),
+			12,
+			2.4,
+			6,
+			Color3.fromRGB(90, 90, 100),
+			Enum.Material.Metal
+		),
+		"CarWashLever"
+	)
+	Kit.decor(piece(model, cf, "LeverHandle", Vector3.new(0.5, 0.5, 2), 12, 4.2, 5.2, Color3.fromRGB(220, 50, 50)))
 end
 
 local function taxi(parent, slot)
@@ -636,7 +696,10 @@ local function taxi(parent, slot)
 		sign = "CITY CABS",
 		height = 12,
 	})
-	counter(model, cf, 10, 12, Color3.fromRGB(40, 40, 45))
+	counter(model, cf, 10, 12, Color3.fromRGB(40, 40, 45), "TaxiDesk")
+	-- Paths/Taxi: where your cab waits, on the road out front, facing east with the traffic.
+	local spot = Vector3.new(slot.center.X, 0.7, slot.center.Z + slot.facing.Z * 35)
+	Kit.marker(model, "TaxiSpawn", CFrame.lookAt(spot, spot + Vector3.xAxis), "TaxiSpawn")
 	return model
 end
 
@@ -646,9 +709,12 @@ local function market(parent, slot)
 	piece(model, cf, "Floor", Vector3.new(slot.width, 0.4, DEPTH), 0, 0.2, 0, Kit.Colors.Plaza, Enum.Material.Pavement)
 	local stripes = { Color3.fromRGB(230, 70, 70), Color3.fromRGB(70, 150, 230), Color3.fromRGB(250, 190, 50) }
 	for index, x in { -14, 0, 14 } do
-		Kit.quiet(
+		local stall = Kit.quiet(
 			piece(model, cf, `Stall{index}`, Vector3.new(10, 3.5, 4), x, 2, -6, Kit.Colors.Wood, Enum.Material.Wood)
 		)
+		if index == 2 then
+			Kit.tag(stall, "FoodCartCounter") -- rent the hot-dog cart here (Paths/FoodStand)
+		end
 		for _, px in { -4.5, 4.5 } do
 			Kit.decor(piece(model, cf, "Pole", Vector3.new(0.5, 9, 0.5), x + px, 4.5, -3, Kit.Colors.White))
 		end

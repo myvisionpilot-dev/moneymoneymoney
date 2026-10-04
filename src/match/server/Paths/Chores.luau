@@ -11,6 +11,7 @@ local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local VehicleModels = require(script.Parent.Parent.VehicleModels)
+local CarDirt = require(script.Parent.CarDirt)
 local DoorTypes = require(script.Parent.DoorTypes)
 local Residents = require(script.Parent.Parent.Residents)
 
@@ -22,7 +23,6 @@ local settings = Config.Paths.Doors.Chores
 local LONG_GRASS = Color3.fromRGB(62, 128, 52)
 local CUT_GRASS = Color3.fromRGB(128, 196, 96)
 local BIN_COLOR = Color3.fromRGB(40, 110, 60)
-local DIRT = Color3.fromRGB(110, 80, 50)
 local CAR_COLORS = {
 	Color3.fromRGB(200, 50, 50),
 	Color3.fromRGB(50, 110, 210),
@@ -203,16 +203,6 @@ end
 
 -- Car wash -----------------------------------------------------------------------------
 
--- Where the dirt sits on the car (car space: facing -Z, ground at 0), and which way each spot faces.
-local DIRT_SPOTS: { { position: Vector3, normal: Vector3 } } = {
-	{ position = Vector3.new(0, 3.35, -4), normal = Vector3.yAxis }, -- bonnet
-	{ position = Vector3.new(0, 3.35, 4.2), normal = Vector3.yAxis }, -- boot
-	{ position = Vector3.new(-3.05, 2, -2.5), normal = -Vector3.xAxis },
-	{ position = Vector3.new(3.05, 2, -2.5), normal = Vector3.xAxis },
-	{ position = Vector3.new(-3.05, 2, 3), normal = -Vector3.xAxis },
-	{ position = Vector3.new(3.05, 2, 3), normal = Vector3.xAxis },
-}
-
 local function beginCarWash(job: Job, kit: Kit)
 	local spot = job.house.carSpot
 	if not spot then
@@ -234,24 +224,7 @@ local function beginCarWash(job: Job, kit: Kit)
 		end)
 	end)
 
-	local order = table.clone(DIRT_SPOTS)
-	for index = #order, 2, -1 do
-		local swap = rng:NextInteger(1, index)
-		order[index], order[swap] = order[swap], order[index]
-	end
-	for index = 1, math.min(settings.DirtSpots, #order) do
-		local where = order[index]
-		local position = spot.WorldCFrame:PointToWorldSpace(where.position)
-		local facing = spot.WorldCFrame:VectorToWorldSpace(where.normal)
-		local up = if math.abs(facing.Y) > 0.9 then spot.WorldCFrame.LookVector else Vector3.yAxis
-		local dirt = prop(
-			"Dirt",
-			Vector3.new(1.8, 1.8, 0.12),
-			CFrame.lookAt(position + facing * 0.05, position + facing * 2, up),
-			DIRT,
-			Enum.Material.Sand
-		)
-		dirt.Transparency = 0.1
+	for _, dirt in CarDirt.place(spot.WorldCFrame, settings.DirtSpots, false, workspace) do
 		table.insert(job.props, dirt)
 		table.insert(job.pieces, dirt)
 		kit.prompt(job, dirt, "Scrub", settings.ScrubHoldSeconds, function(prompt: ProximityPrompt)
@@ -260,8 +233,7 @@ local function beginCarWash(job: Job, kit: Kit)
 			if at then
 				table.remove(job.pieces, at)
 			end
-			Sounds.at("Rustle", dirt)
-			TweenService:Create(dirt, TweenInfo.new(0.4), { Transparency = 1, Size = dirt.Size * 0.3 }):Play()
+			CarDirt.scrub(dirt)
 			if #job.pieces == 0 then
 				kit.finish(job, "Squeaky clean. They'll be thrilled!")
 			end

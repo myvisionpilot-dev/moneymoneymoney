@@ -1,6 +1,7 @@
 --!strict
 -- Vehicles: your ride (a kart from the garage, hop in or out with SetRiding), race cars lent
--- by the garage (Paths/Racing) and stolen cars (Paths/CarTheft; SetRiding off ditches one).
+-- by the garage (Paths/Racing), stolen cars (Paths/CarTheft), City Cabs taxis (Paths/Taxi) and
+-- flipped wrecks (Paths/CarFlip). SetRiding off gets you out of anything but a race car.
 -- Each is a real physics car (CarBuilder) that you sit in; your own computer drives it
 -- (client/CarController). The car's TopSpeed attribute caps it (0 holds it still), the
 -- VehicleSpeed attribute on your character tells everything else you're driving, and
@@ -34,7 +35,7 @@ local RIDE_COLORS = { -- by ride level
 	Color3.fromRGB(255, 196, 50),
 }
 
-export type Kind = "Ride" | "RaceCar" | "StolenCar" | "Debug" -- Debug: DebugService's /drive
+export type Kind = "Ride" | "RaceCar" | "StolenCar" | "Taxi" | "FlipCar" | "Debug" -- Debug: DebugService's /drive
 
 type Mounted = {
 	kind: Kind,
@@ -79,6 +80,12 @@ end
 
 function VehicleService.isRiding(player: Player): boolean
 	return VehicleService.kind(player) == "Ride"
+end
+
+-- The car they're driving, if any (CarFlip repaints it in the paint booth).
+function VehicleService.car(player: Player): Model?
+	local current = mounted[player]
+	return if current then current.car else nil
 end
 
 -- Every car someone is driving (for pedestrians to get out of the way of).
@@ -173,8 +180,11 @@ function VehicleService.mount(player: Player, kind: Kind, speed: number, color: 
 	if not character or not humanoid or humanoid.Health <= 0 then
 		return false
 	end
-	-- Your own kart is a kart; race cars (a garage loaner) and stolen cars are cars.
-	local body = if kind == "Ride" then VehicleModels.kart(color) else VehicleModels.car(color)
+	-- Your own kart is a kart, a taxi is a taxi; everything else is a car in `color`.
+	local body = if kind == "Ride"
+		then VehicleModels.kart(color)
+		elseif kind == "Taxi" then VehicleModels.taxi()
+		else VehicleModels.car(color)
 	local ground = if at then onGround(at) else spaceFor(player, body)
 	if not ground then
 		body:Destroy()
@@ -247,6 +257,11 @@ local function onSetRiding(player: Player, payload: unknown)
 	end
 	if current then
 		return -- already riding, in a race car or in a stolen car
+	end
+	local character = player.Character
+	if character and character:GetAttribute("PushingCart") then
+		Notifier.send(player, "You can't ride while you're pushing the hot-dog cart.", "Info")
+		return
 	end
 	if not ShopService.rideSpeed(player) then
 		Notifier.send(player, "You don't have a ride yet. Buy a kart at Speedy's Garage.", "Info")

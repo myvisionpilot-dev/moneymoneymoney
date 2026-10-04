@@ -134,6 +134,10 @@ local function begin(player: Player, pedestrian: Model, prompt: ProximityPrompt)
 	if games[player] or not ctx.canWork(player) or not PromptGuard.held(prompt, player) or not prompt.Enabled then
 		return false, nil
 	end
+	local character = player.Character
+	if character and character:GetAttribute("PushingCart") then
+		return false, "Not while you're pushing the hot-dog cart."
+	end
 	local root = pedestrian:FindFirstChild("HumanoidRootPart")
 	if not root or not root:IsA("BasePart") then
 		return false, nil

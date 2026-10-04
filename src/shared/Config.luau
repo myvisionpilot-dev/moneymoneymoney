@@ -85,9 +85,73 @@ return {
 			DoorKnock = 1,
 			Pickpocket = 1,
 			Racing = 1,
+			Taxi = 1,
+			BurgerBarn = 1,
 			StoreRobbery = 2,
 			BountyHunting = 2,
 			CarTheft = 2,
+			CarWash = 2,
+			CarFlip = 2,
+			FoodStand = 3,
+		},
+		-- The legal jobs in town. All pay into your bag; every price and cost below is at
+		-- quota 1 and scales with the quota like other pay (TierPayoutMultiplier).
+		Taxi = { -- City Cabs: a shift of back-to-back fares in a yellow cab (R ends it)
+			DriveSpeed = 80,
+			BaseFare = 600, -- plus PerStud for every stud from pickup to drop-off
+			PerStud = 2.5,
+			MinTripStuds = 200, -- drop-offs at least this far from the pickup
+			PickupSeconds = 90, -- the passenger gives up waiting after this...
+			FareSeconds = 90, -- ...and gets out without paying if the ride takes longer
+			StopRadiusStuds = 14, -- how close to the stop counts as pulled up
+			StopSpeed = 25, -- and slow enough to hop in or out
+		},
+		BurgerBarn = { -- cook and serve 3 orders
+			Orders = 3,
+			ShiftSeconds = 120,
+			PayPerOrder = 500,
+			NoBurnBonus = 300, -- for a full shift with nothing burnt
+			GrillSeconds = 4, -- a patty cooks this long...
+			BurnSeconds = 4, -- ...and burns if it's left on this much longer
+			FryHoldSeconds = 1.5,
+			ShakeHoldSeconds = 1.5,
+			RangeStuds = 8,
+		},
+		CarWash = { -- Sudz: scrub the dirt off each car, then pull the rinse lever
+			Cars = 3,
+			ShiftSeconds = 180,
+			PayPerCar = 1_000,
+			QuickTip = 300, -- for a car done within QuickSeconds of rolling in
+			QuickSeconds = 30,
+			DirtSpots = 8,
+			ScrubHoldSeconds = 1.2,
+			RollSeconds = 2, -- cars roll in and out of the bay this quickly
+			RangeStuds = 8,
+		},
+		CarFlip = { -- buy a wreck behind Speedy's, fix it, paint it, sell it
+			Cost = 1_500, -- paid from your bag; lost if you fail
+			SalePrice = 5_000,
+			BuyerTierBonus = { 1, 1.1, 1.2, 1.4 }, -- richer streets pay a bit more (house tier)
+			TimeLimitSeconds = 180,
+			Dents = 3,
+			DentHoldSeconds = 1.5,
+			FlatTyres = 2,
+			FitHoldSeconds = 1,
+			DriveSpeed = 80,
+			BoothRadiusStuds = 10, -- drive this close to the paint booth's middle
+			SellRadiusStuds = 12, -- and this close to the buyer's driveway
+			MinBuyerStuds = 250,
+			RespawnSeconds = 30, -- a new wreck turns up this long after one goes
+			RangeStuds = 8,
+		},
+		FoodStand = { -- rent the hot-dog cart at the market and sell to people in the street
+			Rent = 500, -- 10 hot dogs
+			Stock = 10,
+			Price = 300,
+			ShiftSeconds = 180,
+			BuyCooldownSeconds = 60, -- each pedestrian buys at most this often
+			SellHoldSeconds = 0.5,
+			RangeStuds = 8,
 		},
 		Delivery = {
 			BasePayout = 1_500, -- tier-1 pay per delivery
@@ -392,6 +456,11 @@ return {
 			{ stat = "ChopShop", goal = 1, text = "Sell a car to the chop shop" },
 			{ stat = "QuotaCleared", goal = 3, best = true, text = "Clear quota 3 in a run" },
 			{ stat = "StoreRobbery", goal = 2, text = "Rob 2 stores" },
+			{ stat = "TaxiFare", goal = 4, text = "Drive 4 taxi fares" },
+			{ stat = "BurgerOrder", goal = 6, text = "Serve 6 burger orders" },
+			{ stat = "CarWash", goal = 3, text = "Wash 3 cars at Sudz" },
+			{ stat = "CarFlip", goal = 1, text = "Flip a car for a profit" },
+			{ stat = "HotDog", goal = 10, text = "Sell 10 hot dogs" },
 		},
 	},
 	-- Permanent upgrades from the lobby's speed shop, bought with Cred and kept forever.
