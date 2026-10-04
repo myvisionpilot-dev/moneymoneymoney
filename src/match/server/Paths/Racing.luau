@@ -24,7 +24,6 @@ local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local Juice = require(script.Parent.Parent.Juice)
 local MoneyPath = require(script.Parent.MoneyPath)
-local MovementGuard = require(script.Parent.Parent.MovementGuard)
 local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local Stats = require(script.Parent.Parent.Stats)
@@ -352,8 +351,7 @@ local function startCountdown()
 			refund(racer, "street race grid was full")
 			leave(racer, "The grid was full, sorry! Your entry fee is back.")
 		else
-			MovementGuard.teleport(racer.player, slot.CFrame + Vector3.new(0, 3, 0))
-			if VehicleService.mount(racer.player, "RaceCar", 0, CAR_COLOR) then
+			if VehicleService.mount(racer.player, "RaceCar", 0, CAR_COLOR, slot.CFrame) then
 				guide(racer)
 			else
 				refund(racer, "no loaner car for the street race")
@@ -462,7 +460,12 @@ local function tick()
 			startCountdown()
 		end
 	elseif phase == "Countdown" then
-		if now >= goAt then
+		for _, racer in table.clone(racers) do
+			if VehicleService.kind(racer.player) ~= "RaceCar" then
+				leave(racer, "You got out of your car, so you're out of the race.")
+			end
+		end
+		if phase == "Countdown" and now >= goAt then
 			go()
 		end
 	elseif phase == "Racing" then
@@ -472,6 +475,8 @@ local function tick()
 				local target = nextCheckpoint(racer)
 				if not racer.player.Parent or not ctx.canWork(racer.player) then
 					leave(racer, nil)
+				elseif VehicleService.kind(racer.player) ~= "RaceCar" then
+					leave(racer, "You got out of your car, so you're out of the race.")
 				elseif
 					target
 					and CharacterUtil.distanceTo(racer.player, target.Position) <= settings.CheckpointRadiusStuds

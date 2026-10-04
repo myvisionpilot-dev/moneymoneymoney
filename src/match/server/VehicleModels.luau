@@ -1,8 +1,9 @@
 --!strict
--- Grey-box vehicle bodies built from parts (no Creator Store models): a go-kart for rides and
--- races, a car (parked or stolen) and a police car. On the move they're welded under a
--- character and never collide, so the humanoid still does the moving. Each model is built
--- around its ground point, facing -Z.
+-- Grey-box vehicle bodies built from parts (no Creator Store models): a go-kart, a car and a
+-- police car. Each model is built around its ground point, facing -Z, with Wheel1-4 (front
+-- left, front right, back left, back right), an invisible Hull box inside the wheels and a
+-- Seat: CarBuilder turns karts and cars into physics cars from those. Police cars are still
+-- welded under their (humanoid) cop and never collide.
 
 local VehicleModels = {}
 
@@ -79,6 +80,7 @@ function VehicleModels.kart(color: Color3): Model
 	piece(model, "Hood", Vector3.new(4.2, 1.2, 2.2), Vector3.new(0, 1.5, -3.2), color)
 	piece(model, "Seat", Vector3.new(3, 0.6, 2.4), Vector3.new(0, 1.4, 0.9), BLACK)
 	piece(model, "SeatBack", Vector3.new(3.2, 2, 0.6), Vector3.new(0, 2.1, 2.2), BLACK)
+	piece(model, "Hull", Vector3.new(3.4, 1.2, 6.8), Vector3.new(0, 1.25, -0.4), color).Transparency = 1
 	wheels(model, 0.8, 0.8, 2.5, -2.6, 2)
 	model.WorldPivot = CFrame.identity
 	return model
@@ -99,6 +101,8 @@ local function sedan(name: string, lowerColor: Color3, upperColor: Color3): Mode
 		Enum.Material.Glass
 	)
 	cabin.Transparency = 0.15
+	piece(model, "Hull", Vector3.new(4.8, 2.4, 11.6), Vector3.new(0, 2.1, 0), lowerColor).Transparency = 1
+	piece(model, "Seat", Vector3.new(2.4, 0.4, 2.2), Vector3.new(0, 1.6, 0.9), BLACK).Transparency = 1
 	for index, x in { -2, 2 } do
 		piece(
 			model,

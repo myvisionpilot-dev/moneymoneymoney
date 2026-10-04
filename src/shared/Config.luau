@@ -48,7 +48,7 @@ return {
 		MaxCops = 6, -- across the whole town
 		CopSpeed = 35, -- studs/s on foot: as fast as sprinting
 		CarFromStar = 2, -- the cop for this star and above comes in a police car
-		CarSpeed = 55, -- catches a level-1 ride, matches level 2, loses level 3
+		CarSpeed = 85, -- catches a level-1 kart, matches level 2, loses level 3
 		TagRangeStuds = 4,
 		CarTagRangeStuds = 8, -- a car pulls you over from a little further away
 		RepathSeconds = 1,
@@ -92,7 +92,7 @@ return {
 		Delivery = {
 			BasePayout = 1_500, -- tier-1 pay per delivery
 			TimeLimitSeconds = 90,
-			MaxSpeedStudsPerSecond = 80, -- faster than this voids the job; keep above the top ride speed
+			MaxSpeedStudsPerSecond = 130, -- faster than this voids the job; keep above the top kart speed
 			DropoffRadiusStuds = 8,
 			PromptRangeStuds = 10,
 			MinDropoffDistance = 60, -- skip drop-offs closer than this to the depot
@@ -104,7 +104,7 @@ return {
 			JobTimeLimitSeconds = 90,
 			TargetRadiusStuds = 7, -- how close counts as arriving
 			BaseBreakInHoldSeconds = 6, -- lockpick upgrades shorten this
-			MaxSpeedStudsPerSecond = 80, -- faster than this voids a travel job; keep above the top ride speed
+			MaxSpeedStudsPerSecond = 130, -- faster than this voids a travel job; keep above the top kart speed
 			MinLetterDistance = 100,
 			HouseTierPayMultiplier = { 1, 1.3, 1.6, 2.2 }, -- tiers get richer away from the bank; 4 = mansion
 			-- Chores you actually do: mow every patch of long grass, wheel both bins to the kerb,
@@ -156,17 +156,17 @@ return {
 		-- Street races round the town loop, from Speedy's Garage in a loaner car.
 		Racing = {
 			EntryFee = 3_000, -- paid from your bag; the top 3 get it back (a solo racer needs a medal)
-			CarSpeed = 50, -- everyone races the same loaner car
+			CarSpeed = 120, -- everyone races the same loaner car (top speed)
 			Laps = 2,
 			GatherSeconds = 15, -- after the first racer joins, others have this long to join
 			CountdownSeconds = 3,
-			TimeLimitSeconds = 170,
+			TimeLimitSeconds = 150,
 			CooldownSeconds = 20, -- the garage rests after each race
 			JoinRangeStuds = 12,
 			LeaveRangeStuds = 60, -- walk this far from the start while gathering and you're out
 			CheckpointRadiusStuds = 18,
 			Pay = { 3_000, 1_800, 900 }, -- tier-1 prize for 1st / 2nd / 3rd (solo: gold / silver / bronze), on top of the fee back
-			ParSeconds = { 112, 124, 140 }, -- gold / silver / bronze (a perfect line is ~104s); slower than bronze pays nothing
+			ParSeconds = { 62, 70, 82 }, -- gold / silver / bronze; slower than bronze pays nothing
 		},
 		BountyHunting = {
 			PerStar = 1_000, -- tier-1 reward per star of the player you arrest
@@ -178,7 +178,7 @@ return {
 			Pay = 3_000, -- tier-1 pay from the chop shop
 			HoldSeconds = 4, -- breaking into a parked car
 			RangeStuds = 8,
-			DriveSpeed = 50,
+			DriveSpeed = 80, -- the stolen car's top speed
 			TimeLimitSeconds = 150, -- to get the car to the chop shop
 			RespawnSeconds = 90, -- a new car parks in an empty spot after this long
 			ChopRadiusStuds = 12, -- how close to the chop shop bay counts as delivered
@@ -196,17 +196,18 @@ return {
 			{ holdSeconds = 3, price = 6_000 },
 			{ holdSeconds = 2, price = 20_000 },
 		},
-		Ride = { -- levels 1-3: kart speed in studs/s (sprinting is 35)
-			{ speed = 45, price = 2_500 },
-			{ speed = 55, price = 10_000 },
-			{ speed = 65, price = 35_000 },
+		Ride = { -- levels 1-3: kart top speed in studs/s (sprinting is 35)
+			{ speed = 70, price = 2_500 },
+			{ speed = 85, price = 10_000 },
+			{ speed = 100, price = 35_000 },
 		},
 	},
 	-- Five-minute treats from the convenience stores. Different ones stack; buying one you
-	-- already have starts its clock again.
+	-- already have starts its clock again. The energy drink goes in your backpack (one at a
+	-- time) and starts when you drink it.
 	Boosts = {
 		Seconds = 300,
-		Energy = { price = 800, speed = 2 }, -- energy drink: walking and sprinting (not karts) this much faster
+		Energy = { price = 800, speed = 2, drinkSeconds = 1.2 }, -- a drink you carry, then drink: on foot (not in cars) this much faster
 		Disguise = { price = 1_200, heat = 0.5 }, -- heat builds this much as fast
 		Candy = { price = 600, zone = 1.5 }, -- the pickpocket green zone is this much wider
 		Gloves = { price = 1_000, breakIn = 0.5 }, -- break-ins take this much as long
@@ -223,9 +224,62 @@ return {
 		HoldUpSpeed = 2, -- robbing a store with a blaster out is this much faster...
 		HoldUpPay = 1.5, -- ...and pays this much more
 	},
+	-- Physics cars (karts, race cars, stolen cars): real wheels on springs, driven by the
+	-- driver's own computer (client/CarController). Top speeds are per car (Shop.Ride,
+	-- Racing.CarSpeed, CarTheft.DriveSpeed). Accelerations are in studs/s².
+	Car = {
+		Acceleration = 42, -- off the line; fades toward top speed (0-100 in ~4s at 120)
+		TorqueFade = 2, -- how quickly power fades with speed: 1 - (speed / top) ^ this
+		MinTorqueShare = 0.12, -- a little push stays near the top
+		ReverseShare = 0.3, -- reverse top speed, as a share of top speed
+		Braking = 40, -- a full stop from 120 in about 3s
+		FrontBrakeShare = 0.6,
+		EngineBraking = 6, -- slowing down when you let go of the throttle
+		SteerAngleSlow = 35, -- degrees at a standstill...
+		SteerAngleFast = 12, -- ...down to this at top speed, so it can't spin out
+		SteerSeconds = 0.12, -- how quickly the wheels turn to where you're steering
+		CornerGrip = 220, -- sideways studs/s² the steering will ask for at speed (more turns tighter; less pushes wide)
+		YawAssist = 7, -- how firmly the car turns exactly as its wheels point (per second; 0 = raw physics, off while drifting)
+		SuspensionHz = 2.6, -- bounces per second; lower is softer
+		DampingRatio = 0.75, -- share of critical damping (1 = no bounce at all)
+		SuspensionUp = 0.6, -- how far a wheel can push up into the body, as a share of its radius...
+		SuspensionDown = 0.5, -- ...and drop below where it rests
+		AntiRoll = 0.6, -- resists leaning in corners (share of the spring stiffness)
+		FrontFriction = 2, -- the most grip Roblox allows
+		RearFriction = 1.8, -- a little less at the back, so throttle in a hard turn kicks the tail out
+		DriftFriction = 0.4, -- rear grip with the handbrake on
+		DriftBrake = 0.25, -- share of Braking on the rear wheels with the handbrake on (and no throttle)
+		DriftThrottle = 0.6, -- share of power you keep with the handbrake on, to hold a slide
+		GripReturnSeconds = 0.3, -- rear grip comes back this smoothly after the handbrake
+		DriftSteer = 20, -- degrees: in a slide, steering aims the front wheels this far either side of where you're sliding...
+		CounterSteer = 0.7, -- ...and they follow the slide by themselves this much (1 = straight along it)
+		DriftMaxAngle = 35, -- degrees: a slide is held to this much sideways (no spinning out)
+		DriftSlowdown = 18, -- drifting on the throttle loses at most this much speed per second
+		DriftCatch = 0.5, -- share of the extra slide angle taken off each step
+		WheelDensity = 0.7,
+		BallastDensity = 20, -- a heavy plate under the floor keeps it the right way up
+		Downforce = 0.4, -- extra push down at top speed, as a share of the car's weight
+		AirSpinDamping = 3, -- in the air, spinning dies down this quickly...
+		AirLevelling = 1.5, -- ...and it tips back level this strongly
+		MaxSpin = 5, -- radians/s: hard cap so crashes don't send it whirling
+		FlipAfterSeconds = 2, -- on its side and stopped this long: press F (or tap FLIP)
+	},
+	-- Pedestrians dash out of the way of cars (cars pass through people; nobody gets hit).
+	Dodge = {
+		MinCarSpeed = 12, -- slower cars are ignored
+		LookAheadSeconds = 1.1, -- how far ahead of a car people react...
+		ExtraStuds = 8, -- ...plus this
+		ClearStuds = 3, -- side clearance beyond the car's width
+		DashStuds = 9, -- how far they leap aside
+		DashSpeed = 34,
+		HopHeight = 2.5,
+		Seconds = 1.2, -- the whole dash, landing and wobble
+		DashSeconds = 0.5, -- of which this is the fast part
+	},
 	Movement = {
 		WalkSpeed = 25,
 		SprintSpeed = 35, -- while holding Shift (or the Sprint touch button)
+		MaxSpeedMultiplier = 2, -- the speed buff and an energy drink together never go past this
 		FieldOfView = 70,
 		FastFieldOfView = 78, -- while sprinting or driving: a little wider so speed feels faster
 		FieldOfViewTweenSeconds = 0.3,
@@ -340,25 +394,13 @@ return {
 			{ stat = "StoreRobbery", goal = 2, text = "Rob 2 stores" },
 		},
 	},
-	Cosmetics = {
+	-- Permanent upgrades from the lobby's speed shop, bought with Cred and kept forever.
+	Perks = {
 		ShopRangeStuds = 14,
-		Prices = { -- Cred; items and looks are in shared/Catalog
-			paint_cherry = 400,
-			paint_ocean = 400,
-			paint_lime = 400,
-			paint_midnight = 800,
-			paint_gold = 2_000,
-			trail_cash = 800,
-			trail_fire = 1_500,
-			trail_rainbow = 3_000,
-			title_hustler = 300,
-			title_bigshot = 1_000,
-			title_favourite = 2_500,
-			title_kingpin = 5_000,
-			hat_cap = 600,
-			hat_tophat = 1_500,
-			hat_crown = 4_000,
-		} :: { [string]: number },
+		Speed = {
+			PerLevel = 0.1, -- each level: walk and sprint 0.1x faster (on foot, both places)
+			Prices = { 250, 600, 1_200, 2_400, 4_500 }, -- Cred for level 1, 2, 3...; the list length is the max level
+		},
 	},
 	Badges = {
 		GettingSeriousQuota = 3,

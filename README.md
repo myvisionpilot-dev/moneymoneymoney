@@ -17,17 +17,17 @@ One universe, two places, each synced from its own Rojo project.
    - `rojo serve match.project.json`
 
 Maps are built from parts by scripts and kept in the place files, not in Rojo. The lobby: `tools/build_lobby_map.luau`
-then `tools/build_lobby_extras.luau` (cosmetics stand and leaderboards), pasted into the command bar. The Match town:
+then `tools/build_lobby_extras.luau` (speed shop stand and leaderboards), pasted into the command bar. The Match town:
 `tools/build_town.luau` with its pieces in `tools/town/` (layout, roads, bank and shops, 60 houses, park and yards);
 after `scripts/sync-studio.ps1`, run `require(game:GetObjects("rbxasset://mmm/tools.rbxm")[1].build_town)`.
-Code finds map points by CollectionService tags: `QueuePad`, `CosmeticShop`, `Leaderboard`, `BankCounter`,
+Code finds map points by CollectionService tags: `QueuePad`, `PerkShop`, `Leaderboard`, `BankCounter`,
 `BankSpawn`, `StaffSpot`, `DeliveryDepot`, `DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`,
 `StoreZone`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`, `AlleyDrop`,
 `ParkedCar`, `ChopShop`. No floating labels: buildings carry painted signs.
 
 ## Saving
 
-Profiles (Cred, cosmetics, badges, daily challenge and streak) are saved with
+Profiles (Cred, perks, badges, daily challenge and streak) are saved with
 [ProfileStore](https://github.com/MadStudioRoblox/ProfileStore) (MIT, vendored in `src/serverCommon/Vendor/`,
 skipped by the checks). Its session lock means a profile is only open on one server at a time, so the
 Lobby → Match → Lobby teleports can't lose or duplicate Cred. The Match adds your prize and saves the moment your run
@@ -48,19 +48,18 @@ and `tools/load_code.luau` (set `PLACE`) swaps it into the open place.
 ## Layout
 
 ```
-src/shared/        ReplicatedStorage.Shared: Config, Remotes, Types, Catalog (cosmetics, badges), UI, Movement
-src/serverCommon/  ServerScriptService.Common: Profiles, Daily, Badges, Cosmetics, Leaderboards, ProfileSync,
+src/shared/        ReplicatedStorage.Shared: Config, Remotes, Types, Catalog (perks, badges), UI, Movement
+src/serverCommon/  ServerScriptService.Common: Profiles, Daily, Badges, Perks, Leaderboards, ProfileSync,
                    SafeTeleport, RateLimiter, Admin, Vendor/ProfileStore (both places)
-src/lobby/         QueueService (pads → reserved Match server), cosmetics stand, leaderboard boards, profile panel
+src/lobby/         QueueService (pads → reserved Match server), speed shop (permanent perks), leaderboard boards, profile panel
 src/match/server/  QuotaRunService (state machine), Economy, Deposit, Prize, Path + Paths/*, Heat, Police, Jail,
                    Shop, Vehicles, Steal, NPCs, Staff, MovementGuard, Sync, Penny (the bank), Debug
 src/match/client/  HUD, Mr. Penny's banner, next-step guide, job guide, door offers, shop, pickpocket, results
 ```
 
 Every tunable number is in `src/shared/Config.luau`. The server owns all money: clients only send intents
-(`SubmitDecision`, `ChooseDoorOffer`, `BuyUpgrade`, `SetRiding`, `LeaveQueue`, `ClientReady`, `BuyCosmetic`,
-`EquipCosmetic`); jobs, crimes, races and arrests use server-checked ProximityPrompts. Every Cred change goes through
-`Profiles.addCred` and is logged.
+(`SubmitDecision`, `ChooseDoorOffer`, `BuyItem`, `SetRiding`, `LeaveQueue`, `ClientReady`, `BuyPerk`); jobs, crimes,
+races and arrests use server-checked ProximityPrompts. Every Cred change goes through `Profiles.addCred` and is logged.
 
 ## Debug commands
 
@@ -75,6 +74,7 @@ Chat commands for the game owner, anyone in `Config.Debug.AdminUserIds`, and eve
 | `/start` | Start the run without waiting for arrivals |
 | `/heat <stars>` | Add heat to yourself (negative clears it) |
 | `/tp <x> <y> <z>` | Teleport yourself |
+| `/drive [kart] [top speed]` | A car (or kart) where you stand |
 
 In Studio, `game.ServerStorage.DebugHook:Invoke("cash", "5000")` runs the same commands from the server command bar.
 Set `Config.Debug.Enabled = true` to run every phase timer at `TimerScale` speed.

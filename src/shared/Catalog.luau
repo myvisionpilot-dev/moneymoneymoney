@@ -1,20 +1,16 @@
 --!strict
--- Every cosmetic and badge: names, slots and looks. Prices and badge thresholds live in Config.
--- Cosmetics are bought with Cred at fixed prices: nothing random, nothing that helps you win.
+-- The speed shop's perks and every badge: names and descriptions. Prices, levels and badge
+-- thresholds live in Config. Perks are bought with Cred at fixed prices: nothing random.
 
 local Config = require(script.Parent.Config)
 local Format = require(script.Parent.Format)
 
-export type Slot = "Paint" | "Trail" | "Title" | "Hat"
-export type HatStyle = "Cap" | "TopHat" | "Crown"
+export type PerkId = "Speed"
 
-export type Cosmetic = {
-	id: string,
+export type Perk = {
+	id: PerkId,
 	name: string,
-	slot: Slot,
-	colors: { Color3 }, -- paint and hats: [1]; trails: gradient stops; titles: text colour
-	text: string?, -- titles only
-	hat: HatStyle?, -- hats only
+	text: string, -- what one level does
 }
 
 export type Badge = {
@@ -25,77 +21,13 @@ export type Badge = {
 
 local Catalog = {}
 
-Catalog.Slots = { "Paint", "Trail", "Title", "Hat" } :: { Slot }
-
-Catalog.SlotNames = {
-	Paint = "Kart paint",
-	Trail = "Trail",
-	Title = "Title",
-	Hat = "Hat",
-} :: { [string]: string }
-
-Catalog.Cosmetics = {
-	{ id = "paint_cherry", name = "Cherry Red", slot = "Paint", colors = { Color3.fromRGB(220, 40, 50) } },
-	{ id = "paint_ocean", name = "Ocean Blue", slot = "Paint", colors = { Color3.fromRGB(40, 110, 220) } },
-	{ id = "paint_lime", name = "Lime Zest", slot = "Paint", colors = { Color3.fromRGB(140, 220, 60) } },
-	{ id = "paint_midnight", name = "Midnight", slot = "Paint", colors = { Color3.fromRGB(30, 30, 45) } },
-	{ id = "paint_gold", name = "Gold Rush", slot = "Paint", colors = { Color3.fromRGB(255, 196, 50) } },
+Catalog.Perks = {
 	{
-		id = "trail_cash",
-		name = "Cash Trail",
-		slot = "Trail",
-		colors = { Color3.fromRGB(80, 200, 105), Color3.fromRGB(200, 255, 200) },
+		id = "Speed",
+		name = "Speed Buff",
+		text = `Walk and sprint {Config.Perks.Speed.PerLevel}x faster per level. Yours for good.`,
 	},
-	{
-		id = "trail_fire",
-		name = "Hot Streak",
-		slot = "Trail",
-		colors = { Color3.fromRGB(255, 200, 40), Color3.fromRGB(235, 60, 30) },
-	},
-	{
-		id = "trail_rainbow",
-		name = "Rainbow",
-		slot = "Trail",
-		colors = {
-			Color3.fromRGB(255, 60, 60),
-			Color3.fromRGB(255, 200, 40),
-			Color3.fromRGB(80, 220, 90),
-			Color3.fromRGB(60, 140, 255),
-			Color3.fromRGB(180, 80, 255),
-		},
-	},
-	{
-		id = "title_hustler",
-		name = "Hustler",
-		slot = "Title",
-		text = "Hustler",
-		colors = { Color3.fromRGB(200, 200, 200) },
-	},
-	{
-		id = "title_bigshot",
-		name = "Big Shot",
-		slot = "Title",
-		text = "Big Shot",
-		colors = { Color3.fromRGB(95, 160, 245) },
-	},
-	{
-		id = "title_favourite",
-		name = "Tony's Favourite",
-		slot = "Title",
-		text = "Tony's Favourite",
-		colors = { Color3.fromRGB(80, 200, 105) },
-	},
-	{
-		id = "title_kingpin",
-		name = "Kingpin",
-		slot = "Title",
-		text = "Kingpin",
-		colors = { Color3.fromRGB(255, 196, 50) },
-	},
-	{ id = "hat_cap", name = "Delivery Cap", slot = "Hat", hat = "Cap", colors = { Color3.fromRGB(200, 120, 50) } },
-	{ id = "hat_tophat", name = "Top Hat", slot = "Hat", hat = "TopHat", colors = { Color3.fromRGB(30, 30, 35) } },
-	{ id = "hat_crown", name = "Crown", slot = "Hat", hat = "Crown", colors = { Color3.fromRGB(255, 196, 50) } },
-} :: { Cosmetic }
+} :: { Perk }
 
 local badges = Config.Badges
 Catalog.Badges = {
@@ -113,26 +45,39 @@ Catalog.Badges = {
 	{ id = "Loaded", name = "Loaded", text = `Earn {Format.number(badges.LoadedCred)} Cred in total` },
 } :: { Badge }
 
-local cosmeticsById: { [string]: Cosmetic } = {}
-for _, item in Catalog.Cosmetics do
-	cosmeticsById[item.id] = item
-end
-
 local badgesById: { [string]: Badge } = {}
 for _, badge in Catalog.Badges do
 	badgesById[badge.id] = badge
 end
 
-function Catalog.cosmetic(id: string): Cosmetic?
-	return cosmeticsById[id]
+function Catalog.perk(id: string): Perk?
+	for _, perk in Catalog.Perks do
+		if perk.id == id then
+			return perk
+		end
+	end
+	return nil
 end
 
 function Catalog.badge(id: string): Badge?
 	return badgesById[id]
 end
 
-function Catalog.price(id: string): number?
-	return Config.Cosmetics.Prices[id]
+-- What the next level of a perk costs, or nil once it's maxed.
+function Catalog.perkPrice(id: PerkId, currentLevel: number): number?
+	if id == "Speed" then
+		return Config.Perks.Speed.Prices[currentLevel + 1]
+	end
+	return nil
+end
+
+function Catalog.perkMaxLevel(id: PerkId): number
+	return if id == "Speed" then #Config.Perks.Speed.Prices else 0
+end
+
+-- The on-foot speed multiplier a Speed level gives.
+function Catalog.speedMultiplier(level: number): number
+	return 1 + Config.Perks.Speed.PerLevel * level
 end
 
 return Catalog

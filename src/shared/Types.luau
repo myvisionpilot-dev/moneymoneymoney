@@ -79,9 +79,8 @@ export type ShopItemKind = "Upgrade" | "Boost" | "Blaster"
 export type ShopItem = {
 	id: string, -- an UpgradeId, BoostId or BlasterId
 	kind: ShopItemKind,
-	icon: string,
 	title: string,
-	detail: string, -- what it does (upgrades: what you have ➡️ what's next)
+	detail: string, -- what it does (upgrades: what you have -> what's next)
 	status: string?, -- a short line such as "Level 1/3", "Active 3:12" or "Yours"
 	price: number?, -- nil when there's nothing left to buy
 }
@@ -204,8 +203,7 @@ export type ProfileView = {
 	lifetimeCred: number,
 	highestQuota: number,
 	runs: number,
-	owned: { string }, -- cosmetic ids
-	equipped: { [string]: string }, -- slot -> cosmetic id ("" = nothing)
+	perks: { [string]: number }, -- perk id -> level bought
 	badges: { string }, -- earned badge ids
 	daily: DailyView,
 	streak: number, -- days in a row (0 if it lapsed)

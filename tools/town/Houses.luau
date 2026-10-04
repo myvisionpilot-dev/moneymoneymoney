@@ -1,5 +1,6 @@
 -- The 60 houses: finished outside (roof, windows, porch, lawn, driveway, bins, fence, mailbox),
--- getting bigger with each tier, and mansions at the ends of the cul-de-sacs.
+-- getting bigger with each tier, and mansions facing the dead-end streets. Faces that would
+-- line up with the grass or each other are nudged apart so they don't flicker.
 --
 -- Each house body is tagged House (attributes HouseId, Tier) and holds what the jobs need:
 -- Door (part), Lawn (part), Bin1/Bin2 (parts), BackDoor/Kerb/CarSpot (attachments).
@@ -40,8 +41,8 @@ local STYLES = {
 		height = 24,
 		roof = 10,
 		yard = 34,
-		bodyX = -6,
-		drive = { 28, 36 },
+		bodyX = 0, -- the gate and front door line up with the road
+		drive = { 30, 38 },
 		upstairs = true,
 		mansion = true,
 	},
@@ -71,7 +72,8 @@ local function house(folder, lot)
 	local roofColor = ROOFS[lot.id % #ROOFS + 1]
 
 	local model = Kit.model(folder, `House{lot.id}`)
-	local body = Kit.part(model, `House{lot.id}`, Vector3.new(W, H, D), at(bx, H / 2, Y + D / 2), wall)
+	-- The front wall sits 0.1 in front of the back garden's edge.
+	local body = Kit.part(model, `House{lot.id}`, Vector3.new(W, H, D + 0.1), at(bx, H / 2, Y + D / 2 - 0.05), wall)
 	body:SetAttribute("HouseId", lot.id)
 	body:SetAttribute("Tier", lot.tier)
 	Kit.tag(body, "House")
@@ -115,8 +117,8 @@ local function house(folder, lot)
 		Kit.part(
 			model,
 			"Path",
-			Vector3.new(pathWidth, 0.1, Y),
-			at(bx, 0.35, Y / 2),
+			Vector3.new(pathWidth, 0.1, Y - 0.2),
+			at(bx, 0.35, (Y - 0.2) / 2),
 			Kit.Colors.Path,
 			Enum.Material.Concrete
 		)
@@ -131,18 +133,21 @@ local function house(folder, lot)
 			Enum.Material.Concrete
 		)
 	)
+	-- Side fences stop just short of the garden's edges and tuck inside the (taller) back fence.
 	for _, x in { -lotWidth / 2 + 0.25, lotWidth / 2 - 0.25 } do
 		Kit.quiet(
 			Kit.part(
 				model,
 				"Fence",
-				Vector3.new(0.4, 3.5, lotDepth - Y),
+				Vector3.new(0.4, 3.5, lotDepth - Y - 0.4),
 				at(x, 1.75, Y + (lotDepth - Y) / 2),
 				Kit.Colors.White
 			)
 		)
 	end
-	Kit.quiet(Kit.part(model, "Fence", Vector3.new(lotWidth, 3.5, 0.4), at(0, 1.75, lotDepth - 0.25), Kit.Colors.White))
+	Kit.quiet(
+		Kit.part(model, "Fence", Vector3.new(lotWidth - 0.2, 3.6, 0.4), at(0, 1.8, lotDepth - 0.25), Kit.Colors.White)
+	)
 
 	-- Roof: a gable along the front, in two wedges that meet at the ridge.
 	local halfDepth = D / 2 + 1
@@ -205,12 +210,20 @@ local function house(folder, lot)
 		end
 	end
 
-	-- Front door with a porch.
+	-- Front door with a porch (a mansion's stands on its steps).
+	local doorY = if style.mansion then 4.5 else 4.1
 	local door =
-		Kit.part(body, "Door", Vector3.new(4, 7, 0.6), at(bx, 4.1, Y - 0.3), Kit.Colors.Wood, Enum.Material.Wood)
+		Kit.part(body, "Door", Vector3.new(4, 7, 0.6), at(bx, doorY, Y - 0.3), Kit.Colors.Wood, Enum.Material.Wood)
 	door.Color = Color3.fromRGB(110, 70, 45)
 	Kit.quiet(
-		Kit.part(model, "Step", Vector3.new(7, 0.6, 3), at(bx, 0.3, Y - 1.5), Kit.Colors.Path, Enum.Material.Concrete)
+		Kit.part(
+			model,
+			"Step",
+			Vector3.new(7, 0.6, 2.9),
+			at(bx, 0.3, Y - 1.55),
+			Kit.Colors.Path,
+			Enum.Material.Concrete
+		)
 	)
 	Kit.decor(Kit.part(model, "PorchRoof", Vector3.new(8, 0.4, 3.5), at(bx, 8.6, Y - 1.6), roofColor))
 
@@ -282,13 +295,14 @@ local function house(folder, lot)
 			)
 		)
 		Kit.quiet(Kit.part(model, "Steps", Vector3.new(12, 1, 6), at(bx, 0.5, Y - 3), STONE, Enum.Material.Limestone))
-		for _, segment in { { -lotWidth / 2 + 1, bx - 4 }, { bx + 4, dx1 - 1 } } do
+		-- Hedges stop at the gate posts (and short of the mailbox), a little thinner than them.
+		for _, segment in { { -lotWidth / 2 + 5, bx - 5 }, { bx + 5, dx1 - 1 } } do
 			local width = segment[2] - segment[1]
 			Kit.quiet(
 				Kit.part(
 					model,
 					"Hedge",
-					Vector3.new(width, 3, 2),
+					Vector3.new(width, 3, 1.8),
 					at((segment[1] + segment[2]) / 2, 1.8, 1.5),
 					Kit.Colors.Leaves,
 					Enum.Material.LeafyGrass

@@ -1,8 +1,9 @@
 --!strict
 -- The shops. Each counter tagged ShopCounter has a Shop attribute saying what it sells, all
 -- paid from the cash in your bag (never your deposits) and all for this run only:
---   Clothes (Threads): a bigger bag.        Hardware (Handy Hank's): lockpicks.
---   Garage (Speedy's): your own kart.       Convenience stores: five-minute boosts.
+--   Clothes (the BAGS shop): a bigger bag.  Hardware (Handy Hank's): lockpicks.
+--   Garage (Speedy's): your own kart.       Convenience stores: five-minute boosts (the
+--                                           energy drink goes in your backpack: EnergyDrink).
 --   Guns (Tony's Blasters): stun blasters, from quota Blasters.UnlockQuota.
 -- The client only says which item; the server works out which shop you're standing at.
 
@@ -22,6 +23,7 @@ local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local BlasterService = require(script.Parent.BlasterService)
 local BoostService = require(script.Parent.BoostService)
 local EconomyService = require(script.Parent.EconomyService)
+local EnergyDrink = require(script.Parent.EnergyDrink)
 local JailService = require(script.Parent.JailService)
 local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
@@ -36,27 +38,31 @@ local RANGE_SLACK = 3
 type Levels = { [Types.UpgradeId]: number }
 
 local SHOPS: { [Types.ShopId]: { title: string, note: string } } = {
-	Clothes = { title = "👕 THREADS", note = "A bigger bag holds more cash between trips to the bank." },
-	Hardware = { title = "🔧 HANDY HANK'S", note = "A better lockpick makes break-ins quicker." },
-	Garage = { title = "🏁 SPEEDY'S GARAGE", note = "Your own kart. Press R (or tap 🏎️) to hop on and off." },
-	Convenience = { title = "🏪 CONVENIENCE STORE", note = "Treats that last 5 minutes. Different ones stack." },
+	Clothes = { title = "BAGS", note = "A bigger bag holds more cash between trips to the bank." },
+	Hardware = { title = "HANDY HANK'S", note = "A better lockpick makes break-ins quicker." },
+	Garage = { title = "SPEEDY'S GARAGE", note = "Your own kart. Press R (or tap RIDE) to hop on and off." },
+	Convenience = { title = "CONVENIENCE STORE", note = "Treats that last 5 minutes. Different ones stack." },
 	Guns = {
-		title = "🔫 TONY'S BLASTERS",
+		title = "TONY'S BLASTERS",
 		note = "Stun blasters: zap a cop to get away, zap a rival and grab the cash they drop.",
 	},
 }
 
-local BOOSTS: { { id: Types.BoostId, icon: string, title: string, detail: string } } = {
-	{ id = "Energy", icon = "⚡", title = "Energy Drink", detail = "Walk and sprint twice as fast (not in a kart)." },
-	{ id = "Disguise", icon = "🧢", title = "Disguise", detail = "Your crimes add half as much heat." },
-	{ id = "Candy", icon = "🍫", title = "Candy Bar", detail = "A wider green zone when you pickpocket." },
-	{ id = "Gloves", icon = "🧤", title = "Gloves", detail = "Break-ins take half as long." },
-	{ id = "Scanner", icon = "📻", title = "Police Scanner", detail = "See every cop in town, even through walls." },
+local BOOSTS: { { id: Types.BoostId, title: string, detail: string } } = {
+	{
+		id = "Energy",
+		title = "Energy Drink",
+		detail = "Carry it, drink it later: walk and sprint 2x as fast (not in cars).",
+	},
+	{ id = "Disguise", title = "Disguise", detail = "Your crimes add half as much heat." },
+	{ id = "Candy", title = "Candy Bar", detail = "A wider green zone when you pickpocket." },
+	{ id = "Gloves", title = "Gloves", detail = "Break-ins take half as long." },
+	{ id = "Scanner", title = "Police Scanner", detail = "See every cop in town, even through walls." },
 }
 
-local BLASTERS: { { id: Types.BlasterId, icon: string, title: string } } = {
-	{ id = "Zapper", icon = "🔫", title = "Zapper" },
-	{ id = "MegaZapper", icon = "💥", title = "Mega Zapper" },
+local BLASTERS: { { id: Types.BlasterId, title: string } } = {
+	{ id = "Zapper", title = "Zapper" },
+	{ id = "MegaZapper", title = "Mega Zapper" },
 }
 
 local remotes = Remotes.match()
@@ -112,16 +118,16 @@ end
 local function upgradeItem(player: Player, id: Types.UpgradeId): Types.ShopItem
 	local level = ShopService.level(player, id)
 	local price = upgradePrice(id, level + 1)
-	local icon, title, now, nextOne, maxLevel
+	local title, now, nextOne, maxLevel
 	if id == "Bag" then
 		local capacity = if level == 0 then Config.Economy.BaseBagCapacity else Config.Shop.Bag[level].capacity
 		local upgrade = Config.Shop.Bag[level + 1]
-		icon, title, maxLevel = "🎒", "Bigger Bag", #Config.Shop.Bag
+		title, maxLevel = "Bigger Bag", #Config.Shop.Bag
 		now, nextOne =
 			`Holds {Format.money(capacity)}`, if upgrade then `holds {Format.money(upgrade.capacity)}` else nil
 	elseif id == "Lockpick" then
 		local upgrade = Config.Shop.Lockpick[level + 1]
-		icon, title, maxLevel = "🔑", "Lockpick", #Config.Shop.Lockpick
+		title, maxLevel = "Lockpick", #Config.Shop.Lockpick
 		local base = if level == 0
 			then Config.Paths.Doors.BaseBreakInHoldSeconds
 			else Config.Shop.Lockpick[level].holdSeconds
@@ -129,16 +135,15 @@ local function upgradeItem(player: Player, id: Types.UpgradeId): Types.ShopItem
 	else
 		local speed = ShopService.rideSpeed(player)
 		local upgrade = Config.Shop.Ride[level + 1]
-		icon, title, maxLevel = "🏎️", "Kart", #Config.Shop.Ride
+		title, maxLevel = "Kart", #Config.Shop.Ride
 		now, nextOne =
 			if speed then `Kart, speed {speed}` else "On foot", if upgrade then `speed {upgrade.speed}` else nil
 	end
 	return {
 		id = id,
 		kind = "Upgrade",
-		icon = icon,
 		title = title,
-		detail = if nextOne then `{now} ➡️ {nextOne}` else `{now} (max)`,
+		detail = if nextOne then `Now: {now}\nNext: {nextOne}` else `{now} (max)`,
 		status = `Level {level}/{maxLevel}`,
 		price = price,
 	}
@@ -157,14 +162,17 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 		local list = BoostService.list(player)
 		for _, boost in BOOSTS do
 			local endsAt = list[boost.id]
+			local carrying = boost.id == "Energy" and EnergyDrink.holding(player)
 			table.insert(items, {
 				id = boost.id :: string,
 				kind = "Boost",
-				icon = boost.icon,
 				title = boost.title,
 				detail = boost.detail,
-				status = if endsAt then `On: {Format.clock(endsAt - Timing.now())} left` else "Lasts 5 minutes",
-				price = Config.Boosts[boost.id].price,
+				status = if carrying
+					then "In your backpack"
+					elseif endsAt then `On: {Format.clock(endsAt - Timing.now())} left`
+					else "Lasts 5 minutes",
+				price = if carrying then nil else Config.Boosts[boost.id].price,
 			})
 		end
 	else
@@ -175,7 +183,6 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 			table.insert(items, {
 				id = blaster.id :: string,
 				kind = "Blaster",
-				icon = blaster.icon,
 				title = blaster.title,
 				detail = `Range {stats.range} · reloads in {stats.cooldown}s · freezes cops for {stats.copStunSeconds}s`,
 				status = if have == blaster.id then "Yours" else nil,
@@ -247,20 +254,29 @@ local function buyUpgrade(player: Player, id: Types.UpgradeId): boolean
 		Notifier.send(player, `Better lockpick! Break-ins take {ShopService.breakInHoldSeconds(player)}s.`, "Good")
 	else
 		local speed = Config.Shop.Ride[newLevel].speed
-		Notifier.send(player, `New kart (speed {speed})! Press R (or tap 🏎️) to hop on or off.`, "Good")
+		Notifier.send(player, `New kart (speed {speed})! Press R (or tap RIDE) to hop on or off.`, "Good")
 	end
 	ShopService.upgraded:Fire(player, id)
 	return true
 end
 
 local function buyBoost(player: Player, id: Types.BoostId): boolean
+	if id == "Energy" and EnergyDrink.holding(player) then
+		Notifier.send(player, "You've already got an energy drink in your backpack.", "Info")
+		return false
+	end
 	if not pay(player, Config.Boosts[id].price, `shop: {id:lower()} boost`) then
 		return false
+	end
+	if id == "Energy" then
+		EnergyDrink.give(player)
+		Notifier.send(player, "Energy drink! It's in your backpack: hold it, then click (or tap) to drink.", "Good")
+		return true
 	end
 	BoostService.give(player, id)
 	for _, boost in BOOSTS do
 		if boost.id == id then
-			Notifier.send(player, `{boost.icon} {boost.title}! {boost.detail} (5 minutes)`, "Good")
+			Notifier.send(player, `{boost.title}! {boost.detail} (5 minutes)`, "Good")
 		end
 	end
 	return true

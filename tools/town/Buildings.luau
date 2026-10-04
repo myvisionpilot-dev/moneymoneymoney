@@ -67,11 +67,12 @@ local function walkIn(parent, name, slot, style)
 	local width, height = slot.width, style.height or 14
 	local model = Kit.model(parent, name)
 	local front = -DEPTH / 2 + 0.5
+	-- The floor stops just inside the walls' outer faces (matching faces flicker).
 	piece(
 		model,
 		cf,
 		"Floor",
-		Vector3.new(width, 0.4, DEPTH),
+		Vector3.new(width - 0.4, 0.4, DEPTH - 0.4),
 		0,
 		0.2,
 		0,
@@ -84,12 +85,14 @@ local function walkIn(parent, name, slot, style)
 		local segment = width / 2 - DOOR / 2
 		local x = side * (DOOR / 2 + segment / 2)
 		piece(model, cf, "FrontBase", Vector3.new(segment, 3, 1), x, 1.5, front, style.wall)
+		-- The glass stops at the side wall's inside face.
+		local glassWidth = segment - 1
 		local glass = piece(
 			model,
 			cf,
 			"Window",
-			Vector3.new(segment, DOOR_HEIGHT - 3, 0.4),
-			x,
+			Vector3.new(glassWidth, DOOR_HEIGHT - 3, 0.4),
+			side * (DOOR / 2 + glassWidth / 2),
 			3 + (DOOR_HEIGHT - 3) / 2,
 			front,
 			Kit.Colors.Glass,
@@ -207,7 +210,7 @@ local function shelves(model, cf, width)
 					model,
 					cf,
 					`Shelf{index}_{level}`,
-					Vector3.new(2, 0.3, 18),
+					Vector3.new(2, 0.3, 17.6),
 					x,
 					y,
 					2,
@@ -323,7 +326,7 @@ local function hardware(parent, slot)
 	local model, cf = walkIn(parent, "Hardware", slot, {
 		wall = Color3.fromRGB(240, 160, 60),
 		accent = Color3.fromRGB(200, 90, 30),
-		sign = "🔧 HANDY HANK'S HARDWARE",
+		sign = "HANDY HANK'S HARDWARE",
 	})
 	counter(model, cf, 14, 12, Color3.fromRGB(160, 110, 70), nil, "Hardware")
 	shelves(model, cf, slot.width)
@@ -334,9 +337,10 @@ local function clothes(parent, slot)
 		parent,
 		"Clothes",
 		slot,
-		{ wall = Color3.fromRGB(240, 170, 210), accent = Color3.fromRGB(200, 80, 160), sign = "👕 THREADS" }
+		{ wall = Color3.fromRGB(240, 170, 210), accent = Color3.fromRGB(200, 80, 160), sign = "BAGS" }
 	)
 	counter(model, cf, 12, 12, Color3.fromRGB(200, 170, 220), nil, "Clothes")
+	-- Racks of bags (placeholders): a body and a strap each.
 	for index, x in { -12, 0, 12 } do
 		Kit.quiet(
 			piece(
@@ -352,16 +356,20 @@ local function clothes(parent, slot)
 			)
 		)
 		for hanger = -3, 3, 2 do
+			local color = PRODUCT_COLORS[rng:NextInteger(1, #PRODUCT_COLORS)]
+			Kit.decor(
+				piece(model, cf, "Bag", Vector3.new(1.6, 1.6, 0.8), x + hanger, 4, -4, color, Enum.Material.Fabric)
+			)
 			Kit.decor(
 				piece(
 					model,
 					cf,
-					"Garment",
-					Vector3.new(1.4, 3, 0.4),
+					"BagStrap",
+					Vector3.new(0.2, 0.6, 0.2),
 					x + hanger,
-					3.8,
+					5.1,
 					-4,
-					PRODUCT_COLORS[rng:NextInteger(1, #PRODUCT_COLORS)],
+					color,
 					Enum.Material.Fabric
 				)
 			)
@@ -374,7 +382,7 @@ local function gunStore(parent, slot)
 		parent,
 		"GunStore",
 		slot,
-		{ wall = Color3.fromRGB(90, 90, 110), accent = Color3.fromRGB(40, 180, 220), sign = "🔫 TONY'S BLASTERS" }
+		{ wall = Color3.fromRGB(90, 90, 110), accent = Color3.fromRGB(40, 180, 220), sign = "TONY'S BLASTERS" }
 	)
 	counter(model, cf, 16, 12, Color3.fromRGB(60, 60, 75), nil, "Guns")
 	for index, x in { -13, 13 } do
@@ -427,14 +435,14 @@ local function burger(parent, slot)
 		parent,
 		"Burger",
 		slot,
-		{ wall = Color3.fromRGB(250, 210, 90), accent = Color3.fromRGB(220, 60, 50), sign = "🍔 BURGER BARN" }
+		{ wall = Color3.fromRGB(250, 210, 90), accent = Color3.fromRGB(220, 60, 50), sign = "BURGER BARN" }
 	)
 	counter(model, cf, 18, 12, Color3.fromRGB(220, 60, 50))
 	local menu = piece(model, cf, "Menu", Vector3.new(16, 5, 0.4), 0, 9, DEPTH / 2 - 1.2, Color3.fromRGB(30, 30, 35))
 	Kit.sign(
 		menu,
 		Enum.NormalId.Front,
-		"🍔 BURGERS  🍟 FRIES  🥤 SHAKES",
+		"BURGERS   FRIES   SHAKES",
 		Color3.fromRGB(30, 30, 35),
 		Color3.fromRGB(255, 220, 90)
 	)
@@ -466,7 +474,7 @@ local function garage(parent, slot)
 		model,
 		cf,
 		"Floor",
-		Vector3.new(width, 0.4, DEPTH),
+		Vector3.new(width - 0.4, 0.4, DEPTH - 0.4), -- just inside the walls
 		0,
 		0.2,
 		0,
@@ -501,7 +509,7 @@ local function garage(parent, slot)
 	piece(model, cf, "BackHeader", Vector3.new(20, height - 14, 1), 0, 14 + (height - 14) / 2, DEPTH / 2 - 0.5, wall)
 	piece(model, cf, "Roof", Vector3.new(width + 1, 1, DEPTH + 1), 0, height + 0.5, 0, Kit.Colors.White)
 	local sign = piece(model, cf, "Sign", Vector3.new(32, 3.4, 0.5), 0, height - 2, -DEPTH / 2 - 0.3, accent)
-	Kit.sign(sign, Enum.NormalId.Front, "🔧 SPEEDY'S GARAGE", accent, Color3.new(1, 1, 1))
+	Kit.sign(sign, Enum.NormalId.Front, "SPEEDY'S GARAGE", accent, Color3.new(1, 1, 1))
 	counter(model, cf, 8, 10, Color3.fromRGB(80, 80, 90), nil, "Garage").CFrame = cf
 		* CFrame.new(-width / 2 + 6, 1.9, 10)
 	Kit.decor(piece(model, cf, "TyreStack", Vector3.new(3, 4, 3), width / 2 - 4, 2.4, -12, Color3.fromRGB(30, 30, 32)))
@@ -512,7 +520,7 @@ local function depot(parent, slot)
 	local model, cf = walkIn(parent, "Depot", slot, {
 		wall = Color3.fromRGB(210, 130, 60),
 		accent = Color3.fromRGB(120, 70, 30),
-		sign = "📦 ZOOM DELIVERIES",
+		sign = "ZOOM DELIVERIES",
 		height = 15,
 	})
 	counter(model, cf, 16, 12, Color3.fromRGB(176, 128, 72), "DeliveryDepot")
@@ -567,7 +575,7 @@ local function police(parent, slot)
 		-DEPTH / 2 + 1.6,
 		Color3.fromRGB(30, 50, 120)
 	)
-	Kit.sign(sign, Enum.NormalId.Front, "🚔 POLICE", Color3.fromRGB(30, 50, 120))
+	Kit.sign(sign, Enum.NormalId.Front, "POLICE", Color3.fromRGB(30, 50, 120))
 	Kit.decor(
 		piece(
 			model,
@@ -618,14 +626,14 @@ local function carWash(parent, slot)
 		)
 	end
 	local sign = piece(model, cf, "Sign", Vector3.new(30, 3.4, 0.5), 0, 11.5, -DEPTH / 2 - 0.4, accent)
-	Kit.sign(sign, Enum.NormalId.Front, "🧽 SUDZ CAR WASH", accent)
+	Kit.sign(sign, Enum.NormalId.Front, "SUDZ CAR WASH", accent)
 end
 
 local function taxi(parent, slot)
 	local model, cf = walkIn(parent, "Taxi", slot, {
 		wall = Color3.fromRGB(255, 210, 50),
 		accent = Color3.fromRGB(40, 40, 45),
-		sign = "🚕 CITY CABS",
+		sign = "CITY CABS",
 		height = 12,
 	})
 	counter(model, cf, 10, 12, Color3.fromRGB(40, 40, 45))
@@ -649,7 +657,7 @@ local function market(parent, slot)
 		)
 	end
 	local arch = piece(model, cf, "Arch", Vector3.new(36, 3.4, 0.5), 0, 12, -DEPTH / 2 + 1, Color3.fromRGB(230, 70, 70))
-	Kit.sign(arch, Enum.NormalId.Front, "🌭 STREET MARKET", Color3.fromRGB(230, 70, 70))
+	Kit.sign(arch, Enum.NormalId.Front, "STREET MARKET", Color3.fromRGB(230, 70, 70))
 	for _, x in { -18.5, 18.5 } do
 		Kit.quiet(piece(model, cf, "ArchPost", Vector3.new(1, 13.7, 1), x, 6.85, -DEPTH / 2 + 1, Kit.Colors.White))
 	end
@@ -663,7 +671,7 @@ local function alley(parent, slot)
 		piece(model, cf, "Storage", Vector3.new(30, 16, DEPTH - 2), -7, 8, 0, Kit.Colors.Brick, Enum.Material.Brick)
 	)
 	local sign = piece(model, cf, "Sign", Vector3.new(18, 3, 0.4), -7, 13, -DEPTH / 2 + 0.7, Color3.fromRGB(90, 60, 50))
-	Kit.sign(sign, Enum.NormalId.Front, "📦 STORAGE", Color3.fromRGB(90, 60, 50))
+	Kit.sign(sign, Enum.NormalId.Front, "STORAGE", Color3.fromRGB(90, 60, 50))
 	piece(model, cf, "AlleyWall", Vector3.new(1, 12, DEPTH - 2), 21.5, 6, 0, Kit.Colors.Brick, Enum.Material.Brick)
 	Kit.quiet(
 		piece(model, cf, "Dumpster", Vector3.new(6, 4, 3), 15, 2.2, 12, Color3.fromRGB(40, 90, 50), Enum.Material.Metal)
@@ -681,12 +689,23 @@ local function bank(parent)
 	local W, D, H = 60, 44, 20
 	local stone = Color3.fromRGB(236, 232, 220)
 	local gold = Color3.fromRGB(240, 196, 60)
-	piece(model, cf, "Floor", Vector3.new(W, 0.5, D), 0, 0.25, 0, Color3.fromRGB(245, 240, 230), Enum.Material.Marble)
-	-- Four walls, each with a door gap in the middle.
-	for _, face in
-		{ { axis = "z", sign = -1 }, { axis = "z", sign = 1 }, { axis = "x", sign = -1 }, { axis = "x", sign = 1 } }
-	do
-		local length = if face.axis == "z" then W else D
+	-- The floor stops just inside the walls' outer faces (matching faces flicker).
+	piece(
+		model,
+		cf,
+		"Floor",
+		Vector3.new(W - 0.4, 0.5, D - 0.4),
+		0,
+		0.25,
+		0,
+		Color3.fromRGB(245, 240, 230),
+		Enum.Material.Marble
+	)
+	-- The north wall is solid all the way across: the vault hangs on it, behind Mr. Penny.
+	piece(model, cf, "Wall", Vector3.new(W, H, 1.5), 0, H / 2, -(D / 2 - 0.75), stone, Enum.Material.Limestone)
+	-- The other three have a door gap in the middle. East and west fit between north and south.
+	for _, face in { { axis = "z", sign = 1 }, { axis = "x", sign = -1 }, { axis = "x", sign = 1 } } do
+		local length = if face.axis == "z" then W else D - 3
 		local segment = length / 2 - 6
 		for _, part in { -1, 1 } do
 			local offset = part * (6 + segment / 2)
@@ -775,7 +794,7 @@ local function bank(parent)
 		Kit.sign(
 			sign,
 			if sideZ > 0 then Enum.NormalId.Back else Enum.NormalId.Front,
-			"🏦 PENNY NATIONAL BANK",
+			"PENNY NATIONAL BANK",
 			Color3.fromRGB(40, 110, 70),
 			gold
 		)
@@ -795,18 +814,19 @@ local function bank(parent)
 	local penny =
 		Kit.marker(model, "PennySpot", CFrame.lookAt(Vector3.new(0, 1.0, -8), Vector3.new(0, 1.0, 0)), "StaffSpot")
 	penny:SetAttribute("Staff", "Penny")
-	local vault = Kit.decor(
-		Kit.cylinder(
-			model,
-			"VaultDoor",
-			1,
-			12,
-			Vector3.new(0, 8, -D / 2 + 1.6),
-			Color3.fromRGB(150, 150, 160),
-			Enum.Material.DiamondPlate
-		)
-	)
-	vault.CFrame = CFrame.new(0, 8, -D / 2 + 1.6) * CFrame.Angles(0, math.rad(90), 0)
+	-- The vault door, set into the north wall: a dark frame, the door, and a wheel.
+	local wallFace = -D / 2 + 1.5
+	for _, info in
+		{
+			{ "VaultFrame", 0.6, 13.4, wallFace + 0.05, Color3.fromRGB(70, 70, 80) },
+			{ "VaultDoor", 1, 12, wallFace + 0.3, Color3.fromRGB(150, 150, 160) },
+			{ "VaultWheel", 0.6, 3, wallFace + 1, Color3.fromRGB(200, 170, 70) },
+		}
+	do
+		local disc =
+			Kit.decor(Kit.cylinder(model, info[1], info[2], info[3], Vector3.zero, info[5], Enum.Material.DiamondPlate))
+		disc.CFrame = CFrame.new(0, 8, info[4]) * CFrame.Angles(0, math.rad(90), 0)
+	end
 	for index, x in { -20, 20 } do
 		Kit.decor(Kit.cylinder(model, `Plant{index}`, 3, 3, Vector3.new(x, 2, 14), Color3.fromRGB(200, 120, 80)))
 		local leaves = Kit.decor(
@@ -868,8 +888,8 @@ function Buildings.build(map)
 	local folder = Kit.folder(map, "Buildings")
 	bank(folder)
 	local s = Layout.slots
-	convenience(folder, "CornerStore", s.CornerStore, "🏪 CORNER STORE", Color3.fromRGB(120, 200, 160))
-	convenience(folder, "MiniMart", s.MiniMart, "🏪 MINI MART", Color3.fromRGB(240, 190, 90))
+	convenience(folder, "CornerStore", s.CornerStore, "CORNER STORE", Color3.fromRGB(120, 200, 160))
+	convenience(folder, "MiniMart", s.MiniMart, "MINI MART", Color3.fromRGB(240, 190, 90))
 	hardware(folder, s.Hardware)
 	clothes(folder, s.Clothes)
 	gunStore(folder, s.GunStore)
@@ -882,19 +902,19 @@ function Buildings.build(map)
 	market(folder, s.Market)
 	alley(folder, s.Alley)
 	local fillers = {
-		{ "Barber", "💈 FRESH CUTS", Color3.fromRGB(230, 230, 240), Color3.fromRGB(220, 50, 60) },
-		{ "Laundromat", "🧺 SPIN CYCLE", Color3.fromRGB(180, 220, 240), Color3.fromRGB(60, 130, 200) },
-		{ "Cafe", "☕ BEAN THERE", Color3.fromRGB(200, 160, 120), Color3.fromRGB(110, 70, 40) },
-		{ "Pharmacy", "💊 PHARMACY", Color3.fromRGB(235, 245, 235), Color3.fromRGB(40, 160, 80) },
-		{ "Bakery", "🥐 SWEET BAKES", Color3.fromRGB(250, 220, 180), Color3.fromRGB(210, 120, 60) },
-		{ "Florist", "🌷 PETAL POWER", Color3.fromRGB(250, 210, 230), Color3.fromRGB(220, 80, 140) },
-		{ "PostOffice", "✉️ POST OFFICE", Color3.fromRGB(230, 90, 80), Color3.fromRGB(40, 60, 140) },
-		{ "Diner", "🍳 ROSIE'S DINER", Color3.fromRGB(180, 230, 230), Color3.fromRGB(230, 70, 90) },
-		{ "Gym", "💪 PUMP HOUSE", Color3.fromRGB(90, 90, 100), Color3.fromRGB(240, 140, 30) },
-		{ "Books", "📚 PAGE TURNER", Color3.fromRGB(150, 110, 90), Color3.fromRGB(70, 110, 60) },
-		{ "PetShop", "🐶 PAWS", Color3.fromRGB(250, 240, 200), Color3.fromRGB(230, 150, 40) },
-		{ "Toys", "🧸 TOY BOX", Color3.fromRGB(180, 200, 250), Color3.fromRGB(240, 90, 90) },
-		{ "Music", "🎸 LOUD NOTES", Color3.fromRGB(60, 60, 70), Color3.fromRGB(170, 90, 230) },
+		{ "Barber", "FRESH CUTS", Color3.fromRGB(230, 230, 240), Color3.fromRGB(220, 50, 60) },
+		{ "Laundromat", "SPIN CYCLE", Color3.fromRGB(180, 220, 240), Color3.fromRGB(60, 130, 200) },
+		{ "Cafe", "BEAN THERE", Color3.fromRGB(200, 160, 120), Color3.fromRGB(110, 70, 40) },
+		{ "Pharmacy", "PHARMACY", Color3.fromRGB(235, 245, 235), Color3.fromRGB(40, 160, 80) },
+		{ "Bakery", "SWEET BAKES", Color3.fromRGB(250, 220, 180), Color3.fromRGB(210, 120, 60) },
+		{ "Florist", "PETAL POWER", Color3.fromRGB(250, 210, 230), Color3.fromRGB(220, 80, 140) },
+		{ "PostOffice", "POST OFFICE", Color3.fromRGB(230, 90, 80), Color3.fromRGB(40, 60, 140) },
+		{ "Diner", "ROSIE'S DINER", Color3.fromRGB(180, 230, 230), Color3.fromRGB(230, 70, 90) },
+		{ "Gym", "PUMP HOUSE", Color3.fromRGB(90, 90, 100), Color3.fromRGB(240, 140, 30) },
+		{ "Books", "PAGE TURNER", Color3.fromRGB(150, 110, 90), Color3.fromRGB(70, 110, 60) },
+		{ "PetShop", "PAWS", Color3.fromRGB(250, 240, 200), Color3.fromRGB(230, 150, 40) },
+		{ "Toys", "TOY BOX", Color3.fromRGB(180, 200, 250), Color3.fromRGB(240, 90, 90) },
+		{ "Music", "LOUD NOTES", Color3.fromRGB(60, 60, 70), Color3.fromRGB(170, 90, 230) },
 	}
 	for _, filler in fillers do
 		shopfront(folder, filler[1], s[filler[1]], filler[3], filler[4], filler[2])

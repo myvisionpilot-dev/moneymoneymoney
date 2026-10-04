@@ -1,7 +1,8 @@
 --!strict
 -- NPCs built from R15 rigs (no Creator Store models), dressed in free Roblox-made hair and
 -- clothes from Config.Outfits: pedestrians walking the footpaths, plus rigs for police, door
--- residents and shopkeepers.
+-- residents and shopkeepers. Pedestrians dash out of the way of cars (NpcService.dodge; the
+-- Dodging attribute makes every client play the leap, see client/DodgeController).
 -- Routes come from parts tagged PedWaypoint with attributes Route (string) and Order (number).
 
 local CollectionService = game:GetService("CollectionService")
@@ -10,8 +11,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
+local CollisionGroups = require(script.Parent.CollisionGroups)
 
 local WAYPOINT_TAG = "PedWaypoint"
+local DODGE_ATTRIBUTE = "Dodging"
 local WALK_ANIMATION = "rbxassetid://507777826" -- Roblox's default R15 walk
 local RUN_ANIMATION = "rbxassetid://507767714" -- Roblox's default R15 run
 
@@ -70,6 +73,7 @@ local NpcService = {
 
 local rng = Random.new()
 local pedestrians: { Model } = {}
+local heading: { [Model]: Vector3 } = {} -- where each pedestrian is walking to
 local folder: Folder? = nil
 
 local function getFolder(): Folder
@@ -184,6 +188,7 @@ end
 -- Puts a rig into the world, owned by the server, with a walk or run animation.
 function NpcService.place(model: Model, cframe: CFrame, running: boolean?)
 	model:PivotTo(cframe)
+	CollisionGroups.people(model)
 	model.Parent = getFolder()
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if root and root:IsA("BasePart") then
@@ -242,15 +247,59 @@ local function walkTo(model: Model, humanoid: Humanoid, target: Vector3)
 	local root = model:FindFirstChild("HumanoidRootPart")
 	local distance = if root and root:IsA("BasePart") then (root.Position - target).Magnitude else 0
 	local tries = math.ceil(distance / math.max(humanoid.WalkSpeed, 1) / 7) + 3
+	heading[model] = target
 	for _ = 1, tries do
 		if not model.Parent then
 			return
 		end
 		humanoid:MoveTo(target)
-		if humanoid.MoveToFinished:Wait() then
+		local reached = humanoid.MoveToFinished:Wait()
+		if model:GetAttribute(DODGE_ATTRIBUTE) then
+			-- That was the dash aside, not this footpath; carry on once they've picked themselves up.
+			while model.Parent and model:GetAttribute(DODGE_ATTRIBUTE) do
+				task.wait(0.1)
+			end
+		elseif reached then
 			return
 		end
 	end
+end
+
+-- A quick leap aside, away from a car (`away` is the direction to go). False if they're
+-- already dodging or busy (a pickpocket has them frozen).
+function NpcService.dodge(model: Model, away: Vector3): boolean
+	local settings = Config.Dodge
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if model:GetAttribute(DODGE_ATTRIBUTE) or not humanoid or not root or not root:IsA("BasePart") then
+		return false
+	end
+	if humanoid.WalkSpeed <= 0 or humanoid.Health <= 0 then
+		return false
+	end
+	local walkSpeed = humanoid.WalkSpeed
+	model:SetAttribute(DODGE_ATTRIBUTE, true)
+	humanoid.WalkSpeed = settings.DashSpeed
+	humanoid.UseJumpPower = false
+	humanoid.JumpHeight = settings.HopHeight
+	humanoid:MoveTo(root.Position + away * settings.DashStuds)
+	humanoid.Jump = true
+	task.delay(settings.DashSeconds, function()
+		if humanoid.WalkSpeed == settings.DashSpeed then
+			humanoid.WalkSpeed = walkSpeed
+		end
+	end)
+	task.delay(settings.Seconds, function()
+		if not model.Parent then
+			return
+		end
+		model:SetAttribute(DODGE_ATTRIBUTE, nil)
+		local target = heading[model]
+		if target then
+			humanoid:MoveTo(target)
+		end
+	end)
+	return true
 end
 
 local function walkRoute(model: Model, humanoid: Humanoid, route: { Vector3 }, startIndex: number)

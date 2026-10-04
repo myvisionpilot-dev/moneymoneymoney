@@ -183,7 +183,7 @@ local function streetRace(parent)
 		folder,
 		"RaceStart",
 		Vector3.new(10, 0.3, 10),
-		Vector3.new(-298, 0.45, 84),
+		Vector3.new(-300, 0.45, 80), -- clear of the chop shop bay
 		Color3.fromRGB(245, 245, 245),
 		Enum.Material.Neon
 	)
@@ -197,13 +197,13 @@ local function streetRace(parent)
 		CFrame.lookAt(Vector3.new(-309, 7, 84), Vector3.new(-340, 7, 84)),
 		Color3.fromRGB(230, 60, 60)
 	)
-	Kit.sign(board, Enum.NormalId.Front, "🏁 STREET RACE · $3,000 ENTRY", Color3.fromRGB(230, 60, 60))
-	for _, z in { 80.5, 87.5 } do
-		Kit.quiet(Kit.part(folder, "SignPost", Vector3.new(0.6, 9, 0.6), Vector3.new(-309, 4.5, z), Kit.Colors.White))
+	Kit.sign(board, Enum.NormalId.Front, "STREET RACE · $3,000 ENTRY", Color3.fromRGB(230, 60, 60))
+	for _, z in { 80.5, 87.5 } do -- just behind the board
+		Kit.quiet(Kit.part(folder, "SignPost", Vector3.new(0.6, 9, 0.6), Vector3.new(-308.4, 4.5, z), Kit.Colors.White))
 	end
 	Kit.decor(Kit.part(folder, "FinishLine", Vector3.new(24, 0.05, 2), Vector3.new(-330, 0.23, 40), Kit.Colors.White))
 	local slot = 0
-	for _, z in { 52, 64, 76 } do
+	for _, z in { 54, 68, 82 } do -- rows 14 apart: room for 12-stud race cars
 		for _, x in { -336, -324 } do
 			slot += 1
 			local grid = Kit.marker(
@@ -214,7 +214,7 @@ local function streetRace(parent)
 			)
 			grid:SetAttribute("Order", slot)
 			Kit.decor(
-				Kit.part(folder, "GridLine", Vector3.new(6, 0.05, 0.6), Vector3.new(x, 0.23, z - 4), Kit.Colors.White)
+				Kit.part(folder, "GridLine", Vector3.new(6, 0.05, 0.6), Vector3.new(x, 0.23, z - 6.5), Kit.Colors.White)
 			)
 		end
 	end
@@ -283,9 +283,12 @@ function Outdoors.build(map)
 	depotYard(folder)
 	streetRace(folder)
 
-	-- A bush in the middle of each turning circle.
-	for index, center in Layout.bulbs do
-		Kit.bush(folder, `CircleBush{index}`, center + Vector3.new(0, 0.56, 0))
+	-- Bushes on the grass either side of each dead end, clear of the road.
+	for index, deadEnd in Layout.deadEnds do
+		local inward = Vector3.new(0, 0, -math.sign(deadEnd.Z) * 14)
+		for _, x in { -30, 30 } do
+			Kit.bush(folder, `DeadEndBush{index}`, deadEnd + inward + Vector3.new(x, 0, 0))
+		end
 	end
 
 	local parking = Kit.folder(folder, "ParkingSpots")

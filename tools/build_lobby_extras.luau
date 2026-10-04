@@ -1,8 +1,8 @@
--- Adds the Milestone 3 lobby pieces (Lobby place, command bar or MCP): the cosmetics stand and
+-- Adds the Milestone 3 lobby pieces (Lobby place, command bar or MCP): the speed shop stand and
 -- two leaderboard boards. Rebuilds only Workspace.LobbyExtras, so hand-made lobby parts stay.
 --
 -- Tags the code looks for:
---   CosmeticShop                     the stand's counter (hold E to browse)
+--   PerkShop                         the stand's counter (hold E to browse)
 --   Leaderboard (+ Board attribute)  "Cred" or "Quota"
 
 local CollectionService = game:GetService("CollectionService")
@@ -50,17 +50,17 @@ local function label(target, text, height, color)
 	gui.Parent = target
 end
 
--- Cosmetics stand on the east side, facing the middle of the lobby.
+-- Speed shop stand on the east side, facing the middle of the lobby.
 local standX, standZ = 40, 22
 local counter = part(
-	"CosmeticsCounter",
+	"SpeedShopCounter",
 	Vector3.new(4, 4, 12),
 	Vector3.new(standX, FLOOR_Y + 2, standZ),
 	Color3.fromRGB(150, 90, 200),
 	Enum.Material.SmoothPlastic
 )
-CollectionService:AddTag(counter, "CosmeticShop")
-label(counter, "COSMETICS\nspend your Cred", 9, Color3.fromRGB(255, 196, 50))
+CollectionService:AddTag(counter, "PerkShop")
+label(counter, "SPEED SHOP\nspend your Cred", 9, Color3.fromRGB(255, 196, 50))
 for index, z in { standZ - 6, standZ + 6 } do
 	part(
 		`AwningPost{index}`,
@@ -70,24 +70,28 @@ for index, z in { standZ - 6, standZ + 6 } do
 	)
 end
 part("Awning", Vector3.new(7, 0.8, 14), Vector3.new(standX, FLOOR_Y + 10.4, standZ), Color3.fromRGB(255, 196, 50))
--- A row of paint samples on the counter.
+-- A row of shoe boxes on the counter (placeholders).
 for index, color in
 	{
 		Color3.fromRGB(220, 40, 50),
 		Color3.fromRGB(40, 110, 220),
-		Color3.fromRGB(140, 220, 60),
-		Color3.fromRGB(30, 30, 45),
 		Color3.fromRGB(255, 196, 50),
 	}
 do
-	local sample = part(
-		`Sample{index}`,
-		Vector3.new(1.2, 1.2, 1.2),
-		Vector3.new(standX, FLOOR_Y + 4.6, standZ - 5 + index * 1.7),
+	local box = part(
+		`ShoeBox{index}`,
+		Vector3.new(1.6, 1, 2.6),
+		Vector3.new(standX, FLOOR_Y + 4.5, standZ - 8 + index * 4),
 		color
 	)
-	sample.Shape = Enum.PartType.Ball
-	sample.CanCollide = false
+	box.CanCollide = false
+	local lid = part(
+		`ShoeBoxLid{index}`,
+		Vector3.new(1.7, 0.2, 2.7),
+		Vector3.new(standX, FLOOR_Y + 5.1, standZ - 8 + index * 4),
+		Color3.fromRGB(245, 245, 245)
+	)
+	lid.CanCollide = false
 end
 
 -- Leaderboards behind the queue pads, facing the spawn.
@@ -102,4 +106,4 @@ for _, info in { { "Cred", -30 }, { "Quota", 12 } } do
 	CollectionService:AddTag(sign, "Leaderboard")
 end
 
-return "Lobby extras built: cosmetics stand and 2 leaderboards"
+return "Lobby extras built: speed shop stand and 2 leaderboards"

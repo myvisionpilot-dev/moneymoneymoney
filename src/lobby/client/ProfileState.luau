@@ -1,5 +1,5 @@
 --!strict
--- Your latest saved profile from the server (Cred, cosmetics, badges, daily), plus a signal.
+-- Your latest saved profile from the server (Cred, perks, badges, daily), plus a signal.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -12,11 +12,6 @@ local ProfileState = {
 	view = nil :: Types.ProfileView?,
 	changed = Signal.new() :: Signal.Signal<Types.ProfileView>,
 }
-
-function ProfileState.owns(id: string): boolean
-	local view = ProfileState.view
-	return view ~= nil and table.find(view.owned, id) ~= nil
-end
 
 function ProfileState.start()
 	Remotes.lobby().ProfileSync:onClient(function(view: Types.ProfileView)

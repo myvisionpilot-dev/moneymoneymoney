@@ -19,7 +19,7 @@ local ClientState = require(script.Parent.ClientState)
 
 local COUNTER_TAG = "ShopCounter"
 local CLOSE_SLACK = 6
-local CARD_SIZE = UDim2.fromOffset(134, 196)
+local CARD_SIZE = UDim2.fromOffset(134, 168)
 
 local CARD_COLORS: { [string]: Color3 } = {
 	Bag = UI.Colors.Pink,
@@ -50,7 +50,7 @@ function ShopController.start()
 	Cursor.registerPanel(panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
-	local bagPill = UI.pill("💵", UI.Colors.Money, { LayoutOrder = 1, Size = UDim2.fromOffset(220, 34) }, window.body)
+	local bagPill = UI.pill("$", UI.Colors.Money, { LayoutOrder = 1, Size = UDim2.fromOffset(220, 34) }, window.body)
 	local note = UI.label({
 		LayoutOrder = 2,
 		Size = UDim2.fromScale(1, 0),
@@ -73,27 +73,23 @@ function ShopController.start()
 
 	local function card(order: number, item: Types.ShopItem, carried: number, locked: boolean)
 		local frame = UI.card(CARD_COLORS[item.id] or UI.Colors.Info, { LayoutOrder = order }, cards)
-		UI.label(
-			{ Position = UDim2.fromOffset(0, 4), Size = UDim2.new(1, 0, 0, 40), TextSize = 34, Text = item.icon },
-			frame
-		)
 		UI.label({
-			Position = UDim2.fromOffset(6, 44),
+			Position = UDim2.fromOffset(6, 8),
 			Size = UDim2.new(1, -12, 0, 22),
 			Font = UI.Fonts.Heading,
 			TextSize = 17,
 			Text = item.title,
 		}, frame)
 		UI.label({
-			Position = UDim2.fromOffset(6, 66),
+			Position = UDim2.fromOffset(6, 32),
 			Size = UDim2.new(1, -12, 0, 18),
 			TextSize = 13,
 			TextColor3 = UI.Colors.Gold,
 			Text = item.status or "",
 		}, frame)
 		UI.label({
-			Position = UDim2.fromOffset(6, 86),
-			Size = UDim2.new(1, -12, 0, 58),
+			Position = UDim2.fromOffset(6, 54),
+			Size = UDim2.new(1, -12, 0, 62),
 			TextSize = 13,
 			TextYAlignment = Enum.TextYAlignment.Top,
 			Text = item.detail,

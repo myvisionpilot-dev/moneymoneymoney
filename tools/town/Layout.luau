@@ -2,8 +2,8 @@
 --
 --   The bank sits on a plaza where the two main roads cross. Shops line the main roads near the
 --   bank. North and south of the shops are the neighbourhoods: a grid of blocks, each with a row
---   of houses, plus two cul-de-sacs per neighbourhood with a mansion at the end. The roads at
---   x = +-330 and z = +-310 make the street-race loop.
+--   of houses, plus two dead-end streets per neighbourhood running straight to a mansion. The
+--   roads at x = +-330 and z = +-310 make the street-race loop.
 
 local Layout = {}
 
@@ -16,7 +16,7 @@ Layout.ROAD_TOP = 0.2
 Layout.PATH_TOP = 0.5
 
 -- Straight roads. axis "x" runs east-west at z = at; axis "z" runs north-south at x = at.
--- plazaEnd / bulbEnd mark an end that meets the plaza or a cul-de-sac turning circle.
+-- plazaEnd marks an end that meets the plaza; deadEnd an end in front of a mansion.
 Layout.roads = {
 	{ axis = "x", at = 0, from = -330, to = -50, plazaEnd = "to" },
 	{ axis = "x", at = 0, from = 50, to = 330, plazaEnd = "from" },
@@ -26,10 +26,9 @@ Layout.roads = {
 	{ axis = "z", at = 330, from = -430, to = 430 },
 }
 
--- Turning circles at the ends of the cul-de-sacs.
-Layout.bulbs = {}
-Layout.BULB_RADIUS = 20
-Layout.BULB_PATH_RADIUS = 26
+-- The dead ends: the road stops here, then a strip of pavement across the mansion's front.
+Layout.DEAD_END = 550
+Layout.deadEnds = {} -- the middle of each road end, on the ground
 
 for _, side in { -1, 1 } do -- -1 = north neighbourhood, 1 = south
 	for _, z in { 190, 310, 430 } do
@@ -43,11 +42,11 @@ for _, side in { -1, 1 } do -- -1 = north neighbourhood, 1 = south
 	end
 	for _, x in { -247.5, 247.5 } do
 		if side < 0 then
-			table.insert(Layout.roads, { axis = "z", at = x, from = -530, to = -430, bulbEnd = "from" })
+			table.insert(Layout.roads, { axis = "z", at = x, from = -Layout.DEAD_END, to = -430, deadEnd = "from" })
 		else
-			table.insert(Layout.roads, { axis = "z", at = x, from = 430, to = 530, bulbEnd = "to" })
+			table.insert(Layout.roads, { axis = "z", at = x, from = 430, to = Layout.DEAD_END, deadEnd = "to" })
 		end
-		table.insert(Layout.bulbs, Vector3.new(x, 0, 530 * side))
+		table.insert(Layout.deadEnds, Vector3.new(x, 0, Layout.DEAD_END * side))
 	end
 end
 
@@ -151,12 +150,12 @@ do
 			table.insert(lots, { tier = 3, front = Vector3.new(x + 18, 0, z), inward = Vector3.new(1, 0, 0) })
 		end
 	end
-	-- Tier 4: the mansions past each turning circle
+	-- Tier 4: the mansions facing each dead end, past the pavement
 	for _, side in { -1, 1 } do
 		for _, x in { -247.5, 247.5 } do
 			table.insert(lots, {
 				tier = 4,
-				front = Vector3.new(x, 0, (530 + Layout.BULB_PATH_RADIUS) * side),
+				front = Vector3.new(x, 0, (Layout.DEAD_END + Layout.PATH) * side),
 				inward = Vector3.new(0, 0, side),
 			})
 		end

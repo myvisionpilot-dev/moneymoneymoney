@@ -16,8 +16,7 @@ export type Data = {
 	LifetimeCred: number,
 	HighestQuota: number,
 	Runs: number,
-	Owned: { [string]: boolean }, -- cosmetic id -> true
-	Equipped: { [string]: string }, -- slot -> cosmetic id ("" = nothing)
+	Perks: { [string]: number }, -- perk id -> level bought (0 = none)
 	Badges: { [string]: number }, -- badge id -> os.time() when earned
 	Daily: { Day: number, Progress: number, Done: boolean },
 	Streak: { Count: number, LastDay: number },
@@ -28,8 +27,7 @@ local TEMPLATE: Data = {
 	LifetimeCred = 0,
 	HighestQuota = 0,
 	Runs = 0,
-	Owned = {},
-	Equipped = { Paint = "", Trail = "", Title = "", Hat = "" },
+	Perks = { Speed = 0 },
 	Badges = {},
 	Daily = { Day = 0, Progress = 0, Done = false },
 	Streak = { Count = 0, LastDay = 0 },

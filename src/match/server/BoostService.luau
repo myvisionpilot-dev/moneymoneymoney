@@ -1,16 +1,19 @@
 --!strict
 -- Five-minute boosts from the convenience stores. Other services ask how a boost changes
--- things (heat, the pickpocket zone, break-ins); the energy drink also shows on the character
--- as the SpeedBoost attribute (read by shared/Movement) and widens MovementGuard's limit.
+-- things (heat, the pickpocket zone, break-ins); the energy drink (see EnergyDrink) also
+-- shows on the character as the SpeedBoost attribute (read by shared/Movement). Together
+-- with the lobby's speed buff it sets MovementGuard's on-foot limit.
 -- The police scanner is drawn on the player's own screen from the snapshot.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Perks = require(ServerScriptService.Common.Perks)
 local MovementGuard = require(script.Parent.MovementGuard)
 
 local SPEED_ATTRIBUTE = "SpeedBoost"
@@ -64,7 +67,8 @@ local function applySpeed(player: Player)
 	if character then
 		character:SetAttribute(SPEED_ATTRIBUTE, if multiplier ~= 1 then multiplier else nil)
 	end
-	MovementGuard.setBoost(player, multiplier)
+	local total = math.min(multiplier * Perks.speedMultiplier(player), Config.Movement.MaxSpeedMultiplier)
+	MovementGuard.setBoost(player, total)
 end
 
 -- Starts a boost, or restarts its clock if it's already going.
@@ -110,6 +114,7 @@ function BoostService.start()
 		watch(player)
 	end
 	Players.PlayerAdded:Connect(watch)
+	Perks.changed:Connect(applySpeed) -- their save loaded (with a speed buff)
 	Players.PlayerRemoving:Connect(function(player: Player)
 		active[player] = nil
 	end)

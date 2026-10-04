@@ -22,11 +22,10 @@ export type LobbyRemotes = {
 	QueueStatus: ToClient<Types.QueueStatus?>,
 	Notify: ToClient<Types.Notice>,
 	ProfileSync: ToClient<Types.ProfileView>,
-	OpenCosmetics: ToClient<nil>, -- you used the cosmetics stand
+	OpenPerkShop: ToClient<nil>, -- you used the speed shop stand
 	LeaveQueue: ToServer<nil>,
 	SetPartySize: ToServer<number>,
-	BuyCosmetic: ToServer<string>, -- cosmetic id
-	EquipCosmetic: ToServer<string>, -- cosmetic id; equipping what you're wearing takes it off
+	BuyPerk: ToServer<string>, -- perk id: buys its next level
 }
 
 export type MatchRemotes = {
@@ -124,11 +123,10 @@ function Remotes.lobby(): LobbyRemotes
 		QueueStatus = toClient("QueueStatus"),
 		Notify = toClient("Notify"),
 		ProfileSync = toClient("ProfileSync"),
-		OpenCosmetics = toClient("OpenCosmetics"),
+		OpenPerkShop = toClient("OpenPerkShop"),
 		LeaveQueue = toServer("LeaveQueue"),
 		SetPartySize = toServer("SetPartySize"),
-		BuyCosmetic = toServer("BuyCosmetic"),
-		EquipCosmetic = toServer("EquipCosmetic"),
+		BuyPerk = toServer("BuyPerk"),
 	}
 	lobbyRemotes = remotes
 	return remotes

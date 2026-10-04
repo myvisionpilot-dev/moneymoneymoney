@@ -185,10 +185,11 @@ steal = function(player: Player, spot: Spot): (boolean, string?)
 		return false, "There's no chop shop on this map."
 	end
 
+	local parkedAt = car:GetPivot()
 	car:Destroy()
 	spot.car, spot.prompt = nil, nil
 	spot.respawnAt = Timing.now() + settings.RespawnSeconds
-	if not VehicleService.mount(player, "StolenCar", settings.DriveSpeed, spot.color) then
+	if not VehicleService.mount(player, "StolenCar", settings.DriveSpeed, spot.color, parkedAt) then
 		return false, nil
 	end
 	HeatService.add(player, Config.Heat.CarTheft)

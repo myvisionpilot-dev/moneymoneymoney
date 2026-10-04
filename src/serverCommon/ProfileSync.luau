@@ -1,5 +1,5 @@
 --!strict
--- Sends each player a ProfileView (Cred, cosmetics, badges, daily challenge) whenever their
+-- Sends each player a ProfileView (Cred, perks, badges, daily challenge) whenever their
 -- profile changes.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,10 +12,6 @@ local Profiles = require(script.Parent.Profiles)
 local ProfileSync = {}
 
 function ProfileSync.view(data: Profiles.Data): Types.ProfileView
-	local owned = {}
-	for id in data.Owned do
-		table.insert(owned, id)
-	end
 	local badges = {}
 	for id in data.Badges do
 		table.insert(badges, id)
@@ -25,8 +21,7 @@ function ProfileSync.view(data: Profiles.Data): Types.ProfileView
 		lifetimeCred = data.LifetimeCred,
 		highestQuota = data.HighestQuota,
 		runs = data.Runs,
-		owned = owned,
-		equipped = table.clone(data.Equipped),
+		perks = table.clone(data.Perks),
 		badges = badges,
 		daily = Daily.view(data),
 		streak = Daily.streak(data),

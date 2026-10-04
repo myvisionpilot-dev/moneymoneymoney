@@ -7,6 +7,7 @@
 --   /start                    start the run without waiting for arrivals
 --   /heat <stars>             add heat to yourself (to test police)
 --   /tp <x> <y> <z>           teleport yourself (goes through MovementGuard)
+--   /drive [kart] [top speed] a car (or kart) right where you stand (default: race car speed)
 -- In Studio, ServerStorage.DebugHook:Invoke("cash", "5000") runs the same commands.
 
 local Players = game:GetService("Players")
@@ -16,6 +17,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 local TextChatService = game:GetService("TextChatService")
 
+local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Admin = require(ServerScriptService.Common.Admin)
 local Profiles = require(ServerScriptService.Common.Profiles)
@@ -25,6 +27,7 @@ local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
+local VehicleService = require(script.Parent.VehicleService)
 
 type Handler = (player: Player, args: { string }) -> string
 
@@ -109,6 +112,15 @@ local handlers: { [string]: Handler } = {
 		end
 		MovementGuard.teleport(player, CFrame.new(x, y, z))
 		return `Teleported to {x}, {y}, {z}`
+	end,
+
+	drive = function(player: Player, args: { string }): string
+		local kart = args[1] == "kart"
+		local speed = tonumber(if kart then args[2] else args[1]) or Config.Paths.Racing.CarSpeed
+		local color = Color3.fromRGB(225, 75, 65)
+		return if VehicleService.mount(player, if kart then "Ride" else "Debug", speed, color)
+			then `In a {if kart then "kart" else "car"} (top speed {speed}). R gets out.`
+			else "No room for a car here"
 	end,
 
 	start = function(_player: Player, _args: { string }): string

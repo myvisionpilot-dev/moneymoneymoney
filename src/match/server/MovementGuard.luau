@@ -25,7 +25,7 @@ local MovementGuard = {}
 
 local tracks: { [Player]: Track } = {}
 local speedOverrides: { [Player]: number } = {} -- kart speeds
-local boosts: { [Player]: number } = {} -- the energy drink: on foot only
+local boosts: { [Player]: number } = {} -- energy drink and speed buff: on foot only
 local graces: { [Player]: { speed: number, untilAt: number } } = {} -- old speed, briefly, after slowing down
 
 -- Sprinting is client-side, so the guard always allows sprint speed.
@@ -56,7 +56,8 @@ function MovementGuard.setAllowedSpeed(player: Player, speed: number?)
 	end
 end
 
--- The energy drink multiplies on-foot speed (1 = none). Wearing off keeps the old limit briefly.
+-- The energy drink and speed buff multiply on-foot speed (1 = none). Wearing off keeps the old
+-- limit briefly.
 function MovementGuard.setBoost(player: Player, multiplier: number)
 	local before = allowedSpeed(player)
 	if multiplier ~= 1 then
@@ -73,14 +74,60 @@ local function newTrack(position: Vector3, at: number): Track
 	return { position = position, at = at, strikes = 0, grounded = position, airChecks = 0 }
 end
 
--- Moves a character on purpose (gathering, jail) without tripping the guard.
+-- The physics car they're sitting in, if any (CarBuilder marks it PhysicsCar).
+local function carOf(character: Model): Model?
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local seat = humanoid and humanoid.SeatPart
+	local car = seat and seat:FindFirstAncestorOfClass("Model")
+	return if car and car:GetAttribute("PhysicsCar") then car else nil
+end
+
+-- Puts someone back at `position` (where their root part was): the whole car if they're driving.
+local function pullBack(character: Model, position: Vector3)
+	local car = carOf(character)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if car and root and root:IsA("BasePart") then
+		local pivot = car:GetPivot()
+		car:PivotTo(CFrame.new(position + (pivot.Position - root.Position) + Vector3.new(0, 1, 0)) * pivot.Rotation)
+		for _, part in car:GetDescendants() do
+			if part:IsA("BasePart") then
+				part.AssemblyLinearVelocity = Vector3.zero
+				part.AssemblyAngularVelocity = Vector3.zero
+			end
+		end
+	else
+		character:PivotTo(CFrame.new(position + Vector3.new(0, 3, 0)))
+	end
+end
+
+-- Moves a character on purpose (gathering, jail) without tripping the guard. Anyone in a car
+-- gets out first (VehicleService puts the car away when its seat empties).
 function MovementGuard.teleport(player: Player, cframe: CFrame)
 	local character = player.Character
 	if not character then
 		return
 	end
+	local car = carOf(character)
+	local seat = car and car:FindFirstChild("DriverSeat")
+	local seatWeld = seat and seat:FindFirstChild("SeatWeld")
+	if seatWeld then
+		seatWeld:Destroy()
+		-- The driver's computer was still moving them with the car; move them again once it
+		-- knows they're out.
+		task.delay(0.2, function()
+			if character.Parent then
+				character:PivotTo(cframe)
+				tracks[player] = newTrack(cframe.Position, os.clock())
+			end
+		end)
+	end
 	character:PivotTo(cframe)
 	tracks[player] = newTrack(cframe.Position, os.clock())
+end
+
+-- Forget their last position (they were just moved on purpose, e.g. sat in a car).
+function MovementGuard.reset(player: Player)
+	tracks[player] = nil
 end
 
 local function heightAboveGround(player: Player, root: BasePart): number
@@ -110,7 +157,7 @@ local function checkFlying(player: Player, root: BasePart, track: Track): boolea
 	warn(`[MovementGuard] {player.Name} hovered {shown} studs up; pulled back down`)
 	local character = player.Character
 	if character then
-		character:PivotTo(CFrame.new(track.grounded + Vector3.new(0, 3, 0)))
+		pullBack(character, track.grounded)
 	end
 	track.position = track.grounded
 	track.airChecks = 0
@@ -142,7 +189,7 @@ local function check(player: Player, now: number)
 		warn(`[MovementGuard] {player.Name} moved {moved} studs in {took}s (limit {allowed}); pulled back`)
 		local character = player.Character
 		if character then
-			character:PivotTo(CFrame.new(track.position + Vector3.new(0, 3, 0)))
+			pullBack(character, track.position)
 		end
 		track.at = now
 		return
