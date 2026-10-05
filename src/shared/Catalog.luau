@@ -33,7 +33,7 @@ local badges = Config.Badges
 Catalog.Badges = {
 	{ id = "FirstRun", name = "First Payday", text = "Finish your first run" },
 	{ id = "GettingSerious", name = "Getting Serious", text = `Clear quota {badges.GettingSeriousQuota}` },
-	{ id = "PaidInFull", name = "Paid in Full", text = `Clear quota {Config.Match.CashOutAfterQuota}` },
+	{ id = "PaidInFull", name = "Paid in Full", text = `Clear quota {#Config.Match.Quotas}` },
 	{ id = "InTooDeep", name = "In Too Deep", text = "Clear an endless quota" },
 	{ id = "Snake", name = "The Snake", text = "Steal the most in a run" },
 	{ id = "TopEarner", name = "Top Earner", text = `Deposit the most in a run of {badges.MvpMinPlayers}+ players` },

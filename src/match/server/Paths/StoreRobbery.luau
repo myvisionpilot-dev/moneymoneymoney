@@ -20,6 +20,7 @@ local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
 local Stats = require(script.Parent.Parent.Stats)
+local TwistService = require(script.Parent.Parent.TwistService)
 
 local COUNTER_TAG = "StoreCounter"
 local RANGE_SLACK = 3
@@ -57,7 +58,8 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	end
 	-- A hold-up (blaster out) is quicker and pays more.
 	local holdUp = BlasterService.drawn(player)
-	local hold = if holdUp then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds
+	local hold = (if holdUp then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds)
+		* TwistService.crimeHoldMultiplier()
 	if not ctx.canWork(player) or not PromptGuard.held(store.prompt, player, hold) then
 		return false, nil
 	end
@@ -76,10 +78,7 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	local pay = if holdUp then math.floor(basePay * Config.Blasters.HoldUpPay + 0.5) else basePay
 	local added = EconomyService.addCarried(player, pay, if holdUp then "store hold-up" else "store robbery")
 	HeatService.add(player, Config.Heat.StoreRobbery)
-	local headline = if holdUp
-		then "Hold-up! They handed over the whole till! The alarm is ringing!"
-		else "You emptied the register! The alarm is ringing!"
-	PayNotice.send(player, headline, added, pay)
+	PayNotice.send(player, if holdUp then "Store held up" else "Store register emptied", added, pay)
 	Stats.record(player, "StoreRobbery")
 	local alarm = Sounds.at("Alarm", store.counter, true)
 	if alarm then

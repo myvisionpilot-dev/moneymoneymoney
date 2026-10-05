@@ -29,6 +29,7 @@ local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local TwistService = require(script.Parent.TwistService)
 
 local COUNTER_TAG = "ShopCounter"
 local SHOP_ATTRIBUTE = "Shop"
@@ -94,7 +95,7 @@ function ShopService.breakInHoldSeconds(player: Player): number
 	local seconds = if level == 0
 		then Config.Paths.Doors.BaseBreakInHoldSeconds
 		else Config.Shop.Lockpick[level].holdSeconds
-	return seconds * BoostService.breakInMultiplier(player)
+	return seconds * BoostService.breakInMultiplier(player) * TwistService.crimeHoldMultiplier()
 end
 
 -- Your kart's speed, or nil if you haven't bought one.
@@ -103,16 +104,24 @@ function ShopService.rideSpeed(player: Player): number?
 	return if entry then entry.speed else nil
 end
 
+-- A price after this quota's twists (Sale Day), to the nearest $10.
+local function price(base: number): number
+	return math.floor(base * TwistService.shopPriceMultiplier() / 10 + 0.5) * 10
+end
+
 local function upgradePrice(id: Types.UpgradeId, level: number): number?
+	local base: number? = nil
 	if id == "Bag" then
 		local entry = Config.Shop.Bag[level]
-		return if entry then entry.price else nil
+		base = if entry then entry.price else nil
 	elseif id == "Lockpick" then
 		local entry = Config.Shop.Lockpick[level]
-		return if entry then entry.price else nil
+		base = if entry then entry.price else nil
+	else
+		local entry = Config.Shop.Ride[level]
+		base = if entry then entry.price else nil
 	end
-	local entry = Config.Shop.Ride[level]
-	return if entry then entry.price else nil
+	return if base then price(base) else nil
 end
 
 local function upgradeItem(player: Player, id: Types.UpgradeId): Types.ShopItem
@@ -172,7 +181,7 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 					then "In your backpack"
 					elseif endsAt then `On: {Format.clock(endsAt - Timing.now())} left`
 					else "Lasts 5 minutes",
-				price = if carrying then nil else Config.Boosts[boost.id].price,
+				price = if carrying then nil else price(Config.Boosts[boost.id].price),
 			})
 		end
 	else
@@ -186,14 +195,16 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 				title = blaster.title,
 				detail = `Range {stats.range} · reloads in {stats.cooldown}s · freezes cops for {stats.copStunSeconds}s`,
 				status = if have == blaster.id then "Yours" else nil,
-				price = if yours then nil else stats.price,
+				price = if yours then nil else price(stats.price),
 			})
 		end
 		if RunState.quotaIndex < Config.Blasters.UnlockQuota then
 			locked = `Tony's not selling yet. Come back at quota {Config.Blasters.UnlockQuota}.`
 		end
 	end
-	return { shop = shop, title = SHOPS[shop].title, note = SHOPS[shop].note, items = items, locked = locked }
+	local off = math.floor((1 - TwistService.shopPriceMultiplier()) * 100 + 0.5)
+	local note = if off > 0 then `SALE: {off}% off everything! {SHOPS[shop].note}` else SHOPS[shop].note
+	return { shop = shop, title = SHOPS[shop].title, note = note, items = items, locked = locked }
 end
 
 -- A counter's Shop attribute, if it names a real shop.
@@ -228,33 +239,36 @@ local function canShop(player: Player): boolean
 		and phase ~= "Ended"
 end
 
--- Takes the money, or says why not.
-local function pay(player: Player, price: number, reason: string): boolean
+-- Takes the money (with a money line saying what for), or says why not.
+local function pay(player: Player, price: number, reason: string, label: string): boolean
 	if EconomyService.account(player).carried < price then
 		Notifier.send(player, `You need {Format.money(price)} in your bag for that.`, "Bad")
 		return false
 	end
 	EconomyService.removeCarried(player, price, reason)
+	Juice.spent(player, price, label)
 	return true
 end
+
+local UPGRADE_LABELS: { [Types.UpgradeId]: string } = {
+	Bag = "Bigger bag purchased",
+	Lockpick = "Better lockpick purchased",
+	Ride = "Faster kart purchased",
+}
 
 local function buyUpgrade(player: Player, id: Types.UpgradeId): boolean
 	local current = levelsOf(player)
 	local newLevel = (current[id] or 0) + 1
 	local price = upgradePrice(id, newLevel)
-	if not price or not pay(player, price, `shop: {id:lower()} level {newLevel}`) then
+	local label = if id == "Ride" and newLevel == 1 then "Kart purchased" else UPGRADE_LABELS[id]
+	if not price or not pay(player, price, `shop: {id:lower()} level {newLevel}`, label) then
 		return false
 	end
 	current[id] = newLevel
 	if id == "Bag" then
-		local capacity = Config.Shop.Bag[newLevel].capacity
-		EconomyService.setBagCapacity(player, capacity)
-		Notifier.send(player, `Bigger bag! It now holds {Format.money(capacity)}.`, "Good")
-	elseif id == "Lockpick" then
-		Notifier.send(player, `Better lockpick! Break-ins take {ShopService.breakInHoldSeconds(player)}s.`, "Good")
-	else
-		local speed = Config.Shop.Ride[newLevel].speed
-		Notifier.send(player, `New kart (speed {speed})! Press R (or tap RIDE) to hop on or off.`, "Good")
+		EconomyService.setBagCapacity(player, Config.Shop.Bag[newLevel].capacity)
+	elseif id == "Ride" and newLevel == 1 then
+		Notifier.send(player, "Press R (or tap RIDE) to hop on or off your kart.", "Info")
 	end
 	ShopService.upgraded:Fire(player, id)
 	return true
@@ -265,19 +279,20 @@ local function buyBoost(player: Player, id: Types.BoostId): boolean
 		Notifier.send(player, "You've already got an energy drink in your backpack.", "Info")
 		return false
 	end
-	if not pay(player, Config.Boosts[id].price, `shop: {id:lower()} boost`) then
+	local title = id :: string
+	for _, boost in BOOSTS do
+		if boost.id == id then
+			title = boost.title
+		end
+	end
+	if not pay(player, price(Config.Boosts[id].price), `shop: {id:lower()} boost`, `{title} purchased`) then
 		return false
 	end
 	if id == "Energy" then
 		EnergyDrink.give(player)
-		Notifier.send(player, "Energy drink! It's in your backpack: hold it, then click (or tap) to drink.", "Good")
-		return true
-	end
-	BoostService.give(player, id)
-	for _, boost in BOOSTS do
-		if boost.id == id then
-			Notifier.send(player, `{boost.title}! {boost.detail} (5 minutes)`, "Good")
-		end
+		Notifier.send(player, "It's in your backpack: hold it, then click (or tap) to drink.", "Info")
+	else
+		BoostService.give(player, id)
 	end
 	return true
 end
@@ -291,15 +306,12 @@ local function buyBlaster(player: Player, id: Types.BlasterId): boolean
 	if have == id or (have == "MegaZapper" and id == "Zapper") then
 		return false
 	end
-	if not pay(player, Config.Blasters[id].price, `shop: {id:lower()}`) then
+	local title = if id == "MegaZapper" then "Mega Zapper" else "Zapper"
+	if not pay(player, price(Config.Blasters[id].price), `shop: {id:lower()}`, `{title} purchased`) then
 		return false
 	end
 	BlasterService.give(player, id)
-	Notifier.send(
-		player,
-		'Tony: "Pleasure doing business." It\'s in your backpack: press 1 (or tap it) to draw it.',
-		"Good"
-	)
+	Notifier.send(player, 'Tony: "Pleasure doing business." Press 1 (or tap it) to draw it.', "Info")
 	return true
 end
 
@@ -312,28 +324,24 @@ local function onBuy(player: Player, payload: unknown)
 		return
 	end
 	local shop: Types.ShopId = found :: any
-	local bought = false
 	if shop == "Clothes" and payload == "Bag" then
-		bought = buyUpgrade(player, "Bag")
+		buyUpgrade(player, "Bag")
 	elseif shop == "Hardware" and payload == "Lockpick" then
-		bought = buyUpgrade(player, "Lockpick")
+		buyUpgrade(player, "Lockpick")
 	elseif shop == "Garage" and payload == "Ride" then
-		bought = buyUpgrade(player, "Ride")
+		buyUpgrade(player, "Ride")
 	elseif shop == "Convenience" then
 		for _, boost in BOOSTS do
 			if boost.id == payload then
-				bought = buyBoost(player, boost.id)
+				buyBoost(player, boost.id)
 			end
 		end
 	elseif shop == "Guns" then
 		for _, blaster in BLASTERS do
 			if blaster.id == payload then
-				bought = buyBlaster(player, blaster.id)
+				buyBlaster(player, blaster.id)
 			end
 		end
-	end
-	if bought then
-		Juice.sound(player, "Purchase")
 	end
 	remotes.ShopOpen:fireClient(player, stateFor(player, found :: any))
 end

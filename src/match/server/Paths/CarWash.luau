@@ -219,13 +219,7 @@ local function rinse(current: Shift)
 	end
 	local quick = os.clock() - current.arrivedAt <= settings.QuickSeconds
 	local pay = carPay() + if quick then JobKit.scaled(settings.QuickTip, getContext().payMultiplier()) else 0
-	JobKit.pay(
-		current.player,
-		pay,
-		if quick then "Sparkling, and quick! Tip included." else "Sparkling!",
-		"car wash",
-		"CarWash"
-	)
+	JobKit.pay(current.player, pay, if quick then "Car washed, quick tip" else "Car washed", "car wash", "CarWash")
 	current.washed += 1
 	roll(car, pivot, pivot * CFrame.new(0, 0, -ROLL_STUDS), settings.RollSeconds)
 	if shift ~= current then

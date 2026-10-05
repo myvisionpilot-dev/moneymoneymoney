@@ -26,6 +26,13 @@ export type PlayerRow = {
 	boosts: { [string]: number }, -- BoostId -> when it wears off (server time)
 }
 
+-- A quota twist (Config.Twists), as the HUD shows it.
+export type TwistView = {
+	id: string,
+	title: string,
+	detail: string,
+}
+
 export type RunSnapshot = {
 	phase: Phase,
 	quotaIndex: number,
@@ -34,6 +41,7 @@ export type RunSnapshot = {
 	phaseEndsAt: number, -- workspace:GetServerTimeNow() time
 	isEndless: boolean,
 	teamDeposited: number,
+	twists: { TwistView }, -- this quota's twists (none in quota 1)
 	players: { PlayerRow },
 }
 
@@ -164,13 +172,14 @@ export type RunResults = {
 	endsAt: number,
 }
 
--- Moments the client dresses up with sounds and effects.
-export type JuiceKind = "Paid" | "Deposited" | "Sound"
+-- Moments the client dresses up with sounds and effects. Money kinds show as a line at the
+-- bottom of the screen: "+$10,000 | Customer served".
+export type JuiceKind = "Paid" | "Spent" | "Lost" | "Deposited" | "BagFull" | "Sound"
 
 export type JuiceEvent = {
 	kind: JuiceKind,
-	amount: number?, -- Paid / Deposited
-	position: Vector3?, -- where the money pops up
+	amount: number?, -- money kinds (BagFull: what didn't fit)
+	label: string?, -- money kinds: a few words on what happened
 	sound: string?, -- Sound: a Config.Sounds name
 }
 

@@ -87,7 +87,7 @@ local function arrest(hunter: Player, target: Player, prompt: ProximityPrompt)
 
 	JailService.arrest(target, hunter.DisplayName)
 	local added = EconomyService.addCarried(hunter, bounty, `bounty on {target.Name}`)
-	PayNotice.send(hunter, `You arrested {target.DisplayName}! The police paid the bounty.`, added, bounty)
+	PayNotice.send(hunter, `Bounty on {target.DisplayName} claimed`, added, bounty)
 	Stats.record(hunter, "Bounty")
 end
 

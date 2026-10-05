@@ -8,6 +8,7 @@
 --   /heat <stars>             add heat to yourself (to test police)
 --   /tp <x> <y> <z>           teleport yourself (goes through MovementGuard)
 --   /drive [kart] [top speed] a car (or kart) right where you stand (default: race car speed)
+--   /twist <id|none>          swap this quota's twist (ids in Config.Twists)
 -- In Studio, ServerStorage.DebugHook:Invoke("cash", "5000") runs the same commands.
 
 local Players = game:GetService("Players")
@@ -27,6 +28,7 @@ local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
+local TwistService = require(script.Parent.TwistService)
 local VehicleService = require(script.Parent.VehicleService)
 
 type Handler = (player: Player, args: { string }) -> string
@@ -125,6 +127,15 @@ local handlers: { [string]: Handler } = {
 
 	start = function(_player: Player, _args: { string }): string
 		return if QuotaRunService.forceStart() then "Starting the run" else "The run has already started"
+	end,
+
+	twist = function(_player: Player, args: { string }): string
+		local id = args[1]
+		if id == nil or id == "none" then
+			TwistService.force(nil)
+			return "No twist this quota"
+		end
+		return if TwistService.force(id) then `Twist: {id}` else "Unknown twist (see Config.Twists)"
 	end,
 }
 

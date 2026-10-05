@@ -1,6 +1,9 @@
 # MONEY MONEY MONEY
 
-A 1–6 player Roblox quota run: pay the bank each quota (7 minutes, then 9, 11...), split the prize by contribution.
+A 1–6 player Roblox quota run: pay the bank each quota (7 minutes, then 9, 10, 11, 12), split the prize by contribution.
+From quota 2 each quota rolls a twist (Rush Hour, Blackout, Sale Day...: `Config.Twists`); paying early puts a bonus in
+everyone's bag; the cash-out vote comes after quota 3 and every quota after; from quota 4 cops get tougher and repo men
+chase anyone carrying more than half a bag.
 One universe, two places, each synced from its own Rojo project.
 
 | Place | Place ID | Project file | Rojo port |
@@ -55,9 +58,11 @@ src/shared/        ReplicatedStorage.Shared: Config, Remotes, Types, Catalog (pe
 src/serverCommon/  ServerScriptService.Common: Profiles, Daily, Badges, Perks, Leaderboards, ProfileSync,
                    SafeTeleport, RateLimiter, Admin, Vendor/ProfileStore (both places)
 src/lobby/         QueueService (pads → reserved Match server), speed shop (permanent perks), leaderboard boards, profile panel
-src/match/server/  QuotaRunService (state machine), Economy, Deposit, Prize, Path + Paths/*, Heat, Police, Jail,
+src/match/server/  QuotaRunService (state machine), Twists (+ late-game pressure), Repo men, Economy, Deposit, Prize,
+                   Path + Paths/*, Heat, Police, Jail,
                    Shop, Vehicles, Steal, NPCs, Staff, MovementGuard, Sync, Penny (the bank), Debug
-src/match/client/  HUD, Mr. Penny's banner, next-step guide, job guide, door offers, shop, pickpocket, results
+src/match/client/  HUD, money lines ("+$1,500 | Package delivered"), Mr. Penny's banner, next-step guide, job guide,
+                   door offers, shop, pickpocket, results
 ```
 
 Every tunable number is in `src/shared/Config.luau`. The server owns all money: clients only send intents
@@ -78,6 +83,7 @@ Chat commands for the game owner, anyone in `Config.Debug.AdminUserIds`, and eve
 | `/heat <stars>` | Add heat to yourself (negative clears it) |
 | `/tp <x> <y> <z>` | Teleport yourself |
 | `/drive [kart] [top speed]` | A car (or kart) where you stand |
+| `/twist <id\|none>` | Swap this quota's twist (ids in `Config.Twists`, e.g. `blackout`) |
 
 In Studio, `game.ServerStorage.DebugHook:Invoke("cash", "5000")` runs the same commands from the server command bar.
 Set `Config.Debug.Enabled = true` to run every phase timer at `TimerScale` speed.

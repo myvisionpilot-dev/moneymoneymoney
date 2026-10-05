@@ -4,7 +4,10 @@
 export type Context = {
 	isOpen: () -> boolean, -- a quota is running and this path is unlocked
 	tier: () -> number, -- payout tier for the current quota
-	payMultiplier: () -> number, -- TierPayoutMultiplier ^ (tier - 1)
+	tierMultiplier: () -> number, -- TierPayoutMultiplier ^ (tier - 1): prices and costs scale with this
+	-- Pay: the tier multiplier times this quota's twists. A door job passes its kind and legality;
+	-- otherwise it's this path's id and style.
+	payMultiplier: (kind: string?, legal: boolean?) -> number,
 	canWork: (player: Player) -> boolean, -- active in the run, alive, not in jail
 	isBusy: (player: Player) -> boolean, -- already on a job from any path
 }

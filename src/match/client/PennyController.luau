@@ -35,7 +35,7 @@ function PennyController.start()
 
 	local name = UI.label({
 		Position = UDim2.fromOffset(64, 0),
-		Size = UDim2.fromOffset(200, 22),
+		Size = UDim2.new(1, -64, 0, 22),
 		Font = UI.Fonts.Heading,
 		TextSize = 22,
 		TextColor3 = UI.Colors.Gold,

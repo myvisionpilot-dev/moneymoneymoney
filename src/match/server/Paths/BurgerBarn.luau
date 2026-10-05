@@ -202,11 +202,11 @@ local function serve(current: Shift)
 	end
 	JobKit.dismiss(current.customer)
 	current.customer = nil
-	JobKit.pay(current.player, orderPay(), "Order up!", "burger order", "BurgerOrder")
+	JobKit.pay(current.player, orderPay(), "Customer served", "burger order", "BurgerOrder")
 	if current.served >= settings.Orders then
 		if not current.burnt then
 			local bonus = JobKit.scaled(settings.NoBurnBonus, getContext().payMultiplier())
-			JobKit.pay(current.player, bonus, "Nothing burnt all shift. Bonus!", "burger bonus")
+			JobKit.pay(current.player, bonus, "No-burn shift bonus", "burger bonus")
 		end
 		endShift("Shift done. Nice cooking!", "Good")
 		return

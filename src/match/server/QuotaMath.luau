@@ -16,9 +16,24 @@ function QuotaMath.base(quotaIndex: number): number
 	return quotas[#quotas] * Config.Match.EndlessQuotaMultiplier ^ (quotaIndex - #quotas)
 end
 
--- Seconds on the clock for a quota: each one gets a little longer than the last.
+-- Seconds on the clock for a quota; endless quotas get the last listed time.
 function QuotaMath.duration(quotaIndex: number): number
-	return Config.Match.QuotaBaseSeconds + Config.Match.QuotaExtraSecondsPerQuota * (quotaIndex - 1)
+	local list = Config.Match.QuotaSeconds
+	return list[math.clamp(quotaIndex, 1, #list)]
+end
+
+-- Whole minutes left on the clock when a quota was paid (up to Match.EarlyBonus.MaxMinutes).
+function QuotaMath.earlyMinutes(secondsLeft: number): number
+	return math.clamp(math.floor(secondsLeft / 60), 0, Config.Match.EarlyBonus.MaxMinutes)
+end
+
+-- Each player's bonus for paying a quota that many minutes early (shared from the next target).
+function QuotaMath.earlyBonus(minutes: number, nextTarget: number, playerCount: number): number
+	if minutes <= 0 or playerCount <= 0 then
+		return 0
+	end
+	local share = nextTarget * Config.Match.EarlyBonus.PercentPerMinute * minutes / playerCount
+	return math.floor(share / 10 + 0.5) * 10
 end
 
 function QuotaMath.scale(playerCount: number): number

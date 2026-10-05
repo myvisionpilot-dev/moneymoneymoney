@@ -182,7 +182,7 @@ local function dropOff(player: Player, shift: Shift, fare: Fare)
 		warn(`[Taxi] {player.Name} finished a {math.floor(trip)}-stud fare impossibly fast`)
 		Notifier.send(player, "Your passenger won't pay: that ride was impossibly fast.", "Bad")
 	else
-		JobKit.pay(player, fare.pay, "Fare paid!", "taxi fare", "TaxiFare")
+		JobKit.pay(player, fare.pay, "Passenger dropped off", "taxi fare", "TaxiFare")
 		shift.fares += 1
 	end
 	JobKit.dismiss(JobKit.customer(standingAt(fare.dropoff)), HOP_OUT_SECONDS)

@@ -167,6 +167,35 @@ function Kit.bush(parent, name, ground)
 	return bush
 end
 
+-- A raised grass bed with a low kerb, for a bush or tree standing on paving. Returns the ground
+-- point on top of the grass.
+function Kit.bed(parent, name, ground, diameter)
+	local bed = Kit.model(parent, name)
+	Kit.quiet(
+		Kit.cylinder(
+			bed,
+			"Kerb",
+			0.8,
+			diameter,
+			ground + Vector3.new(0, 0.2, 0),
+			Kit.Colors.Path,
+			Enum.Material.Concrete
+		)
+	)
+	Kit.quiet(
+		Kit.cylinder(
+			bed,
+			"Soil",
+			0.8,
+			diameter - 1,
+			ground + Vector3.new(0, 0.35, 0),
+			Kit.Colors.Grass,
+			Enum.Material.Grass
+		)
+	)
+	return ground + Vector3.new(0, 0.75, 0)
+end
+
 function Kit.tree(parent, name, ground, height)
 	local h = height or 12
 	local tree = Kit.model(parent, name)

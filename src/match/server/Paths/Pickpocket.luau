@@ -117,11 +117,8 @@ local function succeed(player: Player, current: Game)
 	local pay = math.floor(base * getContext().payMultiplier() + 0.5)
 	local added = EconomyService.addCarried(player, pay, "pickpocket")
 	HeatService.add(player, Config.Heat.Pickpocket)
-	local name = current.pedestrian.Name
-	local headline = if base >= settings.FatWallet
-		then `Fat wallet! You lifted {name}'s wallet.`
-		else `You lifted {name}'s wallet.`
-	PayNotice.send(player, headline, added, pay)
+	local label = if base >= settings.FatWallet then "Fat wallet lifted" else "Wallet lifted"
+	PayNotice.send(player, label, added, pay)
 	Juice.sound(player, "Swipe")
 	Stats.record(player, "Pickpocket")
 end

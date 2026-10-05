@@ -2,14 +2,13 @@
 -- Tony's cartoon stun blasters. Buying one puts a Blaster tool in your backpack for the rest of
 -- the run. The client only says where it aimed (FireBlaster); the server checks the cooldown,
 -- range and line of sight, then:
---   a cop freezes for a few seconds (and you gain a little heat);
+--   a cop freezes for a few seconds (and you gain a little heat); so does a repo man (no heat);
 --   a teammate sits down seeing stars and drops part of their bag as a cash bundle that
 --   anyone can grab (you gain heat, and grabbing someone else's cash counts as stealing).
 -- Nobody gets hurt. No blasting in the bank (parts tagged SafeZone), and none to or from a car
 -- (a police car's cop can still be frozen). A blaster in hand also
 -- makes store hold-ups quicker and pay more (StoreRobbery asks BlasterService.drawn).
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -25,12 +24,13 @@ local JailService = require(script.Parent.JailService)
 local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local PoliceService = require(script.Parent.PoliceService)
+local RepoService = require(script.Parent.RepoService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local SafeZone = require(script.Parent.SafeZone)
 local StealService = require(script.Parent.StealService)
 
 local TOOL_NAME = "Blaster"
-local SAFE_TAG = "SafeZone"
 local STUN_ATTRIBUTE = "Stunned" -- on a stunned player's character; their client sits them down
 local VEHICLE_ATTRIBUTE = "VehicleSpeed" -- VehicleService sets it on a character in any kart or car
 local AIM_SLACK = 6 -- studs past the aim point the shot may still travel
@@ -136,19 +136,6 @@ function BlasterService.give(player: Player, id: Types.BlasterId)
 	give(player)
 end
 
-local function inSafeZone(position: Vector3): boolean
-	for _, zone in CollectionService:GetTagged(SAFE_TAG) do
-		if zone:IsA("BasePart") then
-			local offset = zone.CFrame:PointToObjectSpace(position)
-			local half = zone.Size / 2
-			if math.abs(offset.X) <= half.X and math.abs(offset.Y) <= half.Y and math.abs(offset.Z) <= half.Z then
-				return true
-			end
-		end
-	end
-	return false
-end
-
 -- The victim's dropped cash: first to touch it keeps it. Unclaimed, it goes back to them.
 local function dropBundle(victim: Player, amount: number, ground: Vector3)
 	local bundle = Instance.new("Part")
@@ -203,13 +190,12 @@ local function dropBundle(victim: Player, amount: number, ground: Vector3)
 			EconomyService.addCarried(victim, amount - added, "dropped cash that didn't fit", true)
 		end
 		if player == victim then
-			Notifier.send(victim, "Phew, you got your cash back.", "Good")
+			Juice.paid(player, added, "Got your cash back")
 		else
 			StealService.record(player, added)
-			Notifier.send(player, `You grabbed {Format.money(added)} of {victim.DisplayName}'s cash!`, "Good")
+			Juice.paid(player, added, `Grabbed {victim.DisplayName}'s cash`)
 			Notifier.send(victim, `{player.DisplayName} grabbed your cash!`, "Bad")
 		end
-		Juice.paid(player, added)
 	end)
 	task.delay(settings.BundleSeconds, function()
 		if not claimed then
@@ -217,7 +203,7 @@ local function dropBundle(victim: Player, amount: number, ground: Vector3)
 			bundle:Destroy()
 			if victim.Parent then
 				EconomyService.addCarried(victim, amount, "dropped cash came back", true)
-				Notifier.send(victim, "Nobody grabbed your dropped cash, so it's back in your bag.", "Info")
+				Juice.paid(victim, amount, "Dropped cash came back")
 			end
 		end
 	end)
@@ -227,7 +213,7 @@ end
 local function targetOf(part: BasePart): Model?
 	local model = part:FindFirstAncestorOfClass("Model")
 	while model do
-		if PoliceService.isCop(model) or Players:GetPlayerFromCharacter(model) then
+		if PoliceService.isCop(model) or RepoService.isRepo(model) or Players:GetPlayerFromCharacter(model) then
 			return model
 		end
 		model = model:FindFirstAncestorOfClass("Model")
@@ -253,7 +239,7 @@ local function blastPlayer(shooter: Player, victim: Player, character: Model): b
 	if character:GetAttribute(STUN_ATTRIBUTE) or character:GetAttribute(VEHICLE_ATTRIBUTE) ~= nil then
 		return false -- already down, or safe in a car (knocking a driver over would wreck it)
 	end
-	if inSafeZone(character:GetPivot().Position) then
+	if SafeZone.contains(character:GetPivot().Position) then
 		return false
 	end
 	stunPlayer(victim, character)
@@ -262,6 +248,7 @@ local function blastPlayer(shooter: Player, victim: Player, character: Model): b
 	if amount > 0 then
 		local taken = EconomyService.removeCarried(victim, amount, `blasted by {shooter.Name}`)
 		dropBundle(victim, taken, character:GetPivot().Position - Vector3.new(0, 3, 0))
+		Juice.lost(victim, taken, "Dropped when zapped")
 	end
 	Notifier.send(victim, `{shooter.DisplayName} zapped you! Grab your cash back!`, "Bad")
 	Notifier.send(shooter, `Zapped {victim.DisplayName}!`, "Good")
@@ -295,7 +282,7 @@ local function onFire(player: Player, payload: unknown)
 		return
 	end
 	local origin = head.Position
-	if inSafeZone(origin) then
+	if SafeZone.contains(origin) then
 		Notifier.send(player, "No blasting in the bank!", "Info")
 		return
 	end
@@ -318,6 +305,9 @@ local function onFire(player: Player, payload: unknown)
 	if target and PoliceService.isCop(target) then
 		PoliceService.stun(target, model.copStunSeconds)
 		HeatService.add(player, Config.Heat.BlastCop)
+		hit, stunSeconds = target, model.copStunSeconds
+	elseif target and RepoService.isRepo(target) then
+		RepoService.stun(target, model.copStunSeconds)
 		hit, stunSeconds = target, model.copStunSeconds
 	elseif target then
 		local victim = Players:GetPlayerFromCharacter(target)

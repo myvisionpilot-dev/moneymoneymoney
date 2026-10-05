@@ -7,11 +7,11 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
-local Format = require(ReplicatedStorage.Shared.Format)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
+local Juice = require(script.Parent.Juice)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
@@ -77,11 +77,8 @@ function JailService.arrest(player: Player, byWhom: string)
 	putInCell(player)
 	JailService.arrested:Fire(player)
 	JailService.changed:Fire(player)
-	Notifier.send(
-		player,
-		`Busted! You lost {Format.money(lost)} and you're in jail for {Config.Police.JailSeconds}s.`,
-		"Bad"
-	)
+	Juice.lost(player, lost, `Busted by {byWhom}`)
+	Notifier.send(player, `Busted! You're in jail for {Config.Police.JailSeconds}s.`, "Bad")
 	Notifier.others(player, `{player.DisplayName} got busted by {byWhom}!`, "Info")
 end
 

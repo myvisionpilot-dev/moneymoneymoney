@@ -117,7 +117,7 @@ local function tickMow(job: Job, kit: Kit)
 		end
 	end
 	if #job.pieces == 0 then
-		kit.finish(job, "Lawn mowed. Looking sharp!")
+		kit.finish(job, "Front lawn mowed")
 	end
 end
 
@@ -194,7 +194,7 @@ local function tickBins(job: Job, kit: Kit)
 	table.insert(job.placed, bin)
 	Sounds.at("Knock", bin)
 	if #job.pieces == 0 then
-		kit.finish(job, "Bins are out. The street thanks you!")
+		kit.finish(job, "Bins taken to the kerb")
 	else
 		job.targets = binTargets(job)
 		kit.guide(job)
@@ -235,7 +235,7 @@ local function beginCarWash(job: Job, kit: Kit)
 			end
 			CarDirt.scrub(dirt)
 			if #job.pieces == 0 then
-				kit.finish(job, "Squeaky clean. They'll be thrilled!")
+				kit.finish(job, "Resident's car washed")
 			end
 		end)
 	end

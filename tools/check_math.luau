@@ -30,6 +30,17 @@ check("pool after 5", PrizeMath.poolPerPlayer(5), 3250)
 -- Carry-over
 check("carry", QuotaMath.carry(20000, 17500), 2500)
 
+-- Quota clocks (7, 9, 10, 11, 12 minutes; endless keeps 12) and the early-finish bonus
+check("q1 clock", QuotaMath.duration(1), 420)
+check("q3 clock", QuotaMath.duration(3), 600)
+check("q8 clock", QuotaMath.duration(8), 720)
+check("early 200s", QuotaMath.earlyMinutes(200), 3)
+check("early capped", QuotaMath.earlyMinutes(900), 5)
+check("early under a minute", QuotaMath.earlyMinutes(59), 0)
+check("bonus 3 min x1", QuotaMath.earlyBonus(3, 52500, 1), 3150)
+check("bonus 3 min x2", QuotaMath.earlyBonus(3, 82500, 2), 2480)
+check("bonus 0 min", QuotaMath.earlyBonus(0, 100000, 1), 0)
+
 -- The plan's example: 3 players, 60/30/10% after 3 quotas; then failing quota 4 keeps 25%
 local pool = PrizeMath.poolPerPlayer(3)
 check("A 60%", PrizeMath.prize(pool, 3, 60000, 100000, false), 1530)

@@ -51,7 +51,7 @@ local function getContext(): MoneyPath.Context
 end
 
 local function rent(): number
-	return JobKit.scaled(settings.Rent, getContext().payMultiplier())
+	return JobKit.scaled(settings.Rent, getContext().tierMultiplier())
 end
 
 local function price(): number
@@ -113,7 +113,7 @@ local function sellTo(player: Player, pedestrian: Model)
 	shift.stock -= 1
 	shift.sold += 1
 	pause(pedestrian)
-	JobKit.pay(player, price(), `{pedestrian.Name} bought a hot dog!`, "hot dog", "HotDog")
+	JobKit.pay(player, price(), "Hot dog sold", "hot dog", "HotDog")
 	if shift.stock <= 0 then
 		endShift(player, `Sold out! {shift.sold} hot dogs sold.`, "Good")
 	else
@@ -220,12 +220,8 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 	for _, pedestrian in NpcService.pedestrians() do
 		addSellPrompt(player, shift, pedestrian)
 	end
-	Juice.sound(player, "Purchase")
-	Notifier.send(
-		player,
-		`Cart rented for {Format.money(cost)}! Push it around and hold E next to people to sell hot dogs.`,
-		"Info"
-	)
+	Juice.spent(player, cost, "Hot-dog cart rented")
+	Notifier.send(player, "Push the cart around and hold E next to people to sell hot dogs.", "Info")
 	guide(player, shift)
 	return true, nil
 end

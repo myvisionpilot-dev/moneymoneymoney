@@ -113,7 +113,7 @@ local function getFolder(): Folder
 end
 
 local function cost(): number
-	return JobKit.scaled(settings.Cost, getContext().payMultiplier())
+	return JobKit.scaled(settings.Cost, getContext().tierMultiplier())
 end
 
 local function guide(job: Job)
@@ -403,14 +403,8 @@ local function buy(player: Player, wreck: Wreck): (boolean, string?)
 	}
 	jobs[player] = job
 	startRepairs(job, model)
-	Juice.sound(player, "Purchase")
-	Notifier.send(
-		player,
-		`It's yours for {Format.money(price)}. Bang out the dents and fit new tyres, then sell it for {Format.money(
-			sale
-		)}.`,
-		"Info"
-	)
+	Juice.spent(player, price, "Wreck bought to flip")
+	Notifier.send(player, `Bang out the dents and fit new tyres, then sell it for {Format.money(sale)}.`, "Info")
 	guide(job)
 	return true, nil
 end
@@ -451,7 +445,7 @@ local function sell(job: Job)
 		return
 	end
 	clear(job)
-	JobKit.pay(job.player, job.sale, "Sold! The buyer loves it.", "flipped a car", "CarFlip")
+	JobKit.pay(job.player, job.sale, "Flipped car sold", "flipped a car", "CarFlip")
 end
 
 local function repaint(job: Job)

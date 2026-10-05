@@ -1,6 +1,22 @@
 --!strict
 -- Every tunable number in the game. Tune from playtests; never hard-code these elsewhere.
 
+-- A quota twist (see Twists below).
+export type Twist = {
+	id: string,
+	title: string,
+	detail: string,
+	pay: { [string]: number }?,
+	crimePay: number?,
+	heat: number?,
+	cops: number?,
+	copSpeed: number?,
+	crimeHold: number?,
+	spot: number?,
+	shopPrice: number?,
+	night: boolean?,
+}
+
 return {
 	Places = {
 		LobbyPlaceId = 89656922694625,
@@ -11,12 +27,15 @@ return {
 		MaxPlayers = 6,
 		QueueWaitSeconds = 20,
 		StartingCash = 500,
-		QuotaBaseSeconds = 420, -- quota 1 lasts 7 minutes...
-		QuotaExtraSecondsPerQuota = 120, -- ...and each quota after gets 2 more (9, 11, 13...)
+		QuotaSeconds = { 420, 540, 600, 660, 720 }, -- clock per quota; endless quotas get the last one
+		-- Beating a quota early: everyone gets a bonus in their bag when the next quota starts,
+		-- PercentPerMinute of the next target per whole minute left (up to MaxMinutes), split
+		-- between the players.
+		EarlyBonus = { PercentPerMinute = 0.02, MaxMinutes = 5 },
 		IntermissionSeconds = 20,
 		DecisionSeconds = 20,
 		Quotas = { 50_000, 150_000, 300_000, 600_000, 1_000_000 },
-		CashOutAfterQuota = 5,
+		CashOutAfterQuota = 3, -- the cash-out vote comes after this quota and every one after it
 		AdvanceWhenMet = true, -- filling a quota starts the next one straight away (the cash-out choice still comes after CashOutAfterQuota)
 		QuotaPaidBannerSeconds = 6, -- how long the "quota paid" panel shows when the next quota starts straight away
 		EndlessQuotaMultiplier = 1.6,
@@ -58,6 +77,87 @@ return {
 		SearchRadiusStuds = 55, -- cops who lost you circle this far from where they last saw you
 		CarTurnSpeed = 5, -- radians/s: police cars swing round instead of snapping
 		LightFlashSeconds = 0.4,
+	},
+	-- Each quota from FromQuota rolls one twist (two from DoubleFromQuota, in endless), never
+	-- the same as last quota's. pay: multipliers by money path id or door job kind; crimePay:
+	-- every illegal job; heat: heat gained; cops: cops per star; copSpeed; crimeHold: break-in
+	-- and robbery hold times; spot: how close a cop must be to find you in a bush; shopPrice;
+	-- night: dark for the whole quota.
+	Twists = {
+		FromQuota = 2,
+		DoubleFromQuota = 6,
+		NightClockTime = 21,
+		List = {
+			{
+				id = "RushHour",
+				title = "RUSH HOUR",
+				detail = "Taxi fares and deliveries pay double.",
+				pay = { Taxi = 2, Delivery = 2 },
+			},
+			{
+				id = "Heatwave",
+				title = "HEATWAVE",
+				detail = "Burgers, hot dogs and car washes pay double. Cops are slow in the heat.",
+				pay = { BurgerBarn = 2, FoodStand = 2, CarWash = 2 },
+				copSpeed = 0.8,
+			},
+			{
+				id = "Crackdown",
+				title = "CRACKDOWN",
+				detail = "Crimes pay 1.5x, but there are more cops and heat builds faster.",
+				crimePay = 1.5,
+				heat = 1.5,
+				cops = 1.5,
+			},
+			{
+				id = "Blackout",
+				title = "BLACKOUT",
+				detail = "Night falls. Break-ins and robberies are twice as quick, and cops lose you sooner.",
+				crimeHold = 0.5,
+				spot = 0.6,
+				night = true,
+			},
+			{
+				id = "Payday",
+				title = "PAYDAY",
+				detail = "Everyone just got paid: wallets are twice as fat.",
+				pay = { Pickpocket = 2, WalletSwipe = 2 },
+			},
+			{
+				id = "CarShow",
+				title = "CAR SHOW",
+				detail = "Flipped cars and the chop shop pay 1.75x.",
+				pay = { CarFlip = 1.75, CarTheft = 1.75 },
+			},
+			{
+				id = "SaleDay",
+				title = "SALE DAY",
+				detail = "Every shop in town is 40% off.",
+				shopPrice = 0.6,
+			},
+		} :: { Twist },
+	},
+	-- The late game gets tougher from FromQuota: cops get faster and more of them come.
+	Pressure = {
+		FromQuota = 4,
+		CopSpeedPerQuota = 0.06, -- x cop speed per quota from FromQuota...
+		MaxCopSpeed = 1.3, -- ...up to this
+		CopsPerStarPerQuota = 0.5, -- added to Police.CopsPerStar per quota from FromQuota
+	},
+	-- Repo men (from FromQuota) go after anyone carrying more than BagFraction of their bag. A
+	-- tag takes TakePercent of the cash they carry. Bank it, outrun them (they're slower than a
+	-- sprint) or zap them; they give up after ChaseSeconds.
+	Repo = {
+		FromQuota = 4,
+		BagFraction = 0.5,
+		TakePercent = 0.2,
+		Speed = 30,
+		MaxInTown = 2,
+		ChaseSeconds = 75,
+		CooldownSeconds = 90, -- per player, after a repo man tags them or gives up
+		WarnSeconds = 4, -- the warning comes this long before he turns up
+		TagRangeStuds = 4,
+		MinSpawnStuds = 80,
 	},
 	Heat = {
 		DecayDelaySeconds = 20, -- heat starts draining this long after your last crime

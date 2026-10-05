@@ -18,6 +18,7 @@ local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
 local ShopService = require(script.Parent.ShopService)
 local StealService = require(script.Parent.StealService)
+local TwistService = require(script.Parent.TwistService)
 local VehicleService = require(script.Parent.VehicleService)
 
 local SEND_INTERVAL = 0.2
@@ -61,6 +62,7 @@ function SyncService.build(): Types.RunSnapshot
 		phaseEndsAt = RunState.phaseEndsAt,
 		isEndless = RunState.isEndless,
 		teamDeposited = EconomyService.teamDeposited(),
+		twists = TwistService.views(),
 		players = players,
 	}
 end
@@ -77,6 +79,7 @@ function SyncService.start()
 	StealService.changed:Connect(markDirty)
 	VehicleService.changed:Connect(markDirty)
 	BoostService.changed:Connect(markDirty)
+	TwistService.changed:Connect(markDirty)
 	EconomyService.changed:Connect(function(_userId: number)
 		dirty = true
 	end)

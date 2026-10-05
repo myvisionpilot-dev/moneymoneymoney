@@ -24,6 +24,7 @@ local TOOL_NAME = "Blaster"
 local STUN_ATTRIBUTE = "Stunned"
 local STORE_TAG = "StoreCounter"
 local ROB_PROMPT = "RobPrompt"
+local HOLD_ATTRIBUTE = "CrimeHold" -- on ReplicatedStorage: the twist's hold-time multiplier
 local AIM_STUDS = 150 -- how far the FIRE button looks for something to aim at
 local BEAM_SECONDS = 0.25
 local BEAM_COLOR = Color3.fromRGB(90, 230, 255)
@@ -34,10 +35,13 @@ local player = Players.LocalPlayer
 local equipped: Tool? = nil
 local lastShot = 0
 
--- The till's hold time on our screen: quicker with a blaster out (the server checks the same).
+-- The till's hold time on our screen: quicker with a blaster out, and in a Blackout twist (the
+-- server checks the same).
 local function updateHoldUps()
 	local settings = Config.Paths.StoreRobbery
-	local seconds = if equipped then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds
+	local twist = ReplicatedStorage:GetAttribute(HOLD_ATTRIBUTE)
+	local seconds = (if equipped then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds)
+		* (if typeof(twist) == "number" then twist else 1)
 	for _, counter in CollectionService:GetTagged(STORE_TAG) do
 		local prompt = counter:FindFirstChild(ROB_PROMPT)
 		if prompt and prompt:IsA("ProximityPrompt") then
@@ -190,6 +194,7 @@ function BlasterController.start()
 	end
 	player.CharacterAdded:Connect(watchCharacter)
 
+	ReplicatedStorage:GetAttributeChangedSignal(HOLD_ATTRIBUTE):Connect(updateHoldUps)
 	-- Stores stream in as you get near, so fix each till's hold time as its prompt appears.
 	ProximityPromptService.PromptShown:Connect(function(prompt: ProximityPrompt)
 		if prompt.Name == ROB_PROMPT then

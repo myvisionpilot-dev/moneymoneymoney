@@ -3,7 +3,8 @@
 -- Tags placed here: BankCounter + BankSpawn + SafeZone (deposits, spawning, no blasting),
 -- StaffSpot (Mr. Penny, Tony), StoreCounter + StoreZone (convenience store tills and the door
 -- bell), ShopCounter with a Shop attribute (Clothes, Hardware, Garage, Guns, and each convenience
--- store's snack fridge), DeliveryDepot, AlleyDrop.
+-- store's snack fridge), DeliveryDepot, AlleyDrop, JailCell + JailExit (the cell inside the
+-- police station).
 
 local Kit = require(script.Parent.Kit)
 local Layout = require(script.Parent.Layout)
@@ -579,30 +580,172 @@ local function depot(parent, slot)
 	end
 end
 
+-- A wall across the building at depth z, from x1 to x2, with rectangular openings
+-- ({ x1, x2, y1, y2 }, left to right).
+local function wallWithOpenings(model, cf, name, z, x1, x2, height, openings, color)
+	local x = x1
+	for _, o in openings do
+		if o[1] > x then
+			piece(model, cf, name, Vector3.new(o[1] - x, height, 1), (x + o[1]) / 2, height / 2, z, color)
+		end
+		piece(model, cf, name, Vector3.new(o[2] - o[1], o[3], 1), (o[1] + o[2]) / 2, o[3] / 2, z, color)
+		piece(
+			model,
+			cf,
+			name,
+			Vector3.new(o[2] - o[1], height - o[4], 1),
+			(o[1] + o[2]) / 2,
+			(o[4] + height) / 2,
+			z,
+			color
+		)
+		x = o[2]
+	end
+	if x2 > x then
+		piece(model, cf, name, Vector3.new(x2 - x, height, 1), (x + x2) / 2, height / 2, z, color)
+	end
+end
+
+-- Steel bars from `from` to `to` (points in the building's frame; y is ignored), y1 to y2 high:
+-- see-through decor plus an invisible wall nobody can walk, jump or blast through.
+local function bars(model, cf, from, to, y1, y2, color)
+	local a, b = Vector3.new(from.X, 0, from.Z), Vector3.new(to.X, 0, to.Z)
+	local length = (b - a).Magnitude
+	local along = cf * CFrame.lookAt((a + b) / 2, b)
+	local blocker =
+		Kit.part(model, "BarsBlocker", Vector3.new(0.6, y2 - y1, length), along * CFrame.new(0, (y1 + y2) / 2, 0))
+	blocker.Transparency = 1
+	blocker.CanTouch = false
+	local count = math.floor(length / 1.2)
+	for index = 1, count do
+		local z = -length / 2 + (index - 0.5) * length / count
+		local position = (along * CFrame.new(0, (y1 + y2) / 2, z)).Position
+		Kit.decor(Kit.cylinder(model, "Bar", y2 - y1, 0.35, position, color, Enum.Material.Metal))
+	end
+	for _, y in { y1 + 0.3, y2 - 0.3 } do
+		Kit.decor(
+			Kit.part(
+				model,
+				"Rail",
+				Vector3.new(0.5, 0.4, length),
+				along * CFrame.new(0, y, 0),
+				color,
+				Enum.Material.Metal
+			)
+		)
+	end
+end
+
+local CELL_WIDTH, CELL_DEPTH = 18, 16
+local BARS_TOP = 11
+
+-- The police station: a front office and, in the front corner, the jail cell. Its barred window
+-- looks out onto the main road, so you can watch the town while you wait (and everyone can see
+-- you). Tags: JailCell (the cell), JailExit (the front step).
 local function police(parent, slot)
 	local cf = frameOf(slot)
-	local width, height = slot.width - 4, 16
+	local width, height, depth = slot.width - 4, 16, DEPTH - 4
 	local model = Kit.model(parent, "PoliceStation")
-	Kit.quiet(
-		piece(model, cf, "Body", Vector3.new(width, height, DEPTH - 4), 0, height / 2, 0, Color3.fromRGB(70, 100, 180))
+	local wall = Color3.fromRGB(70, 100, 180)
+	local steel = Color3.fromRGB(90, 90, 100)
+	local front, inner = -depth / 2 + 0.5, width / 2 - 1
+	piece(
+		model,
+		cf,
+		"Floor",
+		Vector3.new(width - 0.4, 0.4, depth - 0.4),
+		0,
+		0.2,
+		0,
+		Color3.fromRGB(205, 205, 210),
+		Enum.Material.Marble
 	)
-	for index, x in { -width / 4, width / 4 } do
-		local glass = Kit.decor(
+	piece(model, cf, "BackWall", Vector3.new(width - 2, height, 1), 0, height / 2, depth / 2 - 0.5, wall)
+	for _, side in { -1, 1 } do
+		piece(model, cf, "SideWall", Vector3.new(1, height, depth), side * (width / 2 - 0.5), height / 2, 0, wall)
+	end
+	piece(model, cf, "Roof", Vector3.new(width + 1, 1, depth + 1), 0, height + 0.5, 0, Kit.Colors.White)
+
+	-- The front wall: an office window, and the cell's barred window.
+	local x1, x2 = inner - CELL_WIDTH, inner
+	local z1, z2 = -depth / 2 + 1, -depth / 2 + 1 + CELL_DEPTH
+	local office = { -width / 4 - 10, -width / 4 + 10, 4, 10 }
+	local window = { x1 + 3, x2 - 3, 3.5, 10.5 }
+	wallWithOpenings(model, cf, "FrontWall", front, -inner, inner, height, { office, window }, wall)
+	local glass = piece(
+		model,
+		cf,
+		"OfficeWindow",
+		Vector3.new(office[2] - office[1], office[4] - office[3], 0.3),
+		(office[1] + office[2]) / 2,
+		(office[3] + office[4]) / 2,
+		front,
+		Kit.Colors.Glass,
+		Enum.Material.Glass
+	)
+	glass.Transparency = 0.4
+	bars(model, cf, Vector3.new(window[1], 0, front), Vector3.new(window[2], 0, front), window[3], window[4], steel)
+	Kit.decor(piece(model, cf, "Door", Vector3.new(6, 9, 0.3), 0, 4.5, -DEPTH / 2 + 1.8, Color3.fromRGB(30, 40, 70)))
+
+	-- The cell's two inside walls: bars, with wall above them up to the roof.
+	bars(model, cf, Vector3.new(x1 - 0.3, 0, z1), Vector3.new(x1 - 0.3, 0, z2), 0.4, BARS_TOP, steel)
+	bars(model, cf, Vector3.new(x1 - 0.6, 0, z2 + 0.3), Vector3.new(x2, 0, z2 + 0.3), 0.4, BARS_TOP, steel)
+	local over = height - BARS_TOP
+	piece(model, cf, "CellHeader", Vector3.new(0.6, over, z2 - z1), x1 - 0.3, BARS_TOP + over / 2, (z1 + z2) / 2, wall)
+	piece(
+		model,
+		cf,
+		"CellHeader",
+		Vector3.new(x2 - x1 + 0.6, over, 0.6),
+		(x1 - 0.6 + x2) / 2,
+		BARS_TOP + over / 2,
+		z2 + 0.3,
+		wall
+	)
+	Kit.quiet(
+		piece(model, cf, "Bunk", Vector3.new(3.2, 2.2, 8), x2 - 1.6, 1.5, (z1 + z2) / 2 + 2, steel, Enum.Material.Metal)
+	)
+	Kit.decor(
+		piece(
+			model,
+			cf,
+			"Blanket",
+			Vector3.new(3, 0.2, 5),
+			x2 - 1.6,
+			2.7,
+			(z1 + z2) / 2 + 3,
+			Color3.fromRGB(150, 120, 90)
+		)
+	)
+	Kit.marker(model, "JailCell", cf * CFrame.new((x1 + x2) / 2, 1, (z1 + z2) / 2), "JailCell")
+	Kit.marker(model, "JailExit", cf * CFrame.new(0, 1, -DEPTH / 2 - 4), "JailExit")
+
+	-- The office: a desk and a noticeboard.
+	local desk = -width / 4
+	Kit.quiet(piece(model, cf, "Desk", Vector3.new(12, 3.5, 3), desk, 2.15, -8, Kit.Colors.Wood, Enum.Material.Wood))
+	Kit.decor(piece(model, cf, "Monitor", Vector3.new(2.6, 1.8, 0.3), desk + 3, 4.8, -7.5, Color3.fromRGB(30, 30, 35)))
+	local board = piece(model, cf, "Noticeboard", Vector3.new(12, 5, 0.3), desk, 7, depth / 2 - 1.15, Kit.Colors.White)
+	Kit.decor(board)
+	Kit.sign(board, Enum.NormalId.Front, "MOST WANTED", Color3.fromRGB(240, 230, 200), Color3.fromRGB(40, 40, 60))
+	for _, at in { { desk, 0 }, { (x1 + x2) / 2, (z1 + z2) / 2 } } do
+		local lamp = Kit.decor(
 			piece(
 				model,
 				cf,
-				`Window{index}`,
-				Vector3.new(width / 3, 5, 0.3),
-				x,
-				7,
-				-DEPTH / 2 + 1.8,
-				Kit.Colors.Glass,
-				Enum.Material.Glass
+				"Light",
+				Vector3.new(4, 0.3, 1.2),
+				at[1],
+				height - 0.15,
+				at[2],
+				Color3.fromRGB(255, 250, 230),
+				Enum.Material.Neon
 			)
 		)
-		glass.Transparency = 0.2
+		local light = Instance.new("PointLight")
+		light.Range = 24
+		light.Brightness = 1
+		light.Parent = lamp
 	end
-	Kit.decor(piece(model, cf, "Door", Vector3.new(6, 9, 0.3), 0, 4.5, -DEPTH / 2 + 1.8, Color3.fromRGB(30, 40, 70)))
 	local sign = piece(
 		model,
 		cf,
@@ -621,7 +764,7 @@ local function police(parent, slot)
 			"LightBar",
 			Vector3.new(6, 0.8, 0.8),
 			0,
-			height + 0.4,
+			height + 1.4,
 			-DEPTH / 2 + 3,
 			Color3.fromRGB(230, 40, 40),
 			Enum.Material.Neon
@@ -946,7 +1089,7 @@ local function bank(parent)
 	for index, corner in
 		{ Vector3.new(-40, 0.3, -40), Vector3.new(40, 0.3, -40), Vector3.new(-40, 0.3, 40), Vector3.new(40, 0.3, 40) }
 	do
-		Kit.tree(model, `PlazaTree{index}`, corner, 10)
+		Kit.tree(model, `PlazaTree{index}`, Kit.bed(model, `PlazaBed{index}`, corner, 6), 10)
 	end
 end
 

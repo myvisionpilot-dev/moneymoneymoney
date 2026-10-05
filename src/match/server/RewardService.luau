@@ -70,7 +70,7 @@ local function onStat(player: Player, stat: string, amount: number)
 		if amount >= Config.Badges.GettingSeriousQuota then
 			award(player, data, "GettingSerious")
 		end
-		if amount >= Config.Match.CashOutAfterQuota then
+		if amount >= #Config.Match.Quotas then
 			award(player, data, "PaidInFull")
 		end
 		if amount > #Config.Match.Quotas then

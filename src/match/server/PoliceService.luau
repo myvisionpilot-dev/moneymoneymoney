@@ -1,6 +1,6 @@
 --!strict
--- Police NPCs chase wanted players: Police.CopsPerStar per whole star, at most Police.MaxCops
--- in town. Cops for stars from Police.CarFromStar up come in police cars. A cop that gets
+-- Police NPCs chase wanted players: Police.CopsPerStar per whole star (more, and faster, in
+-- the late game and some twists: TwistService), at most Police.MaxCops in town. Cops for stars from Police.CarFromStar up come in police cars. A cop that gets
 -- close enough arrests their target (a car pulls you over). No weapons.
 -- Hide in a bush with no cop within Police.SpotHiddenStuds and they lose you: they circle
 -- where they last saw you until you come out or your heat drains. Police only chase during a quota.
@@ -18,6 +18,7 @@ local JailService = require(script.Parent.JailService)
 local NpcService = require(script.Parent.NpcService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local TwistService = require(script.Parent.TwistService)
 local VehicleModels = require(script.Parent.VehicleModels)
 
 local SPAWN_TAG = "PoliceSpawn"
@@ -197,6 +198,11 @@ local function isWanted(player: Player): boolean
 		and HeatService.stars(player) >= 1
 end
 
+-- Faster in the late game and slower in a Heatwave (TwistService).
+local function speedFor(inCar: boolean): number
+	return (if inCar then Config.Police.CarSpeed else Config.Police.CopSpeed) * TwistService.copSpeedMultiplier()
+end
+
 local function spawnCop(target: Player, inCar: boolean)
 	local counts = pendingFor(target)
 	if inCar then
@@ -226,7 +232,7 @@ local function spawnCop(target: Player, inCar: boolean)
 			model:Destroy()
 			return
 		end
-		humanoid.WalkSpeed = if inCar then Config.Police.CarSpeed else Config.Police.CopSpeed
+		humanoid.WalkSpeed = speedFor(inCar)
 		local turner = if inCar then putInCar(model, humanoid, root) else nil
 		local minStuds = if inCar then Config.Police.CarMinSpawnStuds else Config.Police.MinSpawnStuds
 		NpcService.place(model, CFrame.new(spawnPosition(target, minStuds)), true)
@@ -254,11 +260,13 @@ local function spawnCop(target: Player, inCar: boolean)
 end
 
 -- How many foot cops and police cars a player's stars call for (before the town-wide cap).
+-- More come per star in the late game and in a Crackdown (TwistService).
 local function wantedCounts(player: Player, budget: number): Counts
 	local counts = { foot = 0, car = 0 }
-	local total = math.min(HeatService.stars(player) * Config.Police.CopsPerStar, budget)
+	local perStar = TwistService.copsPerStar()
+	local total = math.min(math.ceil(HeatService.stars(player) * perStar), budget)
 	for index = 1, total do
-		local star = math.ceil(index / Config.Police.CopsPerStar)
+		local star = math.ceil(index / perStar)
 		if star >= Config.Police.CarFromStar then
 			counts.car += 1
 		else
@@ -297,6 +305,7 @@ local function rebalance()
 
 	local current: { [Player]: Counts } = {}
 	for _, cop in table.clone(cops) do
+		cop.humanoid.WalkSpeed = speedFor(cop.inCar) -- a new quota can change it mid-chase
 		local have = current[cop.target] or { foot = 0, car = 0 }
 		current[cop.target] = have
 		local want = desired[cop.target]
@@ -326,9 +335,10 @@ end
 -- A player in a bush is spotted if any cop is close; otherwise the police have lost them.
 local function updateSpotted()
 	local near: { [Player]: boolean } = {}
+	local spotStuds = Config.Police.SpotHiddenStuds * TwistService.spotMultiplier() -- shorter in a Blackout
 	for _, cop in cops do
 		local targetRoot = CharacterUtil.getRoot(cop.target)
-		if targetRoot and (targetRoot.Position - cop.root.Position).Magnitude <= Config.Police.SpotHiddenStuds then
+		if targetRoot and (targetRoot.Position - cop.root.Position).Magnitude <= spotStuds then
 			near[cop.target] = true
 		end
 	end

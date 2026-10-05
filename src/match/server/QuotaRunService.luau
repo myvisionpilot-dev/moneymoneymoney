@@ -12,6 +12,7 @@ local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
+local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local PathService = require(script.Parent.PathService)
 local PrizeMath = require(script.Parent.PrizeMath)
@@ -22,6 +23,7 @@ local RunState = require(script.Parent.RunState)
 local Stats = require(script.Parent.Stats)
 local StealService = require(script.Parent.StealService)
 local PennyService = require(script.Parent.PennyService)
+local TwistService = require(script.Parent.TwistService)
 
 local IS_STUDIO = RunService:IsStudio()
 local TICK_SECONDS = 0.1
@@ -184,6 +186,7 @@ end
 
 -- Ends the run for everyone still active (a failed quota).
 local function endRun(reason: Types.EndReason)
+	TwistService.clear()
 	local failed = reason == "Failed"
 	local finishing = RosterService.active()
 	for _, member in finishing do
@@ -261,6 +264,21 @@ local function onSubmitDecision(player: Player, payload: unknown)
 	Notifier.send(player, if choice == "CashOut" then "Cashing out. Nice haul!" else "Staying in. Good luck!", "Info")
 end
 
+-- Paying the last quota early puts a bonus in everyone's bag as the next one starts (it fits
+-- even in a full bag).
+local function payEarlyBonus(minutes: number, target: number)
+	local members = RosterService.active()
+	local bonus = QuotaMath.earlyBonus(minutes, target, #members)
+	if bonus <= 0 then
+		return
+	end
+	for _, member in members do
+		EconomyService.addCarried(member.player, bonus, "early quota bonus", true)
+		Juice.paid(member.player, bonus, `Quota paid {minutes} min early`)
+	end
+	PennyService.say(PennyService.Lines.earlyBonus(minutes))
+end
+
 local function runLoop()
 	waitForPlayers()
 	RosterService.lock()
@@ -274,6 +292,7 @@ local function runLoop()
 
 	local quotaIndex = 0
 	local carry = 0
+	local earlyMinutes = 0 -- the last quota was paid this early
 	while #RosterService.active() > 0 do
 		quotaIndex += 1
 		local target = QuotaMath.target(quotaIndex, #RosterService.active())
@@ -286,9 +305,14 @@ local function runLoop()
 
 		local duration = Timing.scaled(QuotaMath.duration(quotaIndex))
 		RunState.quotaStartedAt = Timing.now()
+		local twists = TwistService.roll(quotaIndex)
 		setPhase("Quota", duration)
 		PathService.openQuota(quotaIndex)
 		PennyService.say(PennyService.Lines.quotaStart(quotaIndex, target, duration, RunState.isEndless))
+		for _, twist in twists do
+			PennyService.say(PennyService.Lines.twist(twist.title, twist.detail))
+		end
+		payEarlyBonus(earlyMinutes, target)
 		runQuotaTimer()
 
 		if #RosterService.active() == 0 then
@@ -297,6 +321,7 @@ local function runLoop()
 		end
 		local passed = forcePass or RunState.progress >= target
 		forcePass = false
+		earlyMinutes = QuotaMath.earlyMinutes(RunState.phaseEndsAt - (RunState.metAt or Timing.now()))
 		-- Filled before time ran out, with no cash-out choice due: roll straight into the next
 		-- quota. Jobs keep going and nobody is sent back to the bank.
 		local rollOver = passed
@@ -347,6 +372,7 @@ local function runLoop()
 			break
 		end
 	end
+	TwistService.clear()
 	setPhase("Ended", 0)
 end
 

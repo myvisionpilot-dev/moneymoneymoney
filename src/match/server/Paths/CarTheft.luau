@@ -223,7 +223,7 @@ local function deliver(player: Player, job: Job, bay: BasePart)
 	clearJob(player)
 	local pay = payout(player, getContext().tier())
 	local added = EconomyService.addCarried(player, pay, "chop shop")
-	PayNotice.send(player, "The chop shop took the car!", added, pay)
+	PayNotice.send(player, "Car sold to the chop shop", added, pay)
 	Stats.record(player, "ChopShop")
 end
 

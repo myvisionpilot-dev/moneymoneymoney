@@ -93,7 +93,7 @@ local function basePay(kind: DoorJobs.Kind): number
 end
 
 local function payFor(kind: DoorJobs.Kind, house: House): number
-	local multiplier = getContext().payMultiplier()
+	local multiplier = getContext().payMultiplier(kind, DoorJobs.isLegal(kind))
 	if kind == "BreakIn" then
 		return math.floor(settings.BreakInPay[house.tier] * multiplier + 0.5)
 	end

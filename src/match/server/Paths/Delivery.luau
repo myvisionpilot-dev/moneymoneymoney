@@ -160,7 +160,7 @@ local function complete(player: Player): (boolean, string?)
 	clear(player)
 	local pay = payout(player, getContext().tier())
 	local added = EconomyService.addCarried(player, pay, "delivery")
-	PayNotice.send(player, "Delivered!", added, pay)
+	PayNotice.send(player, "Package delivered", added, pay)
 	Stats.record(player, "Delivery")
 	return true, nil
 end

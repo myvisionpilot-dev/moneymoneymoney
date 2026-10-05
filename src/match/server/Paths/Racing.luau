@@ -194,6 +194,7 @@ end
 local function refund(racer: Racer, reason: string)
 	if racer.fee > 0 and racer.player.Parent then
 		EconomyService.addCarried(racer.player, racer.fee, reason, true)
+		Juice.paid(racer.player, racer.fee, "Race entry fee back")
 	end
 	racer.fee = 0
 end
@@ -222,7 +223,7 @@ local function cancel(reason: string)
 		if not racer.finishedAt then
 			refund(racer, "street race called off")
 			release(racer)
-			Notifier.send(racer.player, `{reason} Your entry fee is back in your bag.`, "Bad")
+			Notifier.send(racer.player, reason, "Bad")
 		end
 	end
 	reset("Idle", 0)
@@ -320,8 +321,8 @@ local function finish(racer: Racer, now: number)
 		pay,
 		if solo then `race: {MEDALS[rank]:lower()} time` else `race: {Format.ordinal(rank)} place`
 	)
-	local headline = if solo then `{MEDALS[rank]} time! {timeText}` else `{Format.ordinal(rank)} place in {timeText}!`
-	PayNotice.send(player, headline, added, pay)
+	local label = if solo then `{MEDALS[rank]} time, {timeText}` else `{Format.ordinal(rank)} place, {timeText}`
+	PayNotice.send(player, label, added, pay)
 	if rank == 1 then
 		Stats.record(player, "RaceWin")
 		Juice.sound(player, "Fanfare")
@@ -409,6 +410,7 @@ local function join(player: Player): (boolean, string?)
 	end
 
 	EconomyService.removeCarried(player, settings.EntryFee, "street race entry")
+	Juice.spent(player, settings.EntryFee, "Street race entry fee")
 	table.insert(racers, { player = player, passed = 0, finishedAt = nil, fee = settings.EntryFee })
 	if phase == "Idle" then
 		phase = "Gathering"

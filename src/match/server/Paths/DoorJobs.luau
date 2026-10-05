@@ -57,7 +57,7 @@ local handlers: { [Kind]: Handler } = {
 					kit.guide(job)
 				end
 			else
-				arriveAndFinish(job, kit, "The dog had a lovely time!")
+				arriveAndFinish(job, kit, "Dog walked to the park")
 			end
 		end,
 	},
@@ -79,7 +79,7 @@ local handlers: { [Kind]: Handler } = {
 			kit.guide(job)
 		end,
 		tick = function(job: Job, kit: Kit)
-			arriveAndFinish(job, kit, "Letter delivered!")
+			arriveAndFinish(job, kit, "Letter delivered next door")
 		end,
 	},
 
@@ -90,7 +90,7 @@ local handlers: { [Kind]: Handler } = {
 		end,
 		begin = function(job: Job, kit: Kit)
 			kit.addHeat(job)
-			kit.finish(job, "Wallet swiped!")
+			kit.finish(job, "Resident's wallet swiped")
 		end,
 	},
 
@@ -113,7 +113,7 @@ local handlers: { [Kind]: Handler } = {
 			kit.guide(job)
 		end,
 		tick = function(job: Job, kit: Kit)
-			arriveAndFinish(job, kit, "Package dropped. Nobody saw a thing.")
+			arriveAndFinish(job, kit, "Shady package dropped off")
 		end,
 	},
 
@@ -132,7 +132,7 @@ local handlers: { [Kind]: Handler } = {
 			kit.prompt(job, backDoor, "Break in", kit.breakInHold(job.player), function(prompt: ProximityPrompt)
 				prompt:Destroy()
 				kit.addHeat(job)
-				kit.finish(job, "In and out. Nice haul!")
+				kit.finish(job, "House broken into")
 			end)
 			kit.guide(job)
 		end,

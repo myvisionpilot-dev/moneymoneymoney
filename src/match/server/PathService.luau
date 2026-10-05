@@ -10,6 +10,7 @@ local JailService = require(script.Parent.JailService)
 local MoneyPath = require(script.Parent.Paths.MoneyPath)
 local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
+local TwistService = require(script.Parent.TwistService)
 
 local PathService = {}
 
@@ -30,14 +31,20 @@ local function isBusy(player: Player): boolean
 	return false
 end
 
+local function tierMultiplier(): number
+	return Config.Economy.TierPayoutMultiplier ^ (tier() - 1)
+end
+
 local function contextFor(path: MoneyPath.MoneyPath): MoneyPath.Context
 	return {
 		isOpen = function(): boolean
 			return open and quotaIndex >= path.unlockQuota
 		end,
 		tier = tier,
-		payMultiplier = function(): number
-			return Config.Economy.TierPayoutMultiplier ^ (tier() - 1)
+		tierMultiplier = tierMultiplier,
+		payMultiplier = function(kind: string?, legal: boolean?): number
+			local isLegal = if legal == nil then path.legal else legal
+			return tierMultiplier() * TwistService.payMultiplier(kind or path.id, isLegal)
 		end,
 		canWork = function(player: Player): boolean
 			return RosterService.isActive(player)

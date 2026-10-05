@@ -102,8 +102,14 @@ local function onSteal(thief: Player, victim: Player, prompt: ProximityPrompt)
 	lastSteal[thief] = os.clock()
 	stolenTotals[thief.UserId] = (stolenTotals[thief.UserId] or 0) + moved
 	HeatService.add(thief, Config.Heat.Steal)
-	Notifier.all(`{thief.DisplayName} stole {Format.money(moved)} from {victim.DisplayName}!`, "Bad")
+	for _, other in Players:GetPlayers() do
+		if other ~= thief and other ~= victim then
+			Notifier.send(other, `{thief.DisplayName} stole {Format.money(moved)} from {victim.DisplayName}!`, "Bad")
+		end
+	end
+	Juice.paid(thief, moved, `Stole from {victim.DisplayName}`)
 	Juice.sound(thief, "Swipe")
+	Juice.lost(victim, moved, `Stolen by {thief.DisplayName}`)
 	Juice.sound(victim, "Whistle")
 	StealService.changed:Fire(thief.UserId)
 end

@@ -30,6 +30,14 @@ PennyService.Lines = {
 		return `Quota {quotaIndex}: {money} at the bank in {clock}. The interest won't pay itself!`
 	end,
 
+	twist = function(title: string, detail: string): string
+		return `This quota's twist: {title}! {detail}`
+	end,
+
+	earlyBonus = function(minutes: number): string
+		return `Paid {minutes} minute{if minutes == 1 then "" else "s"} early! The bank put a little bonus in everyone's bag.`
+	end,
+
 	quotaMet = function(): string
 		return "That's the quota! Anything extra rolls into the next one. The bank loves extra."
 	end,

@@ -213,18 +213,19 @@ function HudController.start()
 	local boostsLabel = row(10, "", UI.Colors.Gold) -- convenience-store boosts and their time left
 	boostsLabel.Visible = false
 
-	-- Jail banner (centre of the screen while you're locked up)
+	-- Jail banner while you're locked up: low on the screen, so the cell window stays clear
+	-- (above the money lines).
 	local jailBanner = UI.card(UI.Colors.Danger, {
 		Name = "Jail",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.4),
-		Size = UDim2.fromOffset(380, 64),
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -200),
+		Size = UDim2.fromOffset(320, 52),
 		Visible = false,
 	}, root)
 	local jailText = UI.label({
 		Size = UDim2.fromScale(1, 1),
 		Font = UI.Fonts.Heading,
-		TextSize = 30,
+		TextSize = 26,
 	}, jailBanner)
 	UI.textStroke(jailText, 3)
 

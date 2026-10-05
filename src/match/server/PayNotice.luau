@@ -1,25 +1,17 @@
 --!strict
--- The pay-out pop-up every money path uses, including when the bag was (nearly) full, plus the
--- money pop-up and coin sound.
+-- The pay-out every money path uses: a money line ("+$1,500 | Package dropped off"), plus a
+-- BAG FULL line when some or all of it didn't fit.
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Format = require(ReplicatedStorage.Shared.Format)
 local Juice = require(script.Parent.Juice)
-local Notifier = require(script.Parent.Notifier)
 
 local PayNotice = {}
 
 -- `pay` is what the job was worth; `added` is what actually fit in the bag.
-function PayNotice.send(player: Player, headline: string, added: number, pay: number)
-	if added >= pay then
-		Notifier.send(player, `{headline} +{Format.money(added)}`, "Good")
-	elseif added > 0 then
-		Notifier.send(player, `{headline} Only {Format.money(added)} fit in your bag. Deposit at the bank!`, "Bad")
-	else
-		Notifier.send(player, `{headline} But your bag was full, so you got nothing. Deposit at the bank!`, "Bad")
+function PayNotice.send(player: Player, label: string, added: number, pay: number)
+	Juice.paid(player, added, label)
+	if added < pay then
+		Juice.bagFull(player, pay - added)
 	end
-	Juice.paid(player, added)
 end
 
 return PayNotice

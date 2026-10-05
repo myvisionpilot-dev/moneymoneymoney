@@ -1,7 +1,7 @@
--- Everything outside: the park, the yards behind the shops (police, garage, depot), the jail,
--- hiding bushes, parked-car spots, police patrol points and the pedestrian routes.
+-- Everything outside: the park, the yards behind the shops (police, garage, depot), hiding
+-- bushes, parked-car spots, police patrol points and the pedestrian routes.
 --
--- Tags placed here: ParkSpot, JailCell, JailExit, PoliceSpawn, ChopShop, ParkedCar,
+-- Tags placed here: ParkSpot, PoliceSpawn, ChopShop, ParkedCar,
 -- HidingSpot (via Kit.bush), PedWaypoint (+ Route, Order attributes), RaceJoin, RaceGrid and
 -- RaceCheckpoint (+ Order), FlipWreck, TyreStack, PaintBooth, TaxiStop.
 
@@ -80,30 +80,6 @@ local function policeYard(parent)
 	local yard = Layout.yards.PoliceYard
 	local folder = Kit.folder(parent, "PoliceYard")
 	yardFloor(folder, "Tarmac", yard, Kit.Colors.Lot, Enum.Material.Asphalt)
-	-- The jail cell, with see-through bars.
-	local center = Vector3.new(130, 0, -125)
-	local cell = Kit.part(
-		folder,
-		"CellFloor",
-		Vector3.new(16, 1, 16),
-		center + Vector3.new(0, 0.5, 0),
-		Color3.fromRGB(80, 80, 85)
-	)
-	Kit.tag(cell, "JailCell")
-	local bars = Color3.fromRGB(90, 90, 100)
-	for _, info in
-		{
-			{ Vector3.new(16, 10, 1), Vector3.new(0, 6, -8) },
-			{ Vector3.new(16, 10, 1), Vector3.new(0, 6, 8) },
-			{ Vector3.new(1, 10, 16), Vector3.new(-8, 6, 0) },
-			{ Vector3.new(1, 10, 16), Vector3.new(8, 6, 0) },
-			{ Vector3.new(16, 1, 16), Vector3.new(0, 11.5, 0) },
-		}
-	do
-		local wall = Kit.part(folder, "CellWall", info[1], center + info[2], bars, Enum.Material.DiamondPlate)
-		wall.Transparency = 0.45
-	end
-	Kit.marker(folder, "JailExit", Vector3.new(170, 1, -100), "JailExit")
 	Kit.marker(folder, "PoliceSpawnYardA", Vector3.new(220, 3, -100), "PoliceSpawn")
 	Kit.marker(folder, "PoliceSpawnYardB", Vector3.new(260, 3, -140), "PoliceSpawn")
 end
@@ -198,7 +174,7 @@ local function depotYard(parent)
 			)
 		)
 	end
-	Kit.bush(folder, "Bush", Vector3.new(290, 0.3, 150))
+	Kit.bush(folder, "Bush", Kit.bed(folder, "BushBed", Vector3.new(290, 0.3, 150), 12))
 end
 
 -- The street race: sign up on the pad beside Speedy's Garage, line up on the side road just
