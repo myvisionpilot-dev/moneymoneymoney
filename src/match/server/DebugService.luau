@@ -9,6 +9,7 @@
 --   /tp <x> <y> <z>           teleport yourself (goes through MovementGuard)
 --   /drive [kart] [top speed] a car (or kart) right where you stand (default: race car speed)
 --   /twist <id|none>          swap this quota's twist (ids in Config.Twists)
+--   /hustle <id>              give yourself a hustle (ids in Config.Hustles)
 -- In Studio, ServerStorage.DebugHook:Invoke("cash", "5000") runs the same commands.
 
 local Players = game:GetService("Players")
@@ -24,6 +25,7 @@ local Admin = require(ServerScriptService.Common.Admin)
 local Profiles = require(ServerScriptService.Common.Profiles)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
+local HustleService = require(script.Parent.HustleService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
@@ -127,6 +129,14 @@ local handlers: { [string]: Handler } = {
 
 	start = function(_player: Player, _args: { string }): string
 		return if QuotaRunService.forceStart() then "Starting the run" else "The run has already started"
+	end,
+
+	hustle = function(player: Player, args: { string }): string
+		local id = args[1]
+		if not id then
+			return "Usage: /hustle <id> (ids in Config.Hustles)"
+		end
+		return if HustleService.grant(player, id) then `Hustle: {id}` else "Unknown or maxed hustle"
 	end,
 
 	twist = function(_player: Player, args: { string }): string

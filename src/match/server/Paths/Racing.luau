@@ -316,13 +316,9 @@ local function finish(racer: Racer, now: number)
 	end
 	refund(racer, "street race entry back")
 	local pay = payFor(rank)
-	local added = EconomyService.addCarried(
-		player,
-		pay,
-		if solo then `race: {MEDALS[rank]:lower()} time` else `race: {Format.ordinal(rank)} place`
-	)
+	local reason = if solo then `race: {MEDALS[rank]:lower()} time` else `race: {Format.ordinal(rank)} place`
 	local label = if solo then `{MEDALS[rank]} time, {timeText}` else `{Format.ordinal(rank)} place, {timeText}`
-	PayNotice.send(player, label, added, pay)
+	PayNotice.earn(player, pay, label, reason, true)
 	if rank == 1 then
 		Stats.record(player, "RaceWin")
 		Juice.sound(player, "Fanfare")

@@ -13,6 +13,7 @@ local BountyHunting = require(script.Parent.Paths.BountyHunting)
 local BoostService = require(script.Parent.BoostService)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
+local HustleService = require(script.Parent.HustleService)
 local JailService = require(script.Parent.JailService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
@@ -52,6 +53,7 @@ function SyncService.build(): Types.RunSnapshot
 			riding = VehicleService.isRiding(member.player),
 			bounty = BountyHunting.bountyFor(member.player),
 			boosts = BoostService.list(member.player),
+			hustles = HustleService.list(member.player),
 		})
 	end
 	return {
@@ -80,6 +82,9 @@ function SyncService.start()
 	VehicleService.changed:Connect(markDirty)
 	BoostService.changed:Connect(markDirty)
 	TwistService.changed:Connect(markDirty)
+	HustleService.changed:Connect(function(_player: Player)
+		dirty = true
+	end)
 	EconomyService.changed:Connect(function(_userId: number)
 		dirty = true
 	end)

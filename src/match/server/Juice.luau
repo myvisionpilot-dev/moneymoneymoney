@@ -33,8 +33,8 @@ function Juice.lost(player: Player, amount: number, label: string)
 	money(player, "Lost", amount, label)
 end
 
-function Juice.deposited(player: Player, amount: number)
-	money(player, "Deposited", amount, "Deposited at the bank")
+function Juice.deposited(player: Player, amount: number, label: string?)
+	money(player, "Deposited", amount, label or "Deposited at the bank")
 end
 
 -- Pay that didn't fit in the bag.

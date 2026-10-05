@@ -12,6 +12,7 @@ local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
+local HustleService = require(script.Parent.HustleService)
 local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local PathService = require(script.Parent.PathService)
@@ -173,6 +174,7 @@ local function sendResults(recipients: { RosterService.Member }, reason: Types.E
 end
 
 local function cashOut(member: RosterService.Member)
+	HustleService.closeOffer(member.player)
 	PrizeService.lock(member.userId, false)
 	RosterService.setStatus(member.player, "CashedOut")
 	local seconds = Timing.scaled(Config.Match.ResultsSeconds)
@@ -187,6 +189,7 @@ end
 -- Ends the run for everyone still active (a failed quota).
 local function endRun(reason: Types.EndReason)
 	TwistService.clear()
+	HustleService.closeOffers()
 	local failed = reason == "Failed"
 	local finishing = RosterService.active()
 	for _, member in finishing do
@@ -279,6 +282,32 @@ local function payEarlyBonus(minutes: number, target: number)
 	PennyService.say(PennyService.Lines.earlyBonus(minutes))
 end
 
+-- The Allowance hustle: a share of the new target in their bag (it fits even in a full bag).
+local function payAllowances(target: number)
+	for _, member in RosterService.active() do
+		local amount = math.floor(target * HustleService.allowance(member.player) / 10 + 0.5) * 10
+		if amount > 0 then
+			EconomyService.addCarried(member.player, amount, "allowance hustle", true)
+			Juice.paid(member.player, amount, "Allowance for this quota")
+		end
+	end
+end
+
+-- Paying a quota earns everyone still in a hustle pick, offered a few seconds into the next
+-- quota (once the "quota paid" banner has gone).
+local function offerHustles(quotaIndex: number)
+	task.delay(Config.Match.QuotaPaidBannerSeconds, function()
+		if RunState.phase ~= "Quota" or RunState.quotaIndex ~= quotaIndex then
+			return
+		end
+		local players: { Player } = {}
+		for _, member in RosterService.active() do
+			table.insert(players, member.player)
+		end
+		HustleService.offer(players)
+	end)
+end
+
 local function runLoop()
 	waitForPlayers()
 	RosterService.lock()
@@ -313,6 +342,10 @@ local function runLoop()
 			PennyService.say(PennyService.Lines.twist(twist.title, twist.detail))
 		end
 		payEarlyBonus(earlyMinutes, target)
+		payAllowances(target)
+		if quotaIndex > 1 then
+			offerHustles(quotaIndex)
+		end
 		runQuotaTimer()
 
 		if #RosterService.active() == 0 then
@@ -373,6 +406,7 @@ local function runLoop()
 		end
 	end
 	TwistService.clear()
+	HustleService.closeOffers()
 	setPhase("Ended", 0)
 end
 

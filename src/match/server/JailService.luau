@@ -11,6 +11,7 @@ local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
+local HustleService = require(script.Parent.HustleService)
 local Juice = require(script.Parent.Juice)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
@@ -70,15 +71,23 @@ function JailService.arrest(player: Player, byWhom: string)
 		return
 	end
 	local account = EconomyService.account(player)
-	local lost =
-		EconomyService.removeCarried(player, account.carried * Config.Police.CaughtLosePercent, `arrested by {byWhom}`)
+	local free = HustleService.useFreeBust(player) -- Second Chance
+	local lost = if free
+		then 0
+		else EconomyService.removeCarried(
+			player,
+			account.carried * Config.Police.CaughtLosePercent,
+			`arrested by {byWhom}`
+		)
 	HeatService.clear(player)
-	jailed[player] = Timing.now() + Config.Police.JailSeconds
+	local seconds = math.ceil(Config.Police.JailSeconds * HustleService.jailMultiplier(player))
+	jailed[player] = Timing.now() + seconds
 	putInCell(player)
 	JailService.arrested:Fire(player)
 	JailService.changed:Fire(player)
 	Juice.lost(player, lost, `Busted by {byWhom}`)
-	Notifier.send(player, `Busted! You're in jail for {Config.Police.JailSeconds}s.`, "Bad")
+	local kept = if free then " Second Chance: you kept your cash." else ""
+	Notifier.send(player, `Busted! You're in jail for {seconds}s.{kept}`, "Bad")
 	Notifier.others(player, `{player.DisplayName} got busted by {byWhom}!`, "Info")
 end
 

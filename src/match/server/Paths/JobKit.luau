@@ -11,7 +11,6 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
-local EconomyService = require(script.Parent.Parent.EconomyService)
 local NpcService = require(script.Parent.Parent.NpcService)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
@@ -190,10 +189,9 @@ function JobKit.clearGuide(player: Player)
 	end
 end
 
--- Pays into the bag with the usual pop-up, and counts toward daily challenges.
-function JobKit.pay(player: Player, amount: number, headline: string, reason: string, stat: string?): number
-	local added = EconomyService.addCarried(player, amount, reason)
-	PayNotice.send(player, headline, added, amount)
+-- Pays a legal job into the bag with the usual money line, and counts toward daily challenges.
+function JobKit.pay(player: Player, amount: number, label: string, reason: string, stat: string?): number
+	local added = PayNotice.earn(player, amount, label, reason, true)
 	if stat then
 		Stats.record(player, stat)
 	end

@@ -24,6 +24,21 @@ export type PlayerRow = {
 	riding: boolean,
 	bounty: number, -- what a teammate earns for arresting you (0 = can't be arrested)
 	boosts: { [string]: number }, -- BoostId -> when it wears off (server time)
+	hustles: { [string]: number }, -- hustle id -> how many you've picked this run
+}
+
+-- A run perk you pick after each quota (Config.Hustles).
+export type HustleView = {
+	id: string,
+	title: string,
+	detail: string,
+	stacks: number, -- how many you already have
+	max: number,
+}
+
+export type HustleOffer = {
+	options: { HustleView },
+	endsAt: number, -- a random one is picked for you then
 }
 
 -- A quota twist (Config.Twists), as the HUD shows it.

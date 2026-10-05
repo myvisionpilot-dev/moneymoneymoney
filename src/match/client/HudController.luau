@@ -18,6 +18,7 @@ local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
 
 local COUNTDOWN_BEEPS = 10 -- seconds left in a quota when the beeps start
+local HUSTLE_COLOR = Color3.fromRGB(225, 200, 255)
 local BOOST_ORDER = { "Energy", "Disguise", "Candy", "Gloves", "Scanner" }
 local BOOST_ICONS: { [string]: string } =
 	{ Energy = "⚡", Disguise = "🧢", Candy = "🍫", Gloves = "🧤", Scanner = "📻" }
@@ -212,6 +213,10 @@ function HudController.start()
 	jobLabel = job
 	local boostsLabel = row(10, "", UI.Colors.Gold) -- convenience-store boosts and their time left
 	boostsLabel.Visible = false
+	local hustlesLabel = row(11, "", HUSTLE_COLOR) -- your hustles this run
+	hustlesLabel.Size = UDim2.fromScale(1, 0)
+	hustlesLabel.AutomaticSize = Enum.AutomaticSize.Y
+	hustlesLabel.Visible = false
 
 	-- Jail banner while you're locked up: low on the screen, so the cell window stays clear
 	-- (above the money lines).
@@ -314,6 +319,16 @@ function HudController.start()
 			UI.tween(flash, 0.8, { BackgroundTransparency = 1 })
 		end
 		wasJailed = jailed
+
+		local hustles: { string } = {}
+		for _, hustle in Config.Hustles.List do
+			local stacks = me.hustles[hustle.id]
+			if stacks then
+				table.insert(hustles, if stacks > 1 then `{hustle.title} x{stacks}` else hustle.title)
+			end
+		end
+		hustlesLabel.Visible = #hustles > 0
+		hustlesLabel.Text = `⭐ {table.concat(hustles, " · ")}`
 
 		bountyLabel.Visible = me.bounty > 0
 		bountyLabel.Text = `🎯 BOUNTY ON YOU {Format.money(me.bounty)}`

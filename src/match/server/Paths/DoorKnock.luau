@@ -18,7 +18,6 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local Carry = require(script.Parent.Parent.Carry)
 local DoorJobs = require(script.Parent.DoorJobs)
-local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
@@ -153,8 +152,7 @@ kit = {
 			return
 		end
 		clearJob(job)
-		local added = EconomyService.addCarried(job.player, job.pay, `door job: {job.kind}`)
-		PayNotice.send(job.player, message, added, job.pay)
+		PayNotice.earn(job.player, job.pay, message, `door job: {job.kind}`, DoorJobs.isLegal(job.kind))
 		if job.kind == "Chore" then
 			Stats.record(job.player, "Chore")
 		end

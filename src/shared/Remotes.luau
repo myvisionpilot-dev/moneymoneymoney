@@ -42,6 +42,7 @@ export type MatchRemotes = {
 	Juice: ToClient<Types.JuiceEvent>,
 	PickpocketGame: ToClient<Types.PickpocketGame?>, -- nil ends it
 	BlasterFx: ToClient<Types.BlasterFx>, -- someone fired a blaster
+	HustleOffer: ToClient<Types.HustleOffer?>, -- pick one of these; nil closes the offer
 	ClientReady: ToServer<nil>,
 	PickpocketPresses: ToServer<{ number }>, -- seconds into each round when you pressed
 	SubmitDecision: ToServer<Types.Decision>,
@@ -49,6 +50,7 @@ export type MatchRemotes = {
 	BuyItem: ToServer<string>, -- an item id from the shop you're at
 	FireBlaster: ToServer<Vector3>, -- where you aimed
 	SetRiding: ToServer<boolean>, -- get on or off your ride
+	PickHustle: ToServer<string>, -- a hustle id from your current offer
 }
 
 local IS_SERVER = RunService:IsServer()
@@ -150,6 +152,7 @@ function Remotes.match(): MatchRemotes
 		Juice = toClient("Juice"),
 		PickpocketGame = toClient("PickpocketGame"),
 		BlasterFx = toClient("BlasterFx"),
+		HustleOffer = toClient("HustleOffer"),
 		ClientReady = toServer("ClientReady"),
 		PickpocketPresses = toServer("PickpocketPresses"),
 		SubmitDecision = toServer("SubmitDecision"),
@@ -157,6 +160,7 @@ function Remotes.match(): MatchRemotes
 		BuyItem = toServer("BuyItem"),
 		FireBlaster = toServer("FireBlaster"),
 		SetRiding = toServer("SetRiding"),
+		PickHustle = toServer("PickHustle"),
 	}
 	matchRemotes = remotes
 	return remotes

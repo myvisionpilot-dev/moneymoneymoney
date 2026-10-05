@@ -24,6 +24,7 @@ local BlasterService = require(script.Parent.BlasterService)
 local BoostService = require(script.Parent.BoostService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnergyDrink = require(script.Parent.EnergyDrink)
+local HustleService = require(script.Parent.HustleService)
 local JailService = require(script.Parent.JailService)
 local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
@@ -89,13 +90,16 @@ function ShopService.level(player: Player, id: Types.UpgradeId): number
 	return levelsOf(player)[id] or 0
 end
 
--- Break-in hold time: the lockpick shortens it, and so do gloves.
+-- Break-in hold time: the lockpick shortens it, and so do gloves, Safecracker and a Blackout.
 function ShopService.breakInHoldSeconds(player: Player): number
 	local level = ShopService.level(player, "Lockpick")
 	local seconds = if level == 0
 		then Config.Paths.Doors.BaseBreakInHoldSeconds
 		else Config.Shop.Lockpick[level].holdSeconds
-	return seconds * BoostService.breakInMultiplier(player) * TwistService.crimeHoldMultiplier()
+	return seconds
+		* BoostService.breakInMultiplier(player)
+		* HustleService.breakInMultiplier(player)
+		* TwistService.crimeHoldMultiplier()
 end
 
 -- Your kart's speed, or nil if you haven't bought one.
@@ -104,12 +108,13 @@ function ShopService.rideSpeed(player: Player): number?
 	return if entry then entry.speed else nil
 end
 
--- A price after this quota's twists (Sale Day), to the nearest $10.
-local function price(base: number): number
-	return math.floor(base * TwistService.shopPriceMultiplier() / 10 + 0.5) * 10
+-- A price after this quota's twists (Sale Day) and their Haggler hustle, to the nearest $10.
+local function price(player: Player, base: number): number
+	local multiplier = TwistService.shopPriceMultiplier() * HustleService.shopMultiplier(player)
+	return math.floor(base * multiplier / 10 + 0.5) * 10
 end
 
-local function upgradePrice(id: Types.UpgradeId, level: number): number?
+local function upgradePrice(player: Player, id: Types.UpgradeId, level: number): number?
 	local base: number? = nil
 	if id == "Bag" then
 		local entry = Config.Shop.Bag[level]
@@ -121,19 +126,21 @@ local function upgradePrice(id: Types.UpgradeId, level: number): number?
 		local entry = Config.Shop.Ride[level]
 		base = if entry then entry.price else nil
 	end
-	return if base then price(base) else nil
+	return if base then price(player, base) else nil
 end
 
 local function upgradeItem(player: Player, id: Types.UpgradeId): Types.ShopItem
 	local level = ShopService.level(player, id)
-	local price = upgradePrice(id, level + 1)
+	local price = upgradePrice(player, id, level + 1)
 	local title, now, nextOne, maxLevel
 	if id == "Bag" then
+		local pockets = HustleService.bagMultiplier(player) -- Deep Pockets
 		local capacity = if level == 0 then Config.Economy.BaseBagCapacity else Config.Shop.Bag[level].capacity
 		local upgrade = Config.Shop.Bag[level + 1]
 		title, maxLevel = "Bigger Bag", #Config.Shop.Bag
 		now, nextOne =
-			`Holds {Format.money(capacity)}`, if upgrade then `holds {Format.money(upgrade.capacity)}` else nil
+			`Holds {Format.money(capacity * pockets)}`,
+			if upgrade then `holds {Format.money(upgrade.capacity * pockets)}` else nil
 	elseif id == "Lockpick" then
 		local upgrade = Config.Shop.Lockpick[level + 1]
 		title, maxLevel = "Lockpick", #Config.Shop.Lockpick
@@ -181,7 +188,7 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 					then "In your backpack"
 					elseif endsAt then `On: {Format.clock(endsAt - Timing.now())} left`
 					else "Lasts 5 minutes",
-				price = if carrying then nil else price(Config.Boosts[boost.id].price),
+				price = if carrying then nil else price(player, Config.Boosts[boost.id].price),
 			})
 		end
 	else
@@ -195,7 +202,7 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 				title = blaster.title,
 				detail = `Range {stats.range} · reloads in {stats.cooldown}s · freezes cops for {stats.copStunSeconds}s`,
 				status = if have == blaster.id then "Yours" else nil,
-				price = if yours then nil else price(stats.price),
+				price = if yours then nil else price(player, stats.price),
 			})
 		end
 		if RunState.quotaIndex < Config.Blasters.UnlockQuota then
@@ -259,7 +266,7 @@ local UPGRADE_LABELS: { [Types.UpgradeId]: string } = {
 local function buyUpgrade(player: Player, id: Types.UpgradeId): boolean
 	local current = levelsOf(player)
 	local newLevel = (current[id] or 0) + 1
-	local price = upgradePrice(id, newLevel)
+	local price = upgradePrice(player, id, newLevel)
 	local label = if id == "Ride" and newLevel == 1 then "Kart purchased" else UPGRADE_LABELS[id]
 	if not price or not pay(player, price, `shop: {id:lower()} level {newLevel}`, label) then
 		return false
@@ -285,7 +292,7 @@ local function buyBoost(player: Player, id: Types.BoostId): boolean
 			title = boost.title
 		end
 	end
-	if not pay(player, price(Config.Boosts[id].price), `shop: {id:lower()} boost`, `{title} purchased`) then
+	if not pay(player, price(player, Config.Boosts[id].price), `shop: {id:lower()} boost`, `{title} purchased`) then
 		return false
 	end
 	if id == "Energy" then
@@ -307,7 +314,7 @@ local function buyBlaster(player: Player, id: Types.BlasterId): boolean
 		return false
 	end
 	local title = if id == "MegaZapper" then "Mega Zapper" else "Zapper"
-	if not pay(player, price(Config.Blasters[id].price), `shop: {id:lower()}`, `{title} purchased`) then
+	if not pay(player, price(player, Config.Blasters[id].price), `shop: {id:lower()}`, `{title} purchased`) then
 		return false
 	end
 	BlasterService.give(player, id)

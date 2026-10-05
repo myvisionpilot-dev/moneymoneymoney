@@ -14,7 +14,9 @@ export type Account = {
 	userId: number,
 	carried: number,
 	deposited: number, -- whole-run total; this is the player's contribution
-	bagCapacity: number,
+	bagCapacity: number, -- bagBase x bagMultiplier
+	bagBase: number, -- from the bag upgrades
+	bagMultiplier: number, -- from hustles
 }
 
 export type Entry = {
@@ -59,6 +61,8 @@ function EconomyService.account(player: Player): Account
 			carried = 0,
 			deposited = 0,
 			bagCapacity = Config.Economy.BaseBagCapacity,
+			bagBase = Config.Economy.BaseBagCapacity,
+			bagMultiplier = 1,
 		}
 		accounts[player.UserId] = account
 	end
@@ -122,11 +126,23 @@ function EconomyService.transferCarried(from: Player, to: Player, amount: number
 	return moved
 end
 
--- Bag upgrades change how much carried cash fits.
+local function resize(account: Account)
+	account.bagCapacity = math.floor(account.bagBase * account.bagMultiplier + 0.5)
+	EconomyService.changed:Fire(account.userId)
+end
+
+-- Bag upgrades change how much carried cash fits...
 function EconomyService.setBagCapacity(player: Player, capacity: number)
 	local account = EconomyService.account(player)
-	account.bagCapacity = capacity
-	EconomyService.changed:Fire(account.userId)
+	account.bagBase = capacity
+	resize(account)
+end
+
+-- ...and so does the Deep Pockets hustle.
+function EconomyService.setBagMultiplier(player: Player, multiplier: number)
+	local account = EconomyService.account(player)
+	account.bagMultiplier = multiplier
+	resize(account)
 end
 
 function EconomyService.setCarried(player: Player, amount: number, reason: string)

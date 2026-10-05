@@ -17,6 +17,15 @@ export type Twist = {
 	night: boolean?,
 }
 
+-- A hustle: a run perk (see Hustles below). value is what each stack adds.
+export type Hustle = {
+	id: string,
+	title: string,
+	detail: string,
+	max: number,
+	value: number,
+}
+
 return {
 	Places = {
 		LobbyPlaceId = 89656922694625,
@@ -136,6 +145,76 @@ return {
 				shopPrice = 0.6,
 			},
 		} :: { Twist },
+	},
+	-- Hustles: every time a quota is paid, each player picks one of Offered random run perks
+	-- (PickSeconds, or one is picked for them). They last the whole run; some stack up to max.
+	Hustles = {
+		Offered = 3,
+		PickSeconds = 30,
+		List = {
+			{
+				id = "SmoothTalker",
+				title = "Smooth Talker",
+				detail = "Legal jobs pay 20% more.",
+				max = 3,
+				value = 0.2,
+			},
+			{
+				id = "StickyFingers",
+				title = "Sticky Fingers",
+				detail = "Crimes pay 20% more.",
+				max = 3,
+				value = 0.2,
+			},
+			{ id = "DeepPockets", title = "Deep Pockets", detail = "Your bag holds 50% more.", max = 2, value = 0.5 },
+			{
+				id = "LuckyBreak",
+				title = "Lucky Break",
+				detail = "1 in 10 jobs pays double.",
+				max = 2,
+				value = 0.1,
+			},
+			{ id = "Ghost", title = "Ghost", detail = "Your heat drains twice as fast.", max = 2, value = 1 },
+			{ id = "CoolHead", title = "Cool Head", detail = "Crimes give you 25% less heat.", max = 2, value = 0.25 },
+			{
+				id = "SecondChance",
+				title = "Second Chance",
+				detail = "Keep your cash the first time you're busted each quota.",
+				max = 1,
+				value = 1,
+			},
+			{ id = "EscapeArtist", title = "Escape Artist", detail = "Half the time in jail.", max = 1, value = 0.5 },
+			{ id = "Haggler", title = "Haggler", detail = "Shops charge you 25% less.", max = 2, value = 0.25 },
+			{
+				id = "Interest",
+				title = "Interest",
+				detail = "Your deposits count 5% extra toward the quota.",
+				max = 3,
+				value = 0.05,
+			},
+			{ id = "FleetFeet", title = "Fleet Feet", detail = "Walk and sprint 10% faster.", max = 2, value = 0.1 },
+			{
+				id = "Safecracker",
+				title = "Safecracker",
+				detail = "Break-ins take half as long.",
+				max = 1,
+				value = 0.5,
+			},
+			{
+				id = "RepoRepellent",
+				title = "Repo Repellent",
+				detail = "Repo men leave you alone until your bag is 80% full.",
+				max = 1,
+				value = 0.8,
+			},
+			{
+				id = "Allowance",
+				title = "Allowance",
+				detail = "Start every quota with 3% of the target in your bag.",
+				max = 2,
+				value = 0.03,
+			},
+		} :: { Hustle },
 	},
 	-- The late game gets tougher from FromQuota: cops get faster and more of them come.
 	Pressure = {

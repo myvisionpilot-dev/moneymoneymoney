@@ -14,6 +14,7 @@ local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Perks = require(ServerScriptService.Common.Perks)
+local HustleService = require(script.Parent.HustleService)
 local MovementGuard = require(script.Parent.MovementGuard)
 
 local SPEED_ATTRIBUTE = "SpeedBoost"
@@ -61,8 +62,9 @@ function BoostService.breakInMultiplier(player: Player): number
 	return if BoostService.isActive(player, "Gloves") then settings.Gloves.breakIn else 1
 end
 
+-- The energy drink and the Fleet Feet hustle both show as SpeedBoost (the lobby buff is SpeedBuff).
 local function applySpeed(player: Player)
-	local multiplier = BoostService.speedMultiplier(player)
+	local multiplier = BoostService.speedMultiplier(player) * HustleService.speedMultiplier(player)
 	local character = player.Character
 	if character then
 		character:SetAttribute(SPEED_ATTRIBUTE, if multiplier ~= 1 then multiplier else nil)
@@ -115,6 +117,7 @@ function BoostService.start()
 	end
 	Players.PlayerAdded:Connect(watch)
 	Perks.changed:Connect(applySpeed) -- their save loaded (with a speed buff)
+	HustleService.changed:Connect(applySpeed)
 	Players.PlayerRemoving:Connect(function(player: Player)
 		active[player] = nil
 	end)

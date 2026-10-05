@@ -11,6 +11,7 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local BoostService = require(script.Parent.BoostService)
+local HustleService = require(script.Parent.HustleService)
 local TwistService = require(script.Parent.TwistService)
 
 local HIDING_TAG = "HidingSpot"
@@ -84,13 +85,17 @@ function HeatService.setSpotted(player: Player, spotted: boolean)
 	end
 end
 
--- Crimes add heat (a disguise from the convenience store halves it, a Crackdown twist raises
--- it). The debug command can pass a negative amount to cool you down.
+-- Crimes add heat (a disguise from the convenience store halves it, the Cool Head hustle
+-- lowers it, a Crackdown twist raises it). The debug command can pass a negative amount to
+-- cool you down.
 function HeatService.add(player: Player, amount: number)
 	local state = stateOf(player)
 	state.lastCrimeAt = os.clock()
 	local scaled = if amount > 0
-		then amount * BoostService.heatMultiplier(player) * TwistService.heatMultiplier()
+		then amount
+			* BoostService.heatMultiplier(player)
+			* HustleService.heatGainMultiplier(player)
+			* TwistService.heatMultiplier()
 		else amount
 	setHeat(player, state, state.heat + scaled, state.hiding)
 end
@@ -126,7 +131,7 @@ local function tick(dt: number)
 		local heat = state.heat
 		local starsBefore = math.floor(heat)
 		if heat > 0 and (hidden or now - state.lastCrimeAt >= Config.Heat.DecayDelaySeconds) then
-			local rate = Config.Police.HeatDecayPerSecond
+			local rate = Config.Police.HeatDecayPerSecond * HustleService.heatDecayMultiplier(player)
 			if hidden then
 				rate *= Config.Heat.HidingDecayMultiplier
 			end

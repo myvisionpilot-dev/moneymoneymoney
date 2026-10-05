@@ -76,9 +76,9 @@ local function rob(player: Player, store: Store): (boolean, string?)
 	store.closedUntil = os.clock() + settings.CooldownSeconds
 	local basePay = payout(player, ctx.tier())
 	local pay = if holdUp then math.floor(basePay * Config.Blasters.HoldUpPay + 0.5) else basePay
-	local added = EconomyService.addCarried(player, pay, if holdUp then "store hold-up" else "store robbery")
 	HeatService.add(player, Config.Heat.StoreRobbery)
-	PayNotice.send(player, if holdUp then "Store held up" else "Store register emptied", added, pay)
+	local label = if holdUp then "Store held up" else "Store register emptied"
+	PayNotice.earn(player, pay, label, if holdUp then "store hold-up" else "store robbery", false)
 	Stats.record(player, "StoreRobbery")
 	local alarm = Sounds.at("Alarm", store.counter, true)
 	if alarm then

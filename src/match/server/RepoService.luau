@@ -14,6 +14,7 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local EconomyService = require(script.Parent.EconomyService)
+local HustleService = require(script.Parent.HustleService)
 local JailService = require(script.Parent.JailService)
 local Juice = require(script.Parent.Juice)
 local NpcService = require(script.Parent.NpcService)
@@ -73,7 +74,7 @@ local function overLimit(player: Player): boolean
 		return false
 	end
 	local account = EconomyService.account(player)
-	return account.carried > account.bagCapacity * settings.BagFraction
+	return account.carried > account.bagCapacity * HustleService.repoFraction(player)
 end
 
 local function remove(repo: Repo, rest: boolean)

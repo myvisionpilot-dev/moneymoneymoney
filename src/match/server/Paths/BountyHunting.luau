@@ -12,7 +12,6 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
-local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local JailService = require(script.Parent.Parent.JailService)
 local MoneyPath = require(script.Parent.MoneyPath)
@@ -86,8 +85,7 @@ local function arrest(hunter: Player, target: Player, prompt: ProximityPrompt)
 	end
 
 	JailService.arrest(target, hunter.DisplayName)
-	local added = EconomyService.addCarried(hunter, bounty, `bounty on {target.Name}`)
-	PayNotice.send(hunter, `Bounty on {target.DisplayName} claimed`, added, bounty)
+	PayNotice.earn(hunter, bounty, `Bounty on {target.DisplayName} claimed`, `bounty on {target.Name}`, true)
 	Stats.record(hunter, "Bounty")
 end
 

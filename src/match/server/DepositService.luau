@@ -9,6 +9,7 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
+local HustleService = require(script.Parent.HustleService)
 local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
@@ -39,8 +40,13 @@ local function onDeposit(player: Player, desk: BasePart)
 		Notifier.send(player, "Your bag is empty. Go make some money!", "Info")
 		return
 	end
-	QuotaRunService.addProgress(amount)
+	-- The Interest hustle counts extra toward the quota (not toward their share of the prize).
+	local interest = math.floor(amount * HustleService.depositBonus(player) + 0.5)
+	QuotaRunService.addProgress(amount + interest)
 	Juice.deposited(player, amount)
+	if interest > 0 then
+		Juice.deposited(player, interest, "Interest from the bank")
+	end
 end
 
 local function setupDesk(instance: Instance)

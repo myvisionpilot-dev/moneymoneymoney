@@ -15,7 +15,6 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
-local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local Juice = require(script.Parent.Parent.Juice)
 local MoneyPath = require(script.Parent.MoneyPath)
@@ -222,8 +221,7 @@ local function deliver(player: Player, job: Job, bay: BasePart)
 	end
 	clearJob(player)
 	local pay = payout(player, getContext().tier())
-	local added = EconomyService.addCarried(player, pay, "chop shop")
-	PayNotice.send(player, "Car sold to the chop shop", added, pay)
+	PayNotice.earn(player, pay, "Car sold to the chop shop", "chop shop", false)
 	Stats.record(player, "ChopShop")
 end
 
