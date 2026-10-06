@@ -10,6 +10,7 @@
 --   /drive [kart] [top speed] a car (or kart) right where you stand (default: race car speed)
 --   /twist <id|none>          swap this quota's twist (ids in Config.Twists)
 --   /hustle <id>              give yourself a hustle (ids in Config.Hustles)
+--   /event <id>               start a town event now (CashDrop, HappyHour, FireSale, VipFare...)
 -- In Studio, ServerStorage.DebugHook:Invoke("cash", "5000") runs the same commands.
 
 local Players = game:GetService("Players")
@@ -24,6 +25,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Admin = require(ServerScriptService.Common.Admin)
 local Profiles = require(ServerScriptService.Common.Profiles)
 local EconomyService = require(script.Parent.EconomyService)
+local EventService = require(script.Parent.EventService)
 local HeatService = require(script.Parent.HeatService)
 local HustleService = require(script.Parent.HustleService)
 local MovementGuard = require(script.Parent.MovementGuard)
@@ -129,6 +131,14 @@ local handlers: { [string]: Handler } = {
 
 	start = function(_player: Player, _args: { string }): string
 		return if QuotaRunService.forceStart() then "Starting the run" else "The run has already started"
+	end,
+
+	event = function(_player: Player, args: { string }): string
+		local id = args[1]
+		if not id then
+			return "Usage: /event <id> (CashDrop, HappyHour, FireSale, VipFare, ArmouredTruck, RivalCrew)"
+		end
+		return if EventService.force(id) then `Event: {id}` else "Unknown event, or no quota running"
 	end,
 
 	hustle = function(player: Player, args: { string }): string

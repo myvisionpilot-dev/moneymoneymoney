@@ -43,6 +43,8 @@ export type MatchRemotes = {
 	PickpocketGame: ToClient<Types.PickpocketGame?>, -- nil ends it
 	BlasterFx: ToClient<Types.BlasterFx>, -- someone fired a blaster
 	HustleOffer: ToClient<Types.HustleOffer?>, -- pick one of these; nil closes the offer
+	TownEvent: ToClient<Types.TownEventView?>, -- nil: no event right now
+	Talk: ToClient<Types.Talk?>, -- someone talks to you; nil ends the conversation
 	ClientReady: ToServer<nil>,
 	PickpocketPresses: ToServer<{ number }>, -- seconds into each round when you pressed
 	SubmitDecision: ToServer<Types.Decision>,
@@ -51,6 +53,7 @@ export type MatchRemotes = {
 	FireBlaster: ToServer<Vector3>, -- where you aimed
 	SetRiding: ToServer<boolean>, -- get on or off your ride
 	PickHustle: ToServer<string>, -- a hustle id from your current offer
+	TalkAnswer: ToServer<Types.TalkAnswer>, -- the answer you picked in a conversation
 }
 
 local IS_SERVER = RunService:IsServer()
@@ -153,6 +156,8 @@ function Remotes.match(): MatchRemotes
 		PickpocketGame = toClient("PickpocketGame"),
 		BlasterFx = toClient("BlasterFx"),
 		HustleOffer = toClient("HustleOffer"),
+		TownEvent = toClient("TownEvent"),
+		Talk = toClient("Talk"),
 		ClientReady = toServer("ClientReady"),
 		PickpocketPresses = toServer("PickpocketPresses"),
 		SubmitDecision = toServer("SubmitDecision"),
@@ -161,6 +166,7 @@ function Remotes.match(): MatchRemotes
 		FireBlaster = toServer("FireBlaster"),
 		SetRiding = toServer("SetRiding"),
 		PickHustle = toServer("PickHustle"),
+		TalkAnswer = toServer("TalkAnswer"),
 	}
 	matchRemotes = remotes
 	return remotes

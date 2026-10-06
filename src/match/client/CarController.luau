@@ -373,7 +373,7 @@ end
 
 function CarController.start()
 	if TouchButtons.enabled() then
-		local drift = TouchButtons.add("💨", "DRIFT", 4, function() end)
+		local drift = TouchButtons.add("", "DRIFT", 4, function() end)
 		drift.button.InputBegan:Connect(function(input: InputObject)
 			if input.UserInputType == Enum.UserInputType.Touch then
 				handbrake = true
@@ -386,7 +386,7 @@ function CarController.start()
 		end)
 		drift.button.Visible = false
 		driftButton = drift
-		local flipper = TouchButtons.add("🔄", "FLIP", 5, flip)
+		local flipper = TouchButtons.add("", "FLIP", 5, flip)
 		flipper.button.Visible = false
 		flipButton = flipper
 	end

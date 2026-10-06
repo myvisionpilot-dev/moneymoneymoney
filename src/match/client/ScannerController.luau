@@ -1,6 +1,6 @@
 --!strict
 -- The police scanner boost (convenience stores): while it's on, every cop in town wears a
--- 🚔 marker you can see through walls, with how far away they are.
+-- POLICE marker you can see through walls, with how far away they are.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,7 +36,7 @@ local function markerFor(cop: Model)
 	gui.LightInfluence = 0
 	gui.Size = UDim2.fromOffset(70, 44)
 	gui.StudsOffset = Vector3.new(0, 4, 0)
-	UI.label({ Size = UDim2.new(1, 0, 0, 26), TextScaled = true, Text = "🚔" }, gui)
+	UI.label({ Size = UDim2.new(1, 0, 0, 26), TextScaled = true, Text = "POLICE" }, gui)
 	local distance = UI.label({ Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 18), TextSize = 14 }, gui)
 	gui.Parent = player:WaitForChild("PlayerGui")
 	markers[cop] = { gui = gui, distance = distance }

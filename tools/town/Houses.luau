@@ -1,4 +1,6 @@
--- The 60 houses: finished outside (roof, windows, porch, lawn, driveway, bins, fence, mailbox),
+-- The 60 houses: finished outside (slate roof with a fascia, framed windows with shutters and
+-- sills, a stone base, porch with posts and a light, flower beds, lawn, driveway, bins, fence,
+-- mailbox; every third one brick),
 -- getting bigger with each tier, and mansions facing the dead-end streets. Faces that would
 -- line up with the grass or each other are nudged apart so they don't flicker.
 --
@@ -26,7 +28,18 @@ local ROOFS = {
 	Color3.fromRGB(70, 80, 100),
 	Color3.fromRGB(60, 100, 70),
 }
+local BRICKS = { Color3.fromRGB(170, 95, 75), Color3.fromRGB(150, 110, 90), Color3.fromRGB(185, 140, 110) }
+local SHUTTERS = {
+	Color3.fromRGB(40, 70, 110),
+	Color3.fromRGB(60, 100, 60),
+	Color3.fromRGB(120, 50, 45),
+	Color3.fromRGB(50, 50, 55),
+}
+local FLOWERS = { Color3.fromRGB(240, 90, 120), Color3.fromRGB(250, 210, 70), Color3.fromRGB(170, 110, 240) }
+local TRIM = Color3.fromRGB(248, 248, 244)
+local WINDOW_GLASS = Color3.fromRGB(70, 100, 140)
 local BIN = Color3.fromRGB(40, 110, 60)
+local BIN_LID = Color3.fromRGB(30, 85, 45)
 local STONE = Color3.fromRGB(236, 232, 220)
 local GOLD = Color3.fromRGB(240, 196, 60)
 
@@ -56,6 +69,38 @@ local function attachment(parent, name, worldCFrame)
 	return a
 end
 
+-- A front window on the wall whose outside face is at z (lot space, the street is -Z): a white
+-- frame, dark glass with a cross of glazing bars, a sill and a shutter either side.
+local function frontWindow(model, at, x, y, z, shutter)
+	Kit.decor(Kit.part(model, "WindowFrame", Vector3.new(4.8, 4.3, 0.2), at(x, y, z - 0.12), TRIM))
+	local glass = Kit.decor(
+		Kit.part(model, "Window", Vector3.new(4, 3.5, 0.2), at(x, y, z - 0.25), WINDOW_GLASS, Enum.Material.Glass)
+	)
+	glass.Reflectance = 0.15
+	Kit.decor(Kit.part(model, "GlazingBar", Vector3.new(0.2, 3.5, 0.1), at(x, y, z - 0.42), TRIM))
+	Kit.decor(Kit.part(model, "GlazingBar", Vector3.new(4, 0.2, 0.1), at(x, y, z - 0.42), TRIM))
+	Kit.decor(Kit.part(model, "Sill", Vector3.new(5.2, 0.3, 0.7), at(x, y - 2.32, z - 0.37), TRIM))
+	for _, side in { -1, 1 } do
+		Kit.decor(Kit.part(model, "Shutter", Vector3.new(1.2, 3.9, 0.2), at(x + side * 3.1, y, z - 0.12), shutter))
+	end
+end
+
+-- A side window on the wall whose outside face is at x = side * edge.
+local function sideWindow(model, at, edge, side, y, z)
+	Kit.decor(Kit.part(model, "WindowFrame", Vector3.new(0.2, 4.3, 4.8), at(side * (edge + 0.12), y, z), TRIM))
+	local glass = Kit.decor(
+		Kit.part(
+			model,
+			"Window",
+			Vector3.new(0.2, 3.5, 4),
+			at(side * (edge + 0.25), y, z),
+			WINDOW_GLASS,
+			Enum.Material.Glass
+		)
+	)
+	glass.Reflectance = 0.15
+end
+
 local function house(folder, lot)
 	local style = STYLES[lot.tier]
 	local lotWidth = if style.mansion then Layout.MANSION_WIDTH else Layout.LOT_WIDTH
@@ -68,12 +113,21 @@ local function house(folder, lot)
 	local W, D, H, Y = style.width, style.depth, style.height, style.yard
 	local bx = style.bodyX
 	local dx1, dx2 = style.drive[1], style.drive[2]
-	local wall = WALLS[lot.id % #WALLS + 1]
+	local brick = lot.id % 3 == 0
+	local wall = if brick then BRICKS[lot.id % #BRICKS + 1] else WALLS[lot.id % #WALLS + 1]
 	local roofColor = ROOFS[lot.id % #ROOFS + 1]
+	local shutter = SHUTTERS[lot.id % #SHUTTERS + 1]
 
 	local model = Kit.model(folder, `House{lot.id}`)
 	-- The front wall sits 0.1 in front of the back garden's edge.
-	local body = Kit.part(model, `House{lot.id}`, Vector3.new(W, H, D + 0.1), at(bx, H / 2, Y + D / 2 - 0.05), wall)
+	local body = Kit.part(
+		model,
+		`House{lot.id}`,
+		Vector3.new(W, H, D + 0.1),
+		at(bx, H / 2, Y + D / 2 - 0.05),
+		wall,
+		if brick then Enum.Material.Brick else Enum.Material.SmoothPlastic
+	)
 	body:SetAttribute("HouseId", lot.id)
 	body:SetAttribute("Tier", lot.tier)
 	Kit.tag(body, "House")
@@ -157,18 +211,43 @@ local function house(folder, lot)
 			"RoofFront",
 			Vector3.new(W + 2, style.roof, halfDepth),
 			at(bx, H + style.roof / 2, Y - 1 + halfDepth / 2),
-			roofColor
+			roofColor,
+			Enum.Material.Slate
 		)
 	)
+	Kit.decor(Kit.part(model, "Fascia", Vector3.new(W + 2.2, 0.6, 0.25), at(bx, H + 0.05, Y - 1.12), TRIM))
 	Kit.quiet(
 		Kit.wedge(
 			model,
 			"RoofBack",
 			Vector3.new(W + 2, style.roof, halfDepth),
 			at(bx, H + style.roof / 2, Y + D + 1 - halfDepth / 2) * CFrame.Angles(0, math.pi, 0),
-			roofColor
+			roofColor,
+			Enum.Material.Slate
 		)
 	)
+	-- A stone base all round, and white boards up the front corners.
+	Kit.quiet(
+		Kit.part(
+			model,
+			"Foundation",
+			Vector3.new(W + 0.4, 1, D + 0.4),
+			at(bx, 0.55, Y + D / 2 - 0.05),
+			Color3.fromRGB(150, 150, 155),
+			Enum.Material.Slate
+		)
+	)
+	for _, side in { -1, 1 } do
+		Kit.decor(
+			Kit.part(
+				model,
+				"CornerBoard",
+				Vector3.new(0.5, H - 0.05, 0.5),
+				at(bx + side * (W / 2 + 0.05), (H - 0.05) / 2, Y - 0.1),
+				TRIM
+			)
+		)
+	end
 	Kit.decor(
 		Kit.part(
 			model,
@@ -182,31 +261,40 @@ local function house(folder, lot)
 
 	-- Windows: front and sides, plus an upstairs row on the bigger houses.
 	local rows = if style.upstairs then { 5, H * 0.72 } else { 5 }
-	for _, y in rows do
+	local function sideAt(x, y, z)
+		return at(bx + x, y, z)
+	end
+	for row, y in rows do
 		for _, x in { bx - W / 4 - 1, bx + W / 4 + 1 } do
-			local glass = Kit.decor(
-				Kit.part(
-					model,
-					"Window",
-					Vector3.new(4, 3.5, 0.3),
-					at(x, y, Y - 0.15),
-					Kit.Colors.Glass,
-					Enum.Material.Glass
+			frontWindow(model, at, x, y, Y - 0.1, shutter)
+			-- A flower bed under each downstairs window.
+			if row == 1 then
+				Kit.quiet(
+					Kit.part(
+						model,
+						"FlowerBed",
+						Vector3.new(4.8, 0.5, 1.3),
+						at(x, 0.57, Y - 1.0),
+						Color3.fromRGB(95, 70, 50),
+						Enum.Material.Ground
+					)
 				)
-			)
-			glass.Transparency = 0.1
+				for index, dx in { -1.4, 0, 1.4 } do
+					local flower = Kit.decor(
+						Kit.part(
+							model,
+							"Flower",
+							Vector3.one * 0.8,
+							at(x + dx, 1.15, Y - 1.0),
+							FLOWERS[(lot.id + index) % #FLOWERS + 1]
+						)
+					)
+					flower.Shape = Enum.PartType.Ball
+				end
+			end
 		end
 		for _, side in { -1, 1 } do
-			Kit.decor(
-				Kit.part(
-					model,
-					"Window",
-					Vector3.new(0.3, 3.5, 4),
-					at(bx + side * (W / 2 + 0.15), y, Y + D / 2),
-					Kit.Colors.Glass,
-					Enum.Material.Glass
-				)
-			)
+			sideWindow(model, sideAt, W / 2, side, y, Y + D / 2)
 		end
 	end
 
@@ -226,6 +314,35 @@ local function house(folder, lot)
 		)
 	)
 	Kit.decor(Kit.part(model, "PorchRoof", Vector3.new(8, 0.4, 3.5), at(bx, 8.6, Y - 1.6), roofColor))
+	Kit.decor(Kit.part(model, "DoorFrame", Vector3.new(5.2, 7.9, 0.15), at(bx, doorY + 0.3, Y - 0.2), TRIM))
+	local knob = Kit.decor(
+		Kit.part(
+			model,
+			"DoorKnob",
+			Vector3.one * 0.35,
+			at(bx + 1.4, doorY, Y - 0.65),
+			Color3.fromRGB(230, 190, 60),
+			Enum.Material.Metal
+		)
+	)
+	knob.Shape = Enum.PartType.Ball
+	Kit.decor(
+		Kit.part(
+			model,
+			"PorchLight",
+			Vector3.new(0.5, 0.7, 0.4),
+			at(bx - 3, 7.9, Y - 0.35),
+			Color3.fromRGB(255, 230, 160),
+			Enum.Material.Neon
+		)
+	)
+	if not style.mansion then
+		for _, side in { -1, 1 } do
+			Kit.quiet(
+				Kit.part(model, "PorchPost", Vector3.new(0.5, 8.05, 0.5), at(bx + side * 3.6, 4.33, Y - 3.05), TRIM)
+			)
+		end
+	end
 
 	-- Mailbox with the house number.
 	local mx = -lotWidth / 2 + 3
@@ -241,6 +358,20 @@ local function house(folder, lot)
 	for index = 1, 2 do
 		local bin = Kit.part(body, `Bin{index}`, Vector3.new(2, 3, 2), at(binX, 1.8, Y + 1.5 + index * 3), BIN)
 		bin.CanTouch = false
+		-- A wheelie bin: a lid and two wheels at the back (inside the bin part, so they go with it).
+		Kit.decor(Kit.part(bin, "Lid", Vector3.new(2.2, 0.25, 2.3), bin.CFrame * CFrame.new(0, 1.6, 0.05), BIN_LID))
+		for _, x in { -0.8, 0.8 } do
+			local wheel = Kit.decor(
+				Kit.part(
+					bin,
+					"Wheel",
+					Vector3.new(0.3, 0.8, 0.8),
+					bin.CFrame * CFrame.new(x, -1.1, 1),
+					Color3.fromRGB(25, 25, 30)
+				)
+			)
+			wheel.Shape = Enum.PartType.Cylinder
+		end
 	end
 	attachment(body, "Kerb", at(dx1 - 3, 0.5, -3))
 	attachment(body, "CarSpot", at((dx1 + dx2) / 2, 0.35, Y / 2 + 2))

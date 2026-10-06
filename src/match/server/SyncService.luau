@@ -45,6 +45,7 @@ function SyncService.build(): Types.RunSnapshot
 			status = member.status,
 			decided = member.decision ~= nil,
 			heat = HeatService.get(member.player),
+			heatClearsAt = HeatService.clearsAt(member.player),
 			hiding = HeatService.isHiding(member.player),
 			spotted = HeatService.isSpotted(member.player),
 			jailedUntil = JailService.releaseAt(member.player),

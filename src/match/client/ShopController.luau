@@ -1,7 +1,9 @@
 --!strict
--- Every shop's window (clothes, hardware, garage, convenience stores, Tony's blasters): the
--- server sends what that shop sells, and we show one colourful card per item. Paid from the
--- cash in your bag; walking away from the counter closes it.
+-- Every shop's window (bags, hardware, garage, convenience stores, Tony's blasters), in the
+-- store style: a checkered header with the cash in your bag, and a colourful card per item: a
+-- little 3D model turning in front of spinning light rays, its name, price and a Buy button.
+-- Opened by "Buy" in the shopkeeper's conversation (CounterService). Paid from your bag;
+-- walking away from the counter closes it.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -12,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
+local ItemModels = require(Shared:WaitForChild("ItemModels"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
@@ -19,22 +22,109 @@ local ClientState = require(script.Parent.ClientState)
 
 local COUNTER_TAG = "ShopCounter"
 local CLOSE_SLACK = 6
-local CARD_SIZE = UDim2.fromOffset(134, 168)
+local CARD_SIZE = UDim2.fromOffset(154, 206)
+local ART_HEIGHT = 84
+local WINDOW_WIDTH = 520
 
 local CARD_COLORS: { [string]: Color3 } = {
-	Bag = UI.Colors.Pink,
-	Lockpick = UI.Colors.Risk,
-	Ride = UI.Colors.Purple,
-	Energy = UI.Colors.Gold,
-	Disguise = UI.Colors.Grey,
-	Candy = UI.Colors.Pink,
-	Gloves = UI.Colors.Risk,
-	Scanner = UI.Colors.Info,
-	Zapper = UI.Colors.Info,
-	MegaZapper = UI.Colors.Purple,
+	Bag = Color3.fromRGB(235, 70, 110),
+	Lockpick = Color3.fromRGB(245, 150, 40),
+	Ride = Color3.fromRGB(150, 90, 240),
+	Energy = Color3.fromRGB(240, 70, 70),
+	Disguise = Color3.fromRGB(245, 190, 40),
+	Candy = Color3.fromRGB(245, 130, 50),
+	Gloves = Color3.fromRGB(150, 90, 240),
+	Scanner = Color3.fromRGB(60, 170, 120),
+	Zapper = Color3.fromRGB(40, 150, 230),
+	MegaZapper = Color3.fromRGB(220, 70, 180),
 }
 
 local ShopController = {}
+
+local function card(
+	parent: Instance,
+	order: number,
+	item: Types.ShopItem,
+	carried: number,
+	locked: boolean,
+	onBuy: () -> ()
+)
+	local _, frame = UI.panel(CARD_COLORS[item.id] or UI.Colors.Info, { LayoutOrder = order }, parent)
+
+	-- The picture: the item turning slowly in front of spinning light rays.
+	local art = UI.frame({
+		Position = UDim2.fromOffset(6, 6),
+		Size = UDim2.new(1, -12, 0, ART_HEIGHT),
+		BackgroundTransparency = 1,
+	}, frame)
+	UI.rays(art, 220, nil, 10)
+	ItemModels.viewport(item.id, { Size = UDim2.fromScale(1, 1), ZIndex = 2 }, art, true)
+	UI.label({
+		Position = UDim2.fromOffset(4, 2),
+		Size = UDim2.new(1, -8, 0, 16),
+		ZIndex = 3,
+		TextSize = 12,
+		TextColor3 = UI.Colors.Gold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = item.status or "",
+	}, art)
+
+	local title = UI.label({
+		Position = UDim2.fromOffset(4, ART_HEIGHT + 6),
+		Size = UDim2.new(1, -8, 0, 22),
+		FontFace = UI.Fonts.Title,
+		TextSize = 18,
+		TextWrapped = false,
+		TextScaled = false,
+		Text = item.title,
+	}, frame)
+	UI.textStroke(title, 2.5)
+
+	-- The price, centred: a coin and the number.
+	local price = item.price
+	local priceRow = UI.frame({
+		Position = UDim2.fromOffset(0, ART_HEIGHT + 28),
+		Size = UDim2.new(1, 0, 0, 22),
+		BackgroundTransparency = 1,
+	}, frame)
+	local rowLayout = UI.list(priceRow, Enum.FillDirection.Horizontal, 5)
+	rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	if price then
+		UI.iconCircle("$", UI.Colors.Gold, 18, { LayoutOrder = 1 }, priceRow)
+	end
+	UI.label({
+		LayoutOrder = 2,
+		Size = UDim2.fromOffset(0, 22),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = UI.Fonts.Number,
+		TextSize = 18,
+		TextWrapped = false,
+		Text = if price then Format.number(price) else "",
+	}, priceRow)
+
+	UI.label({
+		Position = UDim2.fromOffset(6, ART_HEIGHT + 52),
+		Size = UDim2.new(1, -12, 0, 34),
+		TextSize = 11,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Text = item.detail,
+	}, frame)
+
+	local canBuy = price ~= nil and not locked and carried >= price
+	local buy = UI.button({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -7),
+		Size = UDim2.new(1, -14, 0, 30),
+		BackgroundColor3 = if canBuy then UI.Colors.Money else UI.Colors.Grey,
+		TextSize = 19,
+		Text = if price then "Buy" elseif item.kind == "Upgrade" then "Maxed" else "Yours",
+	}, frame)
+	buy.Activated:Connect(function()
+		if price and not locked then
+			onBuy()
+		end
+	end)
+end
 
 function ShopController.start()
 	local remotes = Remotes.match()
@@ -44,73 +134,39 @@ function ShopController.start()
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.55),
-		Size = UDim2.fromOffset(460, 0),
+		Size = UDim2.fromOffset(WINDOW_WIDTH, 0),
 	}, root, true)
 	local panel = window.panel
 	Cursor.registerPanel(panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
-	local bagPill = UI.pill("$", UI.Colors.Money, { LayoutOrder = 1, Size = UDim2.fromOffset(220, 34) }, window.body)
+	local header = window.title.Parent :: Frame
+	local bagPill = UI.pill("$", UI.Colors.Money, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -48, 0.5, 0),
+		Size = UDim2.fromOffset(150, 32),
+	}, header)
+	window.title.Size = UDim2.new(1, -220, 1, 0)
+
 	local note = UI.label({
-		LayoutOrder = 2,
+		LayoutOrder = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		TextSize = 14,
 	}, window.body)
 	local lockedBanner = UI.card(UI.Colors.Danger, {
-		LayoutOrder = 3,
+		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, 34),
 		Visible = false,
 	}, window.body)
 	local lockedText = UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 15 }, lockedBanner)
 	local cards = UI.frame({
-		LayoutOrder = 4,
+		LayoutOrder = 3,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 	}, window.body)
-	UI.grid(cards, CARD_SIZE, 8)
-
-	local function card(order: number, item: Types.ShopItem, carried: number, locked: boolean)
-		local frame = UI.card(CARD_COLORS[item.id] or UI.Colors.Info, { LayoutOrder = order }, cards)
-		UI.label({
-			Position = UDim2.fromOffset(6, 8),
-			Size = UDim2.new(1, -12, 0, 22),
-			Font = UI.Fonts.Heading,
-			TextSize = 17,
-			Text = item.title,
-		}, frame)
-		UI.label({
-			Position = UDim2.fromOffset(6, 32),
-			Size = UDim2.new(1, -12, 0, 18),
-			TextSize = 13,
-			TextColor3 = UI.Colors.Gold,
-			Text = item.status or "",
-		}, frame)
-		UI.label({
-			Position = UDim2.fromOffset(6, 54),
-			Size = UDim2.new(1, -12, 0, 62),
-			TextSize = 13,
-			TextYAlignment = Enum.TextYAlignment.Top,
-			Text = item.detail,
-		}, frame)
-
-		local price = item.price
-		local canBuy = price ~= nil and not locked and carried >= price
-		local buy = UI.button({
-			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, 0, 1, -8),
-			Size = UDim2.new(1, -16, 0, 36),
-			BackgroundColor3 = if canBuy then UI.Colors.Money else UI.Colors.Grey,
-			TextSize = 17,
-			Text = if price then `BUY {Format.money(price)}` elseif item.kind == "Upgrade" then "MAXED" else "YOURS",
-		}, frame)
-		buy.Activated:Connect(function()
-			if price and not locked then
-				remotes.BuyItem:fire(item.id)
-			end
-		end)
-	end
+	UI.grid(cards, CARD_SIZE, 10)
 
 	remotes.ShopOpen:onClient(function(state: Types.ShopState)
 		for _, child in cards:GetChildren() do
@@ -121,12 +177,14 @@ function ShopController.start()
 		local me = ClientState.me()
 		local carried = if me then me.carried else 0
 		window.title.Text = state.title
-		bagPill.Text = `{Format.money(carried)} in your bag`
+		bagPill.Text = Format.number(carried)
 		note.Text = state.note
 		lockedBanner.Visible = state.locked ~= nil
 		lockedText.Text = state.locked or ""
 		for order, item in state.items do
-			card(order, item, carried, state.locked ~= nil)
+			card(cards, order, item, carried, state.locked ~= nil, function()
+				remotes.BuyItem:fire(item.id)
+			end)
 		end
 		panel.Visible = true
 	end)
@@ -137,7 +195,7 @@ function ShopController.start()
 		end
 		local me = ClientState.me()
 		if panel.Visible and me then
-			bagPill.Text = `{Format.money(me.carried)} in your bag` -- stays right after you buy something
+			bagPill.Text = Format.number(me.carried) -- stays right after you buy something
 		end
 	end)
 

@@ -5,7 +5,8 @@
 --   Garage (Speedy's): your own kart.       Convenience stores: five-minute boosts (the
 --                                           energy drink goes in your backpack: EnergyDrink).
 --   Guns (Tony's Blasters): stun blasters, from quota Blasters.UnlockQuota.
--- The client only says which item; the server works out which shop you're standing at.
+-- The shopkeeper's "Buy something" opens it (CounterService). The client only says which item;
+-- the server works out which shop you're standing at.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -24,6 +25,7 @@ local BlasterService = require(script.Parent.BlasterService)
 local BoostService = require(script.Parent.BoostService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnergyDrink = require(script.Parent.EnergyDrink)
+local FireSale = require(script.Parent.Events.FireSale)
 local HustleService = require(script.Parent.HustleService)
 local JailService = require(script.Parent.JailService)
 local Juice = require(script.Parent.Juice)
@@ -34,7 +36,6 @@ local TwistService = require(script.Parent.TwistService)
 
 local COUNTER_TAG = "ShopCounter"
 local SHOP_ATTRIBUTE = "Shop"
-local PROMPT_RANGE = 8
 local RANGE_SLACK = 3
 
 type Levels = { [Types.UpgradeId]: number }
@@ -54,7 +55,7 @@ local BOOSTS: { { id: Types.BoostId, title: string, detail: string } } = {
 	{
 		id = "Energy",
 		title = "Energy Drink",
-		detail = "Carry it, drink it later: walk and sprint 2x as fast (not in cars).",
+		detail = "Drink it when you like: 2x speed on foot.",
 	},
 	{ id = "Disguise", title = "Disguise", detail = "Your crimes add half as much heat." },
 	{ id = "Candy", title = "Candy Bar", detail = "A wider green zone when you pickpocket." },
@@ -69,7 +70,6 @@ local BLASTERS: { { id: Types.BlasterId, title: string } } = {
 
 local remotes = Remotes.match()
 local buyLimiter = RateLimiter.new(Config.Security.RemotesPerSecond, 1)
-local openLimiter = RateLimiter.new(Config.Security.PromptsPerSecond, 1)
 
 local ShopService = {
 	upgraded = Signal.new() :: Signal.Signal<Player, Types.UpgradeId>,
@@ -108,9 +108,12 @@ function ShopService.rideSpeed(player: Player): number?
 	return if entry then entry.speed else nil
 end
 
--- A price after this quota's twists (Sale Day) and their Haggler hustle, to the nearest $10.
-local function price(player: Player, base: number): number
-	local multiplier = TwistService.shopPriceMultiplier() * HustleService.shopMultiplier(player)
+-- A price after this quota's twists (Sale Day), a fire sale and their Haggler hustle, to the
+-- nearest $10.
+local function price(player: Player, shop: Types.ShopId, base: number): number
+	local multiplier = TwistService.shopPriceMultiplier()
+		* FireSale.multiplier(shop)
+		* HustleService.shopMultiplier(player)
 	return math.floor(base * multiplier / 10 + 0.5) * 10
 end
 
@@ -126,7 +129,8 @@ local function upgradePrice(player: Player, id: Types.UpgradeId, level: number):
 		local entry = Config.Shop.Ride[level]
 		base = if entry then entry.price else nil
 	end
-	return if base then price(player, base) else nil
+	local shop: Types.ShopId = if id == "Bag" then "Clothes" elseif id == "Lockpick" then "Hardware" else "Garage"
+	return if base then price(player, shop, base) else nil
 end
 
 local function upgradeItem(player: Player, id: Types.UpgradeId): Types.ShopItem
@@ -188,7 +192,7 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 					then "In your backpack"
 					elseif endsAt then `On: {Format.clock(endsAt - Timing.now())} left`
 					else "Lasts 5 minutes",
-				price = if carrying then nil else price(player, Config.Boosts[boost.id].price),
+				price = if carrying then nil else price(player, "Convenience", Config.Boosts[boost.id].price),
 			})
 		end
 	else
@@ -202,14 +206,14 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 				title = blaster.title,
 				detail = `Range {stats.range} · reloads in {stats.cooldown}s · freezes cops for {stats.copStunSeconds}s`,
 				status = if have == blaster.id then "Yours" else nil,
-				price = if yours then nil else price(player, stats.price),
+				price = if yours then nil else price(player, "Guns", stats.price),
 			})
 		end
 		if RunState.quotaIndex < Config.Blasters.UnlockQuota then
 			locked = `Tony's not selling yet. Come back at quota {Config.Blasters.UnlockQuota}.`
 		end
 	end
-	local off = math.floor((1 - TwistService.shopPriceMultiplier()) * 100 + 0.5)
+	local off = math.floor((1 - TwistService.shopPriceMultiplier() * FireSale.multiplier(shop)) * 100 + 0.5)
 	local note = if off > 0 then `SALE: {off}% off everything! {SHOPS[shop].note}` else SHOPS[shop].note
 	return { shop = shop, title = SHOPS[shop].title, note = note, items = items, locked = locked }
 end
@@ -220,6 +224,15 @@ local function asShop(value: unknown): Types.ShopId?
 		return value :: any
 	end
 	return nil
+end
+
+-- The shop a counter belongs to (its Shop attribute), if any.
+function ShopService.shopOf(counter: Instance): Types.ShopId?
+	return asShop(counter:GetAttribute(SHOP_ATTRIBUTE))
+end
+
+function ShopService.title(shop: Types.ShopId): string
+	return SHOPS[shop].title
 end
 
 -- The shop whose counter they're standing at, if any.
@@ -244,6 +257,14 @@ local function canShop(player: Player): boolean
 		and phase ~= "Waiting"
 		and phase ~= "Results"
 		and phase ~= "Ended"
+end
+ShopService.canShop = canShop
+
+-- Shows them the shop's window.
+function ShopService.open(player: Player, shop: Types.ShopId)
+	if canShop(player) then
+		remotes.ShopOpen:fireClient(player, stateFor(player, shop))
+	end
 end
 
 -- Takes the money (with a money line saying what for), or says why not.
@@ -292,7 +313,14 @@ local function buyBoost(player: Player, id: Types.BoostId): boolean
 			title = boost.title
 		end
 	end
-	if not pay(player, price(player, Config.Boosts[id].price), `shop: {id:lower()} boost`, `{title} purchased`) then
+	if
+		not pay(
+			player,
+			price(player, "Convenience", Config.Boosts[id].price),
+			`shop: {id:lower()} boost`,
+			`{title} purchased`
+		)
+	then
 		return false
 	end
 	if id == "Energy" then
@@ -314,7 +342,7 @@ local function buyBlaster(player: Player, id: Types.BlasterId): boolean
 		return false
 	end
 	local title = if id == "MegaZapper" then "Mega Zapper" else "Zapper"
-	if not pay(player, price(player, Config.Blasters[id].price), `shop: {id:lower()}`, `{title} purchased`) then
+	if not pay(player, price(player, "Guns", Config.Blasters[id].price), `shop: {id:lower()}`, `{title} purchased`) then
 		return false
 	end
 	BlasterService.give(player, id)
@@ -353,31 +381,7 @@ local function onBuy(player: Player, payload: unknown)
 	remotes.ShopOpen:fireClient(player, stateFor(player, found :: any))
 end
 
-local function setupCounter(instance: Instance)
-	local found = asShop(instance:GetAttribute(SHOP_ATTRIBUTE))
-	if found == nil or not instance:IsA("BasePart") then
-		return
-	end
-	local id: Types.ShopId = found :: any
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "ShopPrompt"
-	prompt.ActionText = "Shop"
-	prompt.ObjectText = SHOPS[id].title
-	prompt.MaxActivationDistance = PROMPT_RANGE
-	prompt.RequiresLineOfSight = false
-	prompt.Triggered:Connect(function(player: Player)
-		if openLimiter:allow(player) and canShop(player) then
-			remotes.ShopOpen:fireClient(player, stateFor(player, id))
-		end
-	end)
-	prompt.Parent = instance
-end
-
 function ShopService.start()
-	for _, instance in CollectionService:GetTagged(COUNTER_TAG) do
-		setupCounter(instance)
-	end
-	CollectionService:GetInstanceAddedSignal(COUNTER_TAG):Connect(setupCounter)
 	remotes.BuyItem:onServer(onBuy)
 	Players.PlayerRemoving:Connect(function(player: Player)
 		levels[player] = nil

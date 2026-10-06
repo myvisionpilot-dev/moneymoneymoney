@@ -43,7 +43,7 @@ local handlers: { [Kind]: Handler } = {
 				kit.fail(job, "The park is closed today.")
 				return
 			end
-			kit.carry(job, "Dog", Vector3.new(1.2, 1.2, 2), Color3.fromRGB(150, 100, 60))
+			kit.carry(job, "Dog")
 			job.targets = { park }
 			job.travel = (park - job.house.door.Position).Magnitude * 2
 			kit.guide(job)
@@ -73,7 +73,7 @@ local handlers: { [Kind]: Handler } = {
 				kit.fail(job, "Nobody to send it to.")
 				return
 			end
-			kit.carry(job, "Letter", Vector3.new(1.2, 0.2, 1.6), Color3.fromRGB(245, 240, 225))
+			kit.carry(job, "Letter")
 			job.targets = { target }
 			job.travel = (target - job.house.door.Position).Magnitude
 			kit.guide(job)
@@ -106,7 +106,7 @@ local handlers: { [Kind]: Handler } = {
 				return
 			end
 			kit.addHeat(job) -- the police notice you as soon as you take it
-			kit.carry(job, "ShadyPackage", Vector3.new(1.4, 1, 1.4), Color3.fromRGB(40, 40, 45))
+			kit.carry(job, "ShadyPackage")
 			job.targets = { alley }
 			job.travel = (alley - job.house.door.Position).Magnitude
 			kit.notify(job, "Get it to the alley. Watch out for the police!")

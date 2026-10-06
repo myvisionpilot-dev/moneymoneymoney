@@ -106,7 +106,7 @@ function Movement.start()
 	)
 	-- Holding a button while steering with the other thumb is awkward, so on touch it toggles.
 	if TouchButtons.enabled() then
-		sprintButton = TouchButtons.add("🏃", "SPRINT", 1, function()
+		sprintButton = TouchButtons.add("", "SPRINT", 1, function()
 			sprinting = not sprinting
 			apply()
 		end)

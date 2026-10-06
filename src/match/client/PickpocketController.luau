@@ -48,7 +48,7 @@ function PickpocketController.start()
 	local title = UI.label({
 		LayoutOrder = 1,
 		Size = UDim2.new(1, 0, 0, 30),
-		Font = UI.Fonts.Heading,
+		FontFace = UI.Fonts.Title,
 		TextSize = 26,
 	}, panel)
 	UI.textStroke(title, 3)
@@ -95,7 +95,7 @@ function PickpocketController.start()
 		Position = UDim2.fromScale(1, 0),
 		Size = UDim2.fromOffset(150, 40),
 		TextSize = 20,
-		Text = "👛 GRAB!",
+		Text = "GRAB!",
 	}, footer)
 
 	local current: Types.PickpocketGame? = nil
@@ -115,7 +115,7 @@ function PickpocketController.start()
 		zoneFrame.BackgroundColor3 = UI.Colors.Money
 		local dots = {}
 		for index = 1, #game.zones do
-			table.insert(dots, if index < round then "✅" elseif index == round then "🟡" else "⚪")
+			table.insert(dots, if index < round then "●" elseif index == round then "◉" else "○")
 		end
 		rounds.Text = table.concat(dots, " ")
 	end
@@ -186,7 +186,7 @@ function PickpocketController.start()
 		presses = {}
 		finished = false
 		roundStartedAt = os.clock() + game.pauseSeconds
-		title.Text = `👛 Pickpocket {game.target}`
+		title.Text = `Pickpocket {game.target}`
 		hint.Text = HOW_TO
 		showRound()
 		panel.Visible = true

@@ -69,7 +69,6 @@ return {
 	},
 	Police = {
 		MaxHeat = 3,
-		HeatDecayPerSecond = 0.02, -- while not committing crimes
 		CaughtLosePercent = 0.30, -- of carried cash
 		JailSeconds = 30,
 		CopsPerStar = 1,
@@ -174,7 +173,7 @@ return {
 				max = 2,
 				value = 0.1,
 			},
-			{ id = "Ghost", title = "Ghost", detail = "Your heat drains twice as fast.", max = 2, value = 1 },
+			{ id = "Ghost", title = "Ghost", detail = "Your heat clears twice as fast.", max = 2, value = 1 },
 			{ id = "CoolHead", title = "Cool Head", detail = "Crimes give you 25% less heat.", max = 2, value = 0.25 },
 			{
 				id = "SecondChance",
@@ -216,6 +215,50 @@ return {
 			},
 		} :: { Hustle },
 	},
+	-- Town events: one at a time during a quota, never in its first FirstAfterSeconds, with a
+	-- random MinGapSeconds..MaxGapSeconds gap after each. Pay is at quota 1 and scales with the
+	-- quota like jobs (Economy.TierPayoutMultiplier).
+	Events = {
+		FirstAfterSeconds = 60,
+		MinGapSeconds = 120,
+		MaxGapSeconds = 180,
+		CashDrop = { Seconds = 60, Pay = 3_000, FallSeconds = 3, RangeStuds = 10 }, -- first to grab it
+		HappyHour = { Seconds = 90, Bonus = 0.25 }, -- deposits count this much extra toward the quota
+		FireSale = { Seconds = 90, Discount = 0.5 }, -- one shop
+		VipFare = { Seconds = 150, Multiplier = 3, MinTripStuds = 300 }, -- x a normal taxi fare, any car
+		ArmouredTruck = {
+			FromQuota = 2, -- crimes start then
+			Seconds = 150,
+			Speed = 18, -- slower than walking, so you can keep up with it
+			Pries = 8, -- prompt holds to crack the back doors (two people do it twice as fast)
+			PryHoldSeconds = 1.5,
+			Pay = 12_000, -- split by how many pries each person did
+			Heat = 2, -- spread over the pries
+			RangeStuds = 12,
+		},
+		-- 2+ players: whoever earns the most from jobs while it's on wins Prize.
+		HustleOff = { Seconds = 120, Prize = 5_000, MinPlayers = 2 },
+		-- A gang with blasters. Everyone without a blaster gets a Zapper for the fight.
+		RivalCrew = {
+			FromQuota = 3,
+			Seconds = 90,
+			Count = 3,
+			Speed = 24, -- they walk up to blaster range (a bit slower than you)
+			Hits = 2, -- zaps to knock one out...
+			Reward = 1_500, -- ...for this
+			ShootRangeStuds = 60,
+			StandOffStuds = 25, -- they stop this far away to shoot
+			ShotSeconds = 2.5, -- between shots, plus up to a second
+			HitChance = 0.3, -- not great aim
+			Damage = 13, -- per hit, from 100 health
+			KnockoutTakePercent = 0.15, -- of your carried cash, when they knock you down
+			KnockoutGraceSeconds = 10, -- then they leave you alone this long
+			MinSpawnStuds = 60,
+		},
+	},
+	-- Everyone still in the run (2+ players) deposits within Seconds of each other: those
+	-- deposits count Bonus extra toward the quota.
+	TeamCombo = { Seconds = 30, Bonus = 0.1 },
 	-- The late game gets tougher from FromQuota: cops get faster and more of them come.
 	Pressure = {
 		FromQuota = 4,
@@ -239,8 +282,8 @@ return {
 		MinSpawnStuds = 80,
 	},
 	Heat = {
-		DecayDelaySeconds = 20, -- heat starts draining this long after your last crime
-		HidingDecayMultiplier = 4, -- hidden in a bush (and not spotted): drains this much faster, straight away
+		WantedSeconds = 32, -- your heat clears this long after your last crime, however many stars (the chase song's length)
+		HidingDecayMultiplier = 4, -- hidden in a bush (and not spotted): that clock runs this much faster
 		Steal = 0.5,
 		Pickpocket = 0.5,
 		PickpocketFail = 1, -- they spotted you: a whole star
@@ -307,7 +350,7 @@ return {
 			RollSeconds = 2, -- cars roll in and out of the bay this quickly
 			RangeStuds = 8,
 		},
-		CarFlip = { -- buy a wreck behind Speedy's, fix it, paint it, sell it
+		CarFlip = { -- buy a wreck behind Speedy's, fix it, respray it at the chop shop, sell it
 			Cost = 1_500, -- paid from your bag; lost if you fail
 			SalePrice = 5_000,
 			BuyerTierBonus = { 1, 1.1, 1.2, 1.4 }, -- richer streets pay a bit more (house tier)
@@ -317,7 +360,7 @@ return {
 			FlatTyres = 2,
 			FitHoldSeconds = 1,
 			DriveSpeed = 80,
-			BoothRadiusStuds = 10, -- drive this close to the paint booth's middle
+			ChopShopRadiusStuds = 10, -- drive this close to the chop shop bay's middle for the respray
 			SellRadiusStuds = 12, -- and this close to the buyer's driveway
 			MinBuyerStuds = 250,
 			RespawnSeconds = 30, -- a new wreck turns up this long after one goes
@@ -343,6 +386,7 @@ return {
 		Doors = {
 			HouseRestSeconds = 90, -- after a knock, that house won't answer for this long
 			OfferSeconds = 15, -- time to pick an offer
+			AnswerSeconds = 1.3, -- after the knock, the door opens and the resident speaks
 			KnockRangeStuds = 8,
 			JobTimeLimitSeconds = 90,
 			TargetRadiusStuds = 7, -- how close counts as arriving
@@ -590,6 +634,18 @@ return {
 			382537950, -- Jean Shorts with White Shoes
 			398635338, -- Ripped Skater Pants
 		},
+		-- Work clothes (catalog shirts and pants, checked in Studio).
+		Uniforms = {
+			Suit = { shirt = 7248050683, pants = 129459077 }, -- black suit and tie, Black Slacks (Mr. Penny, repo men)
+			Police = { shirt = 6180109308, pants = 129459077 }, -- blue police shirt with tie and badge
+			Gang = { shirt = 125157548394108, pants = 382537569 }, -- black graphic hoodie, Black Jeans (rival crew)
+		},
+	},
+	-- Music, played quietly on each player's screen. Chase plays instead of Background while
+	-- you're wanted (it's 32s long, the same as Heat.WantedSeconds).
+	Music = {
+		Background = { id = 1848354536, volume = 0.05 },
+		Chase = { id = 1842577591, volume = 0.1 },
 	},
 	-- Sound effects from Roblox's audio library (ProSoundEffects and APM are Roblox-licensed).
 	Sounds = {
@@ -597,11 +653,12 @@ return {
 		Open = { id = 9126047581, volume = 0.35 },
 		Paid = { id = 135483737426662, volume = 0.6 },
 		Deposit = { id = 120891770644830, volume = 0.6 },
-		Purchase = { id = 9118777639, volume = 0.6 },
+		Purchase = { id = 133292918309565, volume = 0.6 },
 		StoreBell = { id = 9125935023, volume = 0.6 },
 		Alarm = { id = 138656991212198, volume = 0.7 },
 		Siren = { id = 4832498807, volume = 0.45 },
-		Knock = { id = 138990412937492, volume = 0.8 },
+		Knock = { id = 9114141551, volume = 0.8 },
+		DoorOpen = { id = 120873363783894, volume = 0.7 },
 		Whistle = { id = 9117260548, volume = 0.6 },
 		JailDoor = { id = 9117911726, volume = 0.7 },
 		Wanted = { id = 1846885714, volume = 0.4 },
@@ -609,7 +666,7 @@ return {
 		Ding = { id = 18448089848, volume = 0.5 },
 		Beep = { id = 9117060347, volume = 0.5 },
 		Horn = { id = 9114075424, volume = 0.35 },
-		Fanfare = { id = 1840091947, volume = 0.45 },
+		Fanfare = { id = 1840119665, volume = 0.45 },
 		Badge = { id = 1841980129, volume = 0.45 },
 		Rustle = { id = 9114519078, volume = 0.5 },
 		Swipe = { id = 9126283592, volume = 0.6 },

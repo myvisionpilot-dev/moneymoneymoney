@@ -9,12 +9,14 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
+local HappyHour = require(script.Parent.Events.HappyHour)
 local HustleService = require(script.Parent.HustleService)
 local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local TeamCombo = require(script.Parent.TeamCombo)
 
 local DESK_TAG = "BankCounter"
 local DESK_ATTRIBUTE = "BankCounterPosition" -- on ReplicatedStorage, for guides when the desk isn't streamed in
@@ -40,12 +42,18 @@ local function onDeposit(player: Player, desk: BasePart)
 		Notifier.send(player, "Your bag is empty. Go make some money!", "Info")
 		return
 	end
-	-- The Interest hustle counts extra toward the quota (not toward their share of the prize).
+	-- The Interest hustle, happy hour and a team combo count extra toward the quota (not toward
+	-- anyone's share of the prize).
 	local interest = math.floor(amount * HustleService.depositBonus(player) + 0.5)
-	QuotaRunService.addProgress(amount + interest)
+	local happy = math.floor(amount * HappyHour.bonus() + 0.5)
 	Juice.deposited(player, amount)
+	local combo = TeamCombo.deposited(player, amount)
+	QuotaRunService.addProgress(amount + interest + happy + combo)
 	if interest > 0 then
 		Juice.deposited(player, interest, "Interest from the bank")
+	end
+	if happy > 0 then
+		Juice.deposited(player, happy, "Happy hour bonus")
 	end
 end
 

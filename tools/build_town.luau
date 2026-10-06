@@ -4,11 +4,12 @@
 -- (scripts/sync-studio.ps1 builds tools.rbxm.) The pieces live in tools/town/.
 --
 -- Tags the code looks for:
---   BankCounter, BankSpawn, StaffSpot           the bank (deposits, spawns), Mr. Penny and Tony
+--   BankCounter, BankSpawn                      the bank (deposits, spawns)
+--   StaffSpot (+ Staff)                         Mr. Penny, the shopkeepers, the job desks' staff
 --   House (+ HouseId, Tier; Door, Lawn, Bin1/2, BackDoor, Kerb, CarSpot)   door knocks, chores
 --   DeliveryDepot, DeliveryDropoff              deliveries
---   StoreCounter, StoreZone                     store robberies, the door bell
---   ShopCounter                                 the upgrades counter (hardware store)
+--   ShopCounter (+ Shop, Staff)                 shop counters: buy or rob (CounterService)
+--   StoreZone                                   the convenience stores' door bell
 --   PoliceSpawn, JailCell, JailExit             police and jail
 --   HidingSpot, ParkSpot, AlleyDrop             heat and door jobs
 --   ParkedCar, ChopShop                         car theft
@@ -16,7 +17,7 @@
 --   TaxiDesk, TaxiSpawn, TaxiStop               taxi shifts
 --   BurgerCounter/Grill/Fryer/Shake/Customer    Burger Barn
 --   CarWashDesk, CarWashBay, CarWashLever       Sudz car wash
---   FlipWreck, TyreStack, PaintBooth            car flipping
+--   FlipWreck, TyreStack (+ ChopShop)          car flipping
 --   FoodCartCounter                             the hot-dog cart
 
 local town = script.Parent:WaitForChild("town")

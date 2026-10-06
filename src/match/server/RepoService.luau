@@ -1,12 +1,11 @@
 --!strict
 -- Repo men, from Repo.FromQuota: the bank's debt collectors go after anyone carrying more than
--- Repo.BagFraction of their bag. A warning first, then one turns up at a patrol point at least
--- Repo.MinSpawnStuds away and chases on foot (slower than a sprint). A tag takes
--- Repo.TakePercent of the cash you carry (not inside the bank). He gives up once you bank or spend it, after
--- Repo.ChaseSeconds, or when the quota ends. A blaster freezes him like a cop. No weapons.
+-- Repo.BagFraction of their bag (Repo Repellent raises it). A warning first, then one turns up
+-- at a patrol point at least Repo.MinSpawnStuds away and chases on foot (slower than a
+-- sprint). A tag takes Repo.TakePercent of the cash you carry (not inside the bank). He gives
+-- up once you bank or spend it, after Repo.ChaseSeconds, or when the quota ends. A blaster
+-- freezes him like a cop. No weapons.
 
-local CollectionService = game:GetService("CollectionService")
-local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,32 +16,23 @@ local EconomyService = require(script.Parent.EconomyService)
 local HustleService = require(script.Parent.HustleService)
 local JailService = require(script.Parent.JailService)
 local Juice = require(script.Parent.Juice)
+local NpcChase = require(script.Parent.NpcChase)
 local NpcService = require(script.Parent.NpcService)
 local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
 local SafeZone = require(script.Parent.SafeZone)
 
-local SPAWN_TAG = "PoliceSpawn" -- the patrol points
-local DIRECT_CHASE_STUDS = 40
-local WAYPOINT_REACHED_STUDS = 4
-local REPATH_SECONDS = 1
 local TICK_SECONDS = 0.1
 local CHECK_SECONDS = 1
 local SUIT = Color3.fromRGB(35, 35, 42)
 local SUIT_DARK = Color3.fromRGB(22, 22, 28)
 
 type Repo = {
-	model: Model,
-	humanoid: Humanoid,
-	root: BasePart,
+	chaser: NpcChase.Chaser,
 	target: Player,
 	givesUpAt: number, -- os.clock()
 	stunnedUntil: number,
-	waypoints: { PathWaypoint },
-	waypointIndex: number,
-	pathing: boolean,
-	nextPathAt: number,
 }
 
 local settings = Config.Repo
@@ -82,71 +72,37 @@ local function remove(repo: Repo, rest: boolean)
 	if index then
 		table.remove(repos, index)
 	end
-	repo.model:Destroy()
+	repo.chaser.model:Destroy()
 	if rest then
 		restUntil[repo.target] = os.clock() + settings.CooldownSeconds
 	end
 end
 
-local function spawnPosition(target: Player): Vector3
-	local root = CharacterUtil.getRoot(target)
-	local from = if root then root.Position else Vector3.zero
-	local best: Vector3? = nil
-	local bestDistance = math.huge
-	for _, spawn in CollectionService:GetTagged(SPAWN_TAG) do
-		if spawn:IsA("BasePart") then
-			local distance = (spawn.Position - from).Magnitude
-			if distance >= settings.MinSpawnStuds and distance < bestDistance then
-				best, bestDistance = spawn.Position, distance
-			end
-		end
-	end
-	return (best or from + Vector3.new(settings.MinSpawnStuds, 0, 0)) + Vector3.new(0, 4, 0)
-end
-
 local function spawnRepo(target: Player)
+	local root = CharacterUtil.getRoot(target)
+	if not root then
+		return
+	end
 	building[target] = true
 	task.spawn(function()
 		local look = NpcService.randomLook()
-		look.shirt, look.pants, look.top, look.bottom, look.hat = SUIT, SUIT_DARK, nil, nil, nil
-		local model = NpcService.makeRig("Repo Man", look)
+		local suit = Config.Outfits.Uniforms.Suit
+		look.shirt, look.pants, look.top, look.bottom, look.hat = SUIT, SUIT_DARK, suit.shirt, suit.pants, nil
+		local chaser = NpcChase.spawn("Repo Man", look, root.Position, settings.MinSpawnStuds, settings.Speed)
 		building[target] = nil
-		local humanoid = model:FindFirstChildOfClass("Humanoid")
-		local root = model:FindFirstChild("HumanoidRootPart")
-		if not humanoid or not root or not root:IsA("BasePart") or not overLimit(target) or repoFor(target) then
-			model:Destroy()
+		if not chaser then
 			return
 		end
-		humanoid.WalkSpeed = settings.Speed
-		NpcService.place(model, CFrame.new(spawnPosition(target)), true)
+		if not overLimit(target) or repoFor(target) then
+			chaser.model:Destroy()
+			return
+		end
 		table.insert(repos, {
-			model = model,
-			humanoid = humanoid,
-			root = root,
+			chaser = chaser,
 			target = target,
 			givesUpAt = os.clock() + settings.ChaseSeconds,
 			stunnedUntil = 0,
-			waypoints = {},
-			waypointIndex = 1,
-			pathing = false,
-			nextPathAt = 0,
 		})
-	end)
-end
-
-local function requestPath(repo: Repo, goal: Vector3)
-	repo.pathing = true
-	repo.nextPathAt = os.clock() + REPATH_SECONDS
-	task.spawn(function()
-		local path = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true })
-		local ok = pcall(function()
-			path:ComputeAsync(repo.root.Position, goal)
-		end)
-		if ok and path.Status == Enum.PathStatus.Success then
-			repo.waypoints = path:GetWaypoints()
-			repo.waypointIndex = 2
-		end
-		repo.pathing = false
 	end)
 end
 
@@ -155,14 +111,14 @@ local function tag(repo: Repo)
 	local account = EconomyService.account(target)
 	local taken = EconomyService.removeCarried(target, account.carried * settings.TakePercent, "repo man")
 	Juice.lost(target, taken, "Repo man took a cut")
-	Sounds.at("Whistle", repo.root)
+	Sounds.at("Whistle", repo.chaser.root)
 	remove(repo, true)
 end
 
 local function chase(repo: Repo)
 	local target = repo.target
 	local targetRoot = CharacterUtil.getRoot(target)
-	if not targetRoot or not repo.model.Parent or not overLimit(target) then
+	if not targetRoot or not repo.chaser.model.Parent or not overLimit(target) then
 		remove(repo, true)
 		if target.Parent and targetRoot and RunState.phase == "Quota" and not JailService.isJailed(target) then
 			Notifier.send(target, "The repo man gave up. Your cash is safe for now.", "Good")
@@ -175,34 +131,16 @@ local function chase(repo: Repo)
 		return
 	end
 	if os.clock() < repo.stunnedUntil then
-		repo.humanoid:MoveTo(repo.root.Position)
+		NpcChase.hold(repo.chaser)
 		return
 	end
-	local distance = (targetRoot.Position - repo.root.Position).Magnitude
+	local distance = NpcChase.step(repo.chaser, targetRoot.Position)
 	if distance <= settings.TagRangeStuds then
-		if not SafeZone.contains(targetRoot.Position) then
-			tag(repo)
+		if SafeZone.contains(targetRoot.Position) then
+			NpcChase.hold(repo.chaser) -- waits by you while you're in the bank
 		else
-			repo.humanoid:MoveTo(repo.root.Position) -- waits by you while you're in the bank
+			tag(repo)
 		end
-		return
-	end
-	if distance < DIRECT_CHASE_STUDS then
-		repo.waypoints = {}
-		repo.humanoid:MoveTo(targetRoot.Position)
-		return
-	end
-	if not repo.pathing and os.clock() >= repo.nextPathAt then
-		requestPath(repo, targetRoot.Position)
-	end
-	local waypoint = repo.waypoints[repo.waypointIndex]
-	if waypoint and (waypoint.Position - repo.root.Position).Magnitude < WAYPOINT_REACHED_STUDS then
-		repo.waypointIndex += 1
-		waypoint = repo.waypoints[repo.waypointIndex]
-	end
-	repo.humanoid:MoveTo(if waypoint then waypoint.Position else targetRoot.Position)
-	if waypoint and waypoint.Action == Enum.PathWaypointAction.Jump then
-		repo.humanoid.Jump = true
 	end
 end
 
@@ -239,7 +177,7 @@ end
 
 function RepoService.isRepo(model: Model): boolean
 	for _, repo in repos do
-		if repo.model == model then
+		if repo.chaser.model == model then
 			return true
 		end
 	end
@@ -249,9 +187,9 @@ end
 -- Zapped by a blaster: he stands still until then.
 function RepoService.stun(model: Model, seconds: number)
 	for _, repo in repos do
-		if repo.model == model then
+		if repo.chaser.model == model then
 			repo.stunnedUntil = os.clock() + seconds
-			repo.humanoid:MoveTo(repo.root.Position)
+			NpcChase.hold(repo.chaser)
 		end
 	end
 end

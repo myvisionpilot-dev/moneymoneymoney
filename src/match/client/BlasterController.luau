@@ -2,18 +2,14 @@
 -- Blasters on our side. With the blaster drawn: click (or tap, or the FIRE button on touch
 -- screens) to fire where you're aiming; the server decides what it hits. Everyone sees each
 -- shot's zap beam, and stars spin over whoever got stunned. If we get zapped, we sit down
--- until the stars clear. A drawn blaster also makes the store tills' hold-up quicker, so we
--- show the quicker hold on those prompts.
+-- until the stars clear.
 
-local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
-local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
 local TouchButtons = require(Shared:WaitForChild("TouchButtons"))
@@ -22,9 +18,6 @@ local UI = require(Shared:WaitForChild("UI"))
 
 local TOOL_NAME = "Blaster"
 local STUN_ATTRIBUTE = "Stunned"
-local STORE_TAG = "StoreCounter"
-local ROB_PROMPT = "RobPrompt"
-local HOLD_ATTRIBUTE = "CrimeHold" -- on ReplicatedStorage: the twist's hold-time multiplier
 local AIM_STUDS = 150 -- how far the FIRE button looks for something to aim at
 local BEAM_SECONDS = 0.25
 local BEAM_COLOR = Color3.fromRGB(90, 230, 255)
@@ -34,22 +27,6 @@ local BlasterController = {}
 local player = Players.LocalPlayer
 local equipped: Tool? = nil
 local lastShot = 0
-
--- The till's hold time on our screen: quicker with a blaster out, and in a Blackout twist (the
--- server checks the same).
-local function updateHoldUps()
-	local settings = Config.Paths.StoreRobbery
-	local twist = ReplicatedStorage:GetAttribute(HOLD_ATTRIBUTE)
-	local seconds = (if equipped then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds)
-		* (if typeof(twist) == "number" then twist else 1)
-	for _, counter in CollectionService:GetTagged(STORE_TAG) do
-		local prompt = counter:FindFirstChild(ROB_PROMPT)
-		if prompt and prompt:IsA("ProximityPrompt") then
-			prompt.HoldDuration = seconds
-			prompt.ActionText = if equipped then "Hold up the till" else "Rob the register"
-		end
-	end
-end
 
 local function fire(target: Vector3)
 	local tool = equipped
@@ -112,7 +89,7 @@ local function showStars(model: Model, seconds: number)
 	gui.StudsOffset = Vector3.new(0, 2.4, 0)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
-	local stars = UI.label({ Size = UDim2.fromScale(1, 1), TextScaled = true, Text = "💫 ⭐ 💫" }, gui)
+	local stars = UI.label({ Size = UDim2.fromScale(1, 1), TextScaled = true, Text = "* * *" }, gui)
 	gui.Adornee = head
 	gui.Parent = player:WaitForChild("PlayerGui")
 	Sounds.at("Stun", head)
@@ -147,7 +124,7 @@ function BlasterController.start()
 	local mouse = player:GetMouse()
 
 	local fireButton = if TouchButtons.enabled()
-		then TouchButtons.add("🔫", "FIRE", 3, function()
+		then TouchButtons.add("", "FIRE", 3, function()
 			fire(screenCentreTarget())
 		end)
 		else nil
@@ -165,14 +142,12 @@ function BlasterController.start()
 		if fireButton then
 			fireButton.button.Visible = true
 		end
-		updateHoldUps()
 	end
 	local function onUnequipped()
 		equipped = nil
 		if fireButton then
 			fireButton.button.Visible = false
 		end
-		updateHoldUps()
 	end
 
 	local function watchCharacter(character: Model)
@@ -193,14 +168,6 @@ function BlasterController.start()
 		watchCharacter(player.Character)
 	end
 	player.CharacterAdded:Connect(watchCharacter)
-
-	ReplicatedStorage:GetAttributeChangedSignal(HOLD_ATTRIBUTE):Connect(updateHoldUps)
-	-- Stores stream in as you get near, so fix each till's hold time as its prompt appears.
-	ProximityPromptService.PromptShown:Connect(function(prompt: ProximityPrompt)
-		if prompt.Name == ROB_PROMPT then
-			updateHoldUps()
-		end
-	end)
 
 	remotes.BlasterFx:onClient(function(shot: Types.BlasterFx)
 		drawShot(shot)

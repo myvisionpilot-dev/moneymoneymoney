@@ -3,7 +3,6 @@
 -- newest sits at the bottom and pushes older ones up; each fades after a few seconds.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TextService = game:GetService("TextService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = require(Shared:WaitForChild("UI"))
@@ -41,23 +40,18 @@ local function getStack(): Frame
 	return frame
 end
 
-local function width(text: string, size: number): number
-	return TextService:GetTextSize(text, size, UI.Fonts.Heading, Vector2.new(2000, 200)).X + 4
-end
-
-local function addText(line: Frame, text: string, size: number, color: Color3, x: number): number
-	local textWidth = width(text, size)
+local function addText(words: Frame, order: number, text: string, size: number, color: Color3, font: Font)
 	local label = UI.label({
-		Position = UDim2.fromOffset(x, 0),
-		Size = UDim2.fromOffset(textWidth, LINE_HEIGHT - 6),
-		Font = UI.Fonts.Heading,
+		LayoutOrder = order,
+		Size = UDim2.fromOffset(0, LINE_HEIGHT - 6),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = font,
 		Text = text,
 		TextSize = size,
 		TextColor3 = color,
 		TextWrapped = false,
-	}, line)
+	}, words)
 	UI.textStroke(label, 2.5)
-	return x + textWidth + GAP
 end
 
 local function fadeOut(line: Frame)
@@ -91,11 +85,28 @@ function MoneyFeed.show(amount: string, color: Color3, label: string)
 	end
 
 	count += 1
-	local line = UI.frame({ Name = "Line", BackgroundTransparency = 1, LayoutOrder = count }, frame)
-	local x = addText(line, amount, AMOUNT_SIZE, color, OVERHANG)
-	x = addText(line, "|", LABEL_SIZE, UI.Colors.Text, x)
-	x = addText(line, label, LABEL_SIZE, UI.Colors.Text, x)
-	line.Size = UDim2.fromOffset(x - GAP + OVERHANG, LINE_HEIGHT)
+	-- The line grows to fit its words; the underline (scale-sized) follows it.
+	local line = UI.frame({
+		Name = "Line",
+		BackgroundTransparency = 1,
+		LayoutOrder = count,
+		Size = UDim2.fromOffset(0, LINE_HEIGHT),
+		AutomaticSize = Enum.AutomaticSize.X,
+	}, frame)
+	local words = UI.frame({
+		Name = "Words",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(0, LINE_HEIGHT),
+		AutomaticSize = Enum.AutomaticSize.X,
+	}, line)
+	local padding = UI.padding(words, 0)
+	padding.PaddingLeft = UDim.new(0, OVERHANG)
+	padding.PaddingRight = UDim.new(0, OVERHANG)
+	local layout = UI.list(words, Enum.FillDirection.Horizontal, GAP)
+	layout.VerticalAlignment = Enum.VerticalAlignment.Top
+	addText(words, 1, amount, AMOUNT_SIZE, color, UI.Fonts.Number)
+	addText(words, 2, "|", LABEL_SIZE, UI.Colors.Text, UI.Fonts.Body)
+	addText(words, 3, label, LABEL_SIZE, UI.Colors.Text, UI.Fonts.Speech)
 	local underline = UI.frame({
 		Name = "Underline",
 		AnchorPoint = Vector2.new(0, 1),

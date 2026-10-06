@@ -1,7 +1,8 @@
 --!strict
 -- Heat: 0 to Police.MaxHeat per player; each whole number is a wanted star.
--- Crimes add heat; it drains after a quiet spell. Hidden in a bush (and not spotted by a cop,
--- which PoliceService reports) it drains faster and straight away.
+-- Crimes add heat, and it all clears Heat.WantedSeconds after your last crime, however many
+-- stars you have (the chase music is that long). The clock runs faster hidden in a bush (and not
+-- spotted by a cop, which PoliceService reports) and with the Ghost hustle.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -10,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
+local Timing = require(ReplicatedStorage.Shared.Timing)
 local BoostService = require(script.Parent.BoostService)
 local HustleService = require(script.Parent.HustleService)
 local TwistService = require(script.Parent.TwistService)
@@ -20,7 +22,8 @@ local HIDING_MARGIN = 2 -- studs around a hiding spot that still count
 
 type State = {
 	heat: number,
-	lastCrimeAt: number,
+	secondsLeft: number, -- until the heat clears (counts down faster when hidden)
+	speed: number, -- how fast that's counting down right now
 	hiding: boolean, -- in a bush
 	spotted: boolean, -- a cop is close enough to see you anyway
 }
@@ -35,19 +38,21 @@ local states: { [Player]: State } = {}
 local function stateOf(player: Player): State
 	local state = states[player]
 	if not state then
-		state = { heat = 0, lastCrimeAt = 0, hiding = false, spotted = false }
+		state = { heat = 0, secondsLeft = 0, speed = 1, hiding = false, spotted = false }
 		states[player] = state
 	end
 	return state
 end
 
--- Only fire when the shown value (tenths of a star) or hiding changes, to keep sync traffic low.
-local function setHeat(player: Player, state: State, heat: number, hiding: boolean)
+-- Only fire when the shown value (tenths of a star), hiding or the countdown's speed changes,
+-- to keep sync traffic low.
+local function setHeat(player: Player, state: State, heat: number, hiding: boolean, speed: number)
 	local before = math.floor(state.heat * 10)
-	local wasHiding = state.hiding
+	local wasHiding, wasSpeed = state.hiding, state.speed
 	state.heat = math.clamp(heat, 0, Config.Police.MaxHeat)
 	state.hiding = hiding
-	if math.floor(state.heat * 10) ~= before or hiding ~= wasHiding then
+	state.speed = speed
+	if math.floor(state.heat * 10) ~= before or hiding ~= wasHiding or speed ~= wasSpeed then
 		HeatService.changed:Fire(player)
 	end
 end
@@ -59,6 +64,15 @@ end
 
 function HeatService.stars(player: Player): number
 	return math.floor(HeatService.get(player))
+end
+
+-- When (server time) their heat will clear at the current pace; 0 with no heat.
+function HeatService.clearsAt(player: Player): number
+	local state = states[player]
+	if not state or state.heat <= 0 then
+		return 0
+	end
+	return Timing.now() + state.secondsLeft / math.max(state.speed, 0.01)
 end
 
 function HeatService.isHiding(player: Player): boolean
@@ -85,24 +99,28 @@ function HeatService.setSpotted(player: Player, spotted: boolean)
 	end
 end
 
--- Crimes add heat (a disguise from the convenience store halves it, the Cool Head hustle
--- lowers it, a Crackdown twist raises it). The debug command can pass a negative amount to
--- cool you down.
+-- Crimes add heat and restart the clock (a disguise from the convenience store halves it, the
+-- Cool Head hustle lowers it, a Crackdown twist raises it). The debug command can pass a
+-- negative amount to cool you down.
 function HeatService.add(player: Player, amount: number)
 	local state = stateOf(player)
-	state.lastCrimeAt = os.clock()
 	local scaled = if amount > 0
 		then amount
 			* BoostService.heatMultiplier(player)
 			* HustleService.heatGainMultiplier(player)
 			* TwistService.heatMultiplier()
 		else amount
-	setHeat(player, state, state.heat + scaled, state.hiding)
+	if scaled > 0 then
+		state.secondsLeft = Config.Heat.WantedSeconds
+	end
+	setHeat(player, state, state.heat + scaled, state.hiding, state.speed)
+	HeatService.changed:Fire(player) -- the clock restarted
 end
 
 function HeatService.clear(player: Player)
 	local state = stateOf(player)
-	setHeat(player, state, 0, state.hiding)
+	state.secondsLeft = 0
+	setHeat(player, state, 0, state.hiding, 1)
 end
 
 local function inHidingSpot(player: Player): boolean
@@ -123,21 +141,21 @@ local function inHidingSpot(player: Player): boolean
 end
 
 local function tick(dt: number)
-	local now = os.clock()
 	for _, player in Players:GetPlayers() do
 		local state = stateOf(player)
 		local hiding = inHidingSpot(player)
 		local hidden = hiding and not state.spotted
+		local speed = HustleService.heatDecayMultiplier(player)
+			* (if hidden then Config.Heat.HidingDecayMultiplier else 1)
 		local heat = state.heat
 		local starsBefore = math.floor(heat)
-		if heat > 0 and (hidden or now - state.lastCrimeAt >= Config.Heat.DecayDelaySeconds) then
-			local rate = Config.Police.HeatDecayPerSecond * HustleService.heatDecayMultiplier(player)
-			if hidden then
-				rate *= Config.Heat.HidingDecayMultiplier
+		if heat > 0 then
+			state.secondsLeft -= dt * speed
+			if state.secondsLeft <= 0 then
+				heat = 0
 			end
-			heat -= rate * dt
 		end
-		setHeat(player, state, heat, hiding)
+		setHeat(player, state, heat, hiding, if heat > 0 then speed else 1)
 		if hidden and starsBefore >= 1 and math.floor(state.heat) == 0 then
 			HeatService.escaped:Fire(player)
 		end

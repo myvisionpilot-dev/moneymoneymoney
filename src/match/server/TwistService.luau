@@ -19,7 +19,6 @@ local settings = Config.Twists
 local pressure = Config.Pressure
 local LIST = settings.List
 local NIGHT_TWEEN = TweenInfo.new(6, Enum.EasingStyle.Sine)
-local HOLD_ATTRIBUTE = "CrimeHold" -- on ReplicatedStorage
 
 local TwistService = {
 	changed = Signal.new() :: Signal.Signal<()>,
@@ -51,13 +50,6 @@ local function apply(list: { Twist })
 		night = night or twist.night == true
 	end
 	setNight(night)
-	-- Clients size the store till's hold prompt with this (BlasterController).
-	ReplicatedStorage:SetAttribute(
-		HOLD_ATTRIBUTE,
-		product(function(twist: Twist): number?
-			return twist.crimeHold
-		end)
-	)
 	TwistService.changed:Fire()
 end
 

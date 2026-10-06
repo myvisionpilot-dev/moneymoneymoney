@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
+local PropModels = require(script.Parent.Parent.PropModels)
 local VehicleModels = require(script.Parent.Parent.VehicleModels)
 local CarDirt = require(script.Parent.CarDirt)
 local DoorTypes = require(script.Parent.DoorTypes)
@@ -22,7 +23,6 @@ local settings = Config.Paths.Doors.Chores
 
 local LONG_GRASS = Color3.fromRGB(62, 128, 52)
 local CUT_GRASS = Color3.fromRGB(128, 196, 96)
-local BIN_COLOR = Color3.fromRGB(40, 110, 60)
 local CAR_COLORS = {
 	Color3.fromRGB(200, 50, 50),
 	Color3.fromRGB(50, 110, 210),
@@ -30,9 +30,6 @@ local CAR_COLORS = {
 	Color3.fromRGB(40, 40, 45),
 	Color3.fromRGB(240, 190, 60),
 }
-
--- Held low in front, like pushing a mower or wheeling a bin.
-local PUSH_OFFSET = CFrame.new(0, -2, -2.6)
 
 local TITLES: { [Residents.Chore]: string } = {
 	Mow = "Mow the lawn",
@@ -95,7 +92,7 @@ local function beginMow(job: Job, kit: Kit)
 			table.insert(job.pieces, patch)
 		end
 	end
-	kit.carry(job, "Mower", Vector3.new(2.4, 1.4, 2.8), Color3.fromRGB(210, 50, 45), PUSH_OFFSET)
+	kit.carry(job, "Mower")
 	job.targets = { lawn.Position }
 	kit.notify(job, "Push the mower over all the long grass!")
 	kit.guide(job)
@@ -123,6 +120,17 @@ end
 
 -- Bins ---------------------------------------------------------------------------------
 
+-- A house's bin with its lid and wheels (parts inside it), shown or hidden.
+local function showBin(bin: BasePart, shown: boolean)
+	bin.Transparency = if shown then 0 else 1
+	bin.CanCollide = shown
+	for _, piece in bin:GetDescendants() do
+		if piece:IsA("BasePart") then
+			piece.Transparency = bin.Transparency
+		end
+	end
+end
+
 local function binTargets(job: Job): { Vector3 }
 	local targets = {}
 	for _, bin in job.pieces do
@@ -145,8 +153,7 @@ local function beginBins(job: Job, kit: Kit)
 				bin:Destroy()
 			end
 			for _, bin in bins do
-				bin.Transparency = 0
-				bin.CanCollide = true
+				showBin(bin, true)
 			end
 		end)
 	end)
@@ -158,13 +165,12 @@ local function beginBins(job: Job, kit: Kit)
 				return
 			end
 			prompt:Destroy()
-			bin.Transparency = 1
-			bin.CanCollide = false
+			showBin(bin, false)
 			local index = table.find(job.pieces, bin)
 			if index then
 				table.remove(job.pieces, index)
 			end
-			job.carried = kit.carry(job, "Bin", bin.Size, BIN_COLOR, PUSH_OFFSET)
+			job.carried = kit.carry(job, "Bin")
 			job.targets = { kerb.WorldPosition }
 			kit.guide(job)
 		end)
@@ -184,12 +190,8 @@ local function tickBins(job: Job, kit: Kit)
 	job.carried = nil
 	-- Out at the kerb, side by side.
 	local side = kerb.WorldCFrame.RightVector * ((#job.placed - 0.5) * 2.6)
-	local bin = prop(
-		"KerbBin",
-		carried.Size,
-		CFrame.new(kerb.WorldPosition + side + Vector3.new(0, carried.Size.Y / 2, 0)) * kerb.WorldCFrame.Rotation,
-		BIN_COLOR
-	)
+	local bin = PropModels.place("Bin", CFrame.new(kerb.WorldPosition + side) * kerb.WorldCFrame.Rotation, workspace)
+	bin.Name = "KerbBin"
 	bin.CanCollide = true
 	table.insert(job.placed, bin)
 	Sounds.at("Knock", bin)
@@ -239,7 +241,7 @@ local function beginCarWash(job: Job, kit: Kit)
 			end
 		end)
 	end
-	kit.carry(job, "Sponge", Vector3.new(1, 0.6, 1.4), Color3.fromRGB(255, 220, 70))
+	kit.carry(job, "Sponge")
 	job.targets = { spot.WorldPosition }
 	kit.notify(job, "Scrub every bit of dirt off the car!")
 	kit.guide(job)

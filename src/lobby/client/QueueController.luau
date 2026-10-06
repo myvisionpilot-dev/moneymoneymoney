@@ -28,7 +28,7 @@ function QueueController.start()
 	local status: Types.QueueStatus? = nil
 
 	local root = UI.root(UI.screen("Queue", 5))
-	local window = UI.window("🚐 HEADING TO TOWN", {
+	local window = UI.window("HEADING TO TOWN", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -16),
@@ -80,7 +80,7 @@ function QueueController.start()
 		LayoutOrder = 4,
 		Size = UDim2.fromOffset(170, 40),
 		BackgroundColor3 = UI.Colors.Danger,
-		Text = "🚪 LEAVE",
+		Text = "LEAVE",
 	}, window.body)
 	leave.Activated:Connect(function()
 		remotes.LeaveQueue:fire(nil)
@@ -88,8 +88,8 @@ function QueueController.start()
 
 	local function renderSizes(current: Types.QueueStatus)
 		hint.Text = if current.isHost
-			then "👑 You're the host: pick the party size"
-			else `👑 {current.hostName} picks the party size`
+			then "You're the host: pick the party size"
+			else `{current.hostName} picks the party size`
 		for size, button in sizeButtons do
 			local selected = size == current.partySize
 			local allowed = current.isHost and size >= current.count
@@ -129,7 +129,7 @@ function QueueController.start()
 			return
 		end
 		local left = current.departsAt - Timing.now()
-		info.Text = `👥 {current.count}/{current.partySize} players  ·  🕐 leaving in {Format.clock(left)}`
+		info.Text = `{current.count}/{current.partySize} players  ·  leaving in {Format.clock(left)}`
 		local second = math.ceil(left)
 		if second ~= lastSecond and second > 0 and second <= BEEP_SECONDS then
 			Sounds.play("Beep", 1.2)

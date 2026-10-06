@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 require(Shared:WaitForChild("Sounds")).preload()
+require(Shared:WaitForChild("Music")).start()
 require(Shared:WaitForChild("Cursor")).start()
 require(Shared:WaitForChild("Movement")).start()
 require(script:WaitForChild("QueueController")).start()

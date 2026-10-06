@@ -1,43 +1,46 @@
 --!strict
--- Store robberies: hold E at a store's register for a big payout and a lot of heat. With a
--- blaster out it's a hold-up: quicker, and it pays more.
--- Each store closes for StoreRobbery.CooldownSeconds afterwards. Unlocks at Paths.Unlocks.StoreRobbery.
+-- Store robberies: pick "Rob the register" when a shopkeeper talks to you (CounterService), then
+-- stay at the counter while it empties: a big payout and a lot of heat. With a blaster out it's
+-- a hold-up: quicker, and it pays more. Each register is empty for StoreRobbery.CooldownSeconds
+-- afterwards. Unlocks at Paths.Unlocks.StoreRobbery.
 
-local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Format = require(ReplicatedStorage.Shared.Format)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
-local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local Timing = require(ReplicatedStorage.Shared.Timing)
 local BlasterService = require(script.Parent.Parent.BlasterService)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
 local PayNotice = require(script.Parent.Parent.PayNotice)
-local PromptGuard = require(script.Parent.Parent.PromptGuard)
 local Stats = require(script.Parent.Parent.Stats)
 local TwistService = require(script.Parent.Parent.TwistService)
 
-local COUNTER_TAG = "StoreCounter"
 local RANGE_SLACK = 3
-local LABEL_REFRESH_SECONDS = 1
+local TICK_SECONDS = 0.2
 
-type Store = {
+-- Called once when a robbery ends: emptied (ok), or cut short with a reason.
+export type OnEnd = (ok: boolean, message: string?) -> ()
+
+type Robbery = {
 	counter: BasePart,
-	prompt: ProximityPrompt,
-	closedUntil: number,
+	endsAt: number,
+	holdUp: boolean,
+	onEnd: OnEnd,
 }
 
 local settings = Config.Paths.StoreRobbery
 local unlockQuota = Config.Paths.Unlocks.StoreRobbery
-local limiter = RateLimiter.new(Config.Security.PromptsPerSecond, 1)
 
-local stores: { Store } = {}
 local context: MoneyPath.Context? = nil
+local emptyUntil: { [BasePart]: number } = {} -- os.clock(); math.huge while it's being robbed
+local robberies: { [Player]: Robbery } = {}
 
 local function getContext(): MoneyPath.Context
 	local current = context
@@ -51,123 +54,138 @@ local function payout(_player: Player, _tier: number): number
 	return math.floor(settings.Pay * getContext().payMultiplier() + 0.5)
 end
 
-local function rob(player: Player, store: Store): (boolean, string?)
+local StoreRobbery = {}
+
+-- Why this register can't be robbed right now ("Opens at quota 2"), or nil if it can.
+function StoreRobbery.status(counter: BasePart): string?
+	if not context or not getContext().isOpen() then
+		return `Opens at quota {unlockQuota}`
+	end
+	local emptyAt = emptyUntil[counter] or 0
+	if emptyAt == math.huge then
+		return "Someone's robbing it"
+	elseif emptyAt > os.clock() then
+		return `Empty for {Format.clock(emptyAt - os.clock())}`
+	end
+	return nil
+end
+
+-- What they'd get: more for a hold-up (blaster out).
+function StoreRobbery.payFor(player: Player): number
+	local base = payout(player, getContext().tier())
+	return if BlasterService.drawn(player) then math.floor(base * Config.Blasters.HoldUpPay + 0.5) else base
+end
+
+-- Starts emptying the register: returns when it'll be done (server time), or nil and why not.
+-- `onEnd` hears how it went.
+function StoreRobbery.begin(player: Player, counter: BasePart, onEnd: OnEnd): (number?, string?)
 	local ctx = getContext()
 	if not ctx.isOpen() then
-		return false, `Stores unlock at quota {unlockQuota}.`
+		return nil, `Robberies start at quota {unlockQuota}.`
 	end
-	-- A hold-up (blaster out) is quicker and pays more.
-	local holdUp = BlasterService.drawn(player)
-	local hold = (if holdUp then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds)
-		* TwistService.crimeHoldMultiplier()
-	if not ctx.canWork(player) or not PromptGuard.held(store.prompt, player, hold) then
-		return false, nil
+	if robberies[player] or not ctx.canWork(player) then
+		return nil, nil
 	end
-	if CharacterUtil.distanceTo(player, store.counter.Position) > settings.RangeStuds + RANGE_SLACK then
-		return false, nil
-	end
-	if os.clock() < store.closedUntil then
-		return false, "This register is empty. Come back later."
+	local reason = StoreRobbery.status(counter)
+	if reason then
+		return nil, `{reason}. Come back later.`
 	end
 	if EconomyService.isFull(player) then
-		return false, "Your bag is full. Deposit at the bank first!"
+		return nil, "Your bag is full. Deposit at the bank first!"
 	end
+	local holdUp = BlasterService.drawn(player)
+	local seconds = (if holdUp then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds)
+		* TwistService.crimeHoldMultiplier()
+	local endsAt = Timing.now() + seconds
+	emptyUntil[counter] = math.huge
+	robberies[player] = { counter = counter, endsAt = endsAt, holdUp = holdUp, onEnd = onEnd }
+	return endsAt, nil
+end
 
-	store.closedUntil = os.clock() + settings.CooldownSeconds
-	local basePay = payout(player, ctx.tier())
-	local pay = if holdUp then math.floor(basePay * Config.Blasters.HoldUpPay + 0.5) else basePay
+function StoreRobbery.isRobbing(player: Player): boolean
+	return robberies[player] ~= nil
+end
+
+local function stop(player: Player, message: string?)
+	local robbery = robberies[player]
+	if not robbery then
+		return
+	end
+	robberies[player] = nil
+	emptyUntil[robbery.counter] = 0
+	robbery.onEnd(false, message)
+end
+
+local function finish(player: Player, robbery: Robbery)
+	robberies[player] = nil
+	emptyUntil[robbery.counter] = os.clock() + settings.CooldownSeconds
+	local basePay = payout(player, getContext().tier())
+	local pay = if robbery.holdUp then math.floor(basePay * Config.Blasters.HoldUpPay + 0.5) else basePay
 	HeatService.add(player, Config.Heat.StoreRobbery)
-	local label = if holdUp then "Store held up" else "Store register emptied"
-	PayNotice.earn(player, pay, label, if holdUp then "store hold-up" else "store robbery", false)
+	local label = if robbery.holdUp then "Store held up" else "Store register emptied"
+	PayNotice.earn(player, pay, label, if robbery.holdUp then "store hold-up" else "store robbery", false)
 	Stats.record(player, "StoreRobbery")
-	local alarm = Sounds.at("Alarm", store.counter, true)
+	local alarm = Sounds.at("Alarm", robbery.counter, true)
 	if alarm then
 		Debris:AddItem(alarm, settings.AlarmSeconds)
 	end
 	Notifier.others(player, "Alarm! Someone just robbed a store.", "Bad")
-	return true, nil
+	robbery.onEnd(true, nil)
 end
 
-local function refreshLabels()
-	local open = context ~= nil and getContext().isOpen()
-	for _, store in stores do
-		local closed = os.clock() < store.closedUntil
-		store.prompt.Enabled = not closed -- stays visible while locked so players see when it opens
-		store.prompt.ObjectText = if open then "Store" else `Unlocks at quota {unlockQuota}`
-	end
-end
-
-local function setupCounter(instance: Instance)
-	if not instance:IsA("BasePart") then
-		return
-	end
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "RobPrompt"
-	prompt.ActionText = "Rob the register"
-	prompt.ObjectText = "Store"
-	-- The quickest hold (a hold-up); each player's own screen shows their real hold time
-	-- (BlasterController), and rob() checks it.
-	prompt.HoldDuration = settings.HoldSeconds / Config.Blasters.HoldUpSpeed
-	prompt.MaxActivationDistance = settings.RangeStuds
-	prompt.RequiresLineOfSight = false
-	PromptGuard.watch(prompt)
-	local store: Store = { counter = instance, prompt = prompt, closedUntil = 0 }
-	table.insert(stores, store)
-	prompt.Triggered:Connect(function(player: Player)
-		if not limiter:allow(player) then
-			return
+-- Walk off (or get busted) before it's empty and it's off.
+local function tick()
+	for player, robbery in robberies do
+		local ctx = getContext()
+		if not ctx.canWork(player) then
+			stop(player, nil)
+		elseif CharacterUtil.distanceTo(player, robbery.counter.Position) > settings.RangeStuds + RANGE_SLACK then
+			stop(player, "You ran off before the register was empty.")
+		elseif Timing.now() >= robbery.endsAt then
+			finish(player, robbery)
 		end
-		local ok, message = rob(player, store)
-		if not ok and message then
-			Notifier.send(player, message, "Info")
-		end
-	end)
-	prompt.Parent = instance
+	end
 end
 
 local function init(newContext: MoneyPath.Context)
 	context = newContext
-	for _, instance in CollectionService:GetTagged(COUNTER_TAG) do
-		setupCounter(instance)
-	end
-	CollectionService:GetInstanceAddedSignal(COUNTER_TAG):Connect(setupCounter)
+	Players.PlayerRemoving:Connect(function(player: Player)
+		stop(player, nil)
+	end)
 	task.spawn(function()
 		while true do
-			refreshLabels()
-			task.wait(LABEL_REFRESH_SECONDS)
+			task.wait(TICK_SECONDS)
+			tick()
 		end
 	end)
 end
 
-local function start(player: Player, source: Instance?): (boolean, string?)
-	for _, store in stores do
-		if store.counter == source then
-			return rob(player, store)
-		end
-	end
-	return false, nil
-end
-
-local function complete(_player: Player): (boolean, string?)
-	return false, nil
-end
-
-local function noJob(_player: Player): boolean
-	return false
-end
-
-local StoreRobbery: MoneyPath.MoneyPath = {
+StoreRobbery.path = {
 	id = "StoreRobbery",
 	displayName = "Store robberies",
 	unlockQuota = unlockQuota,
 	legal = false,
 	init = init,
-	start = start,
-	complete = complete,
-	fail = function(_player: Player, _reason: string) end,
+	start = function(player: Player, source: Instance?): (boolean, string?)
+		if not source or not source:IsA("BasePart") then
+			return false, nil
+		end
+		local endsAt, message = StoreRobbery.begin(player, source, function(_ok: boolean, _message: string?) end)
+		return endsAt ~= nil, message
+	end,
+	complete = function(_player: Player): (boolean, string?)
+		return false, nil
+	end,
+	fail = function(player: Player, reason: string)
+		stop(player, reason)
+	end,
 	payout = payout,
-	hasJob = noJob,
-	cancelAll = function(_reason: string) end,
-}
+	hasJob = StoreRobbery.isRobbing,
+	cancelAll = function(reason: string)
+		for player in robberies do
+			stop(player, reason)
+		end
+	end,
+} :: MoneyPath.MoneyPath
 
 return StoreRobbery

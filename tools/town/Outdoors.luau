@@ -3,7 +3,7 @@
 --
 -- Tags placed here: ParkSpot, PoliceSpawn, ChopShop, ParkedCar,
 -- HidingSpot (via Kit.bush), PedWaypoint (+ Route, Order attributes), RaceJoin, RaceGrid and
--- RaceCheckpoint (+ Order), FlipWreck, TyreStack, PaintBooth, TaxiStop.
+-- RaceCheckpoint (+ Order), FlipWreck, TyreStack, TaxiStop.
 
 local Kit = require(script.Parent.Kit)
 local Layout = require(script.Parent.Layout)
@@ -112,8 +112,8 @@ local function garageLot(parent)
 		)
 	end
 
-	-- Car flipping (Paths/CarFlip): two wreck spots facing the road to the south, a stack of
-	-- tyres, and a paint booth to drive through.
+	-- Car flipping (Paths/CarFlip): two wreck spots facing the road to the south and a stack of
+	-- tyres. Fixed cars get their respray on the chop shop bay.
 	for index, x in { -235, -205 } do
 		local spot = Vector3.new(x, 0.8, 110)
 		Kit.marker(folder, `FlipWreck{index}`, CFrame.lookAt(spot, spot + Vector3.zAxis), "FlipWreck")
@@ -131,31 +131,6 @@ local function garageLot(parent)
 			Kit.tag(tyre, "TyreStack")
 		end
 	end
-	local booth = Kit.model(folder, "PaintBooth")
-	local boothColor = Color3.fromRGB(215, 220, 230)
-	for _, x in { -148.5, -131.5 } do
-		Kit.quiet(Kit.part(booth, "BoothWall", Vector3.new(1, 10, 18), Vector3.new(x, 5.3, 110), boothColor))
-		Kit.decor(
-			Kit.part(
-				booth,
-				"BoothLight",
-				Vector3.new(0.3, 0.6, 16),
-				Vector3.new(x + (if x < -140 then 0.65 else -0.65), 8.5, 110),
-				Color3.fromRGB(255, 255, 240),
-				Enum.Material.Neon
-			)
-		)
-	end
-	Kit.part(booth, "BoothRoof", Vector3.new(19, 1, 18.4), Vector3.new(-140, 10.8, 110), boothColor)
-	local boothSign = Kit.part(
-		booth,
-		"BoothSign",
-		Vector3.new(10, 2, 0.4),
-		Vector3.new(-140, 12.3, 100.6),
-		Color3.fromRGB(150, 60, 220)
-	)
-	Kit.sign(boothSign, Enum.NormalId.Front, "PAINT", Color3.fromRGB(150, 60, 220)) -- faces north
-	Kit.marker(booth, "PaintBoothZone", Vector3.new(-140, 1, 110), "PaintBooth")
 end
 
 local function depotYard(parent)

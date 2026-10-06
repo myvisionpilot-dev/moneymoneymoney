@@ -1,6 +1,6 @@
 --!strict
--- Mr. Penny's speech bubble under the quota panel: his portrait, and each line typing out with soft
--- blips. Lines queue up and show one at a time.
+-- Mr. Penny's announcements: a dark subtitle box under the quota panel, each line typing out
+-- with soft blips. Lines queue up and show one at a time.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,38 +17,36 @@ local PennyController = {}
 
 function PennyController.start()
 	local root = UI.root(UI.screen("Penny", 10))
-	local banner = UI.card(UI.Colors.Panel, {
+	-- A dark see-through subtitle box under the quota panel.
+	local banner = UI.frame({
 		Name = "Banner",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 104),
-		Size = UDim2.fromOffset(380, 0),
+		Position = UDim2.new(0.5, 0, 0, 88),
+		Size = UDim2.fromOffset(400, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = UI.Colors.Speech,
+		BackgroundTransparency = 0.25,
 		Visible = false,
 	}, root)
+	UI.corner(banner, 10)
 	UI.padding(banner, 10)
 
-	local portrait = UI.card(UI.Colors.Money, {
-		Size = UDim2.fromOffset(54, 54),
-	}, banner)
-	UI.corner(portrait, 27)
-	UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 34, Text = "👨‍💼" }, portrait)
-
-	local name = UI.label({
-		Position = UDim2.fromOffset(64, 0),
-		Size = UDim2.new(1, -64, 0, 22),
-		Font = UI.Fonts.Heading,
-		TextSize = 22,
+	UI.plain({
+		Size = UDim2.new(1, 0, 0, 16),
+		FontFace = UI.Fonts.Heading,
+		TextSize = 13,
 		TextColor3 = UI.Colors.Gold,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "MR. PENNY · THE BANK",
+		Text = "MR. PENNY, THE BANK",
 	}, banner)
-	UI.textStroke(name, 2.5)
 
-	local text = UI.label({
-		Position = UDim2.fromOffset(64, 24),
-		Size = UDim2.new(1, -64, 0, 30),
+	local text = UI.plain({
+		Position = UDim2.fromOffset(0, 18),
+		Size = UDim2.new(1, 0, 0, 20),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		TextSize = 17,
+		FontFace = UI.Fonts.Serif,
+		TextSize = 16,
+		TextColor3 = UI.Colors.Text,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
 		Text = "",

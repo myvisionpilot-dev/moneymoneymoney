@@ -9,6 +9,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local JailService = require(script.Parent.JailService)
 local MoneyPath = require(script.Parent.Paths.MoneyPath)
 local Notifier = require(script.Parent.Notifier)
+local QuotaMath = require(script.Parent.QuotaMath)
 local RosterService = require(script.Parent.RosterService)
 local TwistService = require(script.Parent.TwistService)
 
@@ -32,7 +33,7 @@ local function isBusy(player: Player): boolean
 end
 
 local function tierMultiplier(): number
-	return Config.Economy.TierPayoutMultiplier ^ (tier() - 1)
+	return QuotaMath.tierMultiplier(quotaIndex)
 end
 
 local function contextFor(path: MoneyPath.MoneyPath): MoneyPath.Context

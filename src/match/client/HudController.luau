@@ -1,8 +1,11 @@
 --!strict
--- Always-on HUD: quota + progress + timer + next-step hint (top centre); bag, deposited, share, heat and the
--- current job (top right); a jail banner while you're locked up. It also plays the sting when
--- you gain a star, the clang and red flash when you're busted, and beeps for the last 10 seconds.
+-- Always-on HUD in the shop style (blue checkered panels): the quota (name, timer, progress bar
+-- and the next-step hint) top centre; heat, health and the cash you're holding top right, with small lines under them
+-- for what you've banked, your job, boosts, ride, bounty and hustles; a banner while you're in
+-- jail. It also plays the sting when you gain a star, the clang and red flash when you're
+-- busted, beeps for the last 10 seconds, and swaps in the chase music while you're wanted.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
@@ -11,6 +14,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Format = require(Shared:WaitForChild("Format"))
+local Music = require(Shared:WaitForChild("Music"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
@@ -18,10 +22,17 @@ local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
 
 local COUNTDOWN_BEEPS = 10 -- seconds left in a quota when the beeps start
-local HUSTLE_COLOR = Color3.fromRGB(225, 200, 255)
-local BOOST_ORDER = { "Energy", "Disguise", "Candy", "Gloves", "Scanner" }
-local BOOST_ICONS: { [string]: string } =
-	{ Energy = "⚡", Disguise = "🧢", Candy = "🍫", Gloves = "🧤", Scanner = "📻" }
+local PANEL_WIDTH = 236
+local BOOSTS: { { id: string, name: string } } = {
+	{ id = "Energy", name = "Energy" },
+	{ id = "Disguise", name = "Disguise" },
+	{ id = "Candy", name = "Candy" },
+	{ id = "Gloves", name = "Gloves" },
+	{ id = "Scanner", name = "Scanner" },
+}
+local RED = UI.Colors.Danger
+local GREEN = UI.Colors.Money
+local GOLD = UI.Colors.Gold
 
 local PHASE_TITLES: { [Types.Phase]: string } = {
 	Waiting = "WAITING FOR CREW",
@@ -52,7 +63,7 @@ local function showStatus()
 	if label.Text ~= text then
 		label.Text = text
 		if current then
-			UI.pop(label, 0.25)
+			UI.pop(label, 0.15)
 		end
 	end
 	label.TextColor3 = if current then UI.Colors.Gold else UI.Colors.Muted
@@ -69,170 +80,159 @@ function HudController.setJobText(text: string?)
 	local label = jobLabel
 	if label then
 		label.Visible = text ~= nil
-		label.Text = if text then `📦 {text}` else ""
+		label.Text = text or ""
 	end
 end
 
--- A bounce on the bag bar (money came in) or the quota bar (a deposit).
+-- A bounce on the holding bar (money came in) or the quota bar (a deposit).
 function HudController.popBag()
 	if bagBar then
-		UI.pop(bagBar, 0.12)
+		UI.pop(bagBar, 0.08)
 	end
 end
 
 function HudController.popQuota()
 	if quotaBarFrame then
-		UI.pop(quotaBarFrame, 0.1)
+		UI.pop(quotaBarFrame, 0.06)
 	end
 end
 
-local function makeBar(parent: Instance, props: UI.Props, color: Color3): (Frame, Frame, TextLabel)
-	local bar = UI.frame(props, parent)
-	bar.BackgroundColor3 = UI.Colors.PanelDark
-	bar.ClipsDescendants = false
-	UI.corner(bar, 10)
-	UI.stroke(bar, 3)
-	local fill = UI.frame({ Size = UDim2.fromScale(0, 1), BackgroundColor3 = color }, bar)
-	UI.corner(fill, 10)
-	UI.gradient(fill, 0.25)
-	local text = UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 16, ZIndex = 2 }, bar)
-	return bar, fill, text
-end
+type Stat = { title: TextLabel, right: TextLabel, track: Frame, fill: Frame, text: TextLabel }
 
-local function panel(props: UI.Props, parent: Instance): Frame
-	local frame = UI.frame(props, parent)
-	frame.BackgroundColor3 = UI.Colors.Panel
-	UI.corner(frame, 16)
-	UI.stroke(frame, 4)
-	UI.gradient(frame, 0.15)
-	return frame
+-- A row in the status panel: a round icon, a name, something on the right, and a bar.
+local function statRow(parent: Instance, order: number, glyph: string, color: Color3, name: string): Stat
+	local row = UI.frame({ LayoutOrder = order, Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1 }, parent)
+	UI.iconCircle(glyph, color, 30, { Position = UDim2.fromOffset(0, 6) }, row)
+	local title = UI.label({
+		Position = UDim2.fromOffset(38, 0),
+		Size = UDim2.new(0.5, -38, 0, 20),
+		FontFace = UI.Fonts.Heading,
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = false,
+		Text = name,
+	}, row)
+	local right = UI.label({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.new(0.5, 0, 0, 20),
+		FontFace = UI.Fonts.Number,
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextWrapped = false,
+		Text = "",
+	}, row)
+	local track, fill, text =
+		UI.bar(color, { Position = UDim2.fromOffset(38, 23), Size = UDim2.new(1, -38, 0, 17) }, row)
+	return { title = title, right = right, track = track, fill = fill, text = text }
 end
 
 function HudController.start()
 	pcall(function()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false) -- ours is in the status panel
 	end)
+	Music.start()
 
 	local root = UI.root(UI.screen("Hud", 1))
 
-	-- Quota panel
-	local quotaPanel = panel({
+	-- Quota (top centre)
+	local _, quotaPanel = UI.panel(UI.Colors.Panel, {
 		Name = "Quota",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 6),
-		Size = UDim2.fromOffset(340, 90),
+		Size = UDim2.fromOffset(320, 80),
 	}, root)
-
 	local title = UI.label({
-		Position = UDim2.fromOffset(12, 6),
-		Size = UDim2.new(1, -120, 0, 28),
-		Font = UI.Fonts.Heading,
-		TextSize = 26,
-		TextColor3 = UI.Colors.Gold,
+		Position = UDim2.fromOffset(12, 5),
+		Size = UDim2.new(1, -110, 0, 24),
+		FontFace = UI.Fonts.Title,
+		TextSize = 20,
 		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = false,
 		Text = "WAITING FOR CREW",
 	}, quotaPanel)
-	UI.textStroke(title, 3)
-
 	local timer = UI.label({
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 6),
-		Size = UDim2.fromOffset(110, 28),
-		Font = UI.Fonts.Heading,
-		TextSize = 26,
+		Position = UDim2.new(1, -12, 0, 3),
+		Size = UDim2.fromOffset(100, 26),
+		FontFace = UI.Fonts.Number,
+		TextSize = 24,
 		TextXAlignment = Enum.TextXAlignment.Right,
+		TextWrapped = false,
 		Text = "",
 	}, quotaPanel)
-	UI.textStroke(timer, 3)
-
-	local quotaBar, quotaFill, quotaText = makeBar(quotaPanel, {
-		Position = UDim2.fromOffset(12, 38),
-		Size = UDim2.new(1, -24, 0, 26),
-	}, UI.Colors.Money)
+	UI.textStroke(timer, 2.5)
+	local quotaBar, quotaFill, quotaText =
+		UI.bar(GREEN, { Position = UDim2.fromOffset(12, 32), Size = UDim2.new(1, -24, 0, 20) }, quotaPanel)
+	quotaText.TextSize = 14
 	quotaBarFrame = quotaBar
-
 	local status = UI.label({
-		Position = UDim2.fromOffset(12, 67),
+		Position = UDim2.fromOffset(12, 56),
 		Size = UDim2.new(1, -24, 0, 18),
-		TextSize = 14,
+		TextSize = 13,
 		TextColor3 = UI.Colors.Muted,
 		Text = "",
 	}, quotaPanel)
 	statusLabel = status
 
-	-- Cash panel
-	local cashPanel = panel({
-		Name = "Cash",
+	-- Status panel (top right): heat, health, holding, then small lines.
+	local _, statusPanel = UI.panel(UI.Colors.Panel, {
+		Name = "Status",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -8, 0, 6),
-		Size = UDim2.fromOffset(220, 0),
+		Size = UDim2.fromOffset(PANEL_WIDTH, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-	}, root)
-	UI.padding(cashPanel, 9)
-	UI.list(cashPanel, Enum.FillDirection.Vertical, 4)
+	}, root, 320)
+	UI.padding(statusPanel, 8)
+	local layout = UI.list(statusPanel, Enum.FillDirection.Vertical, 4)
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
-	local function row(order: number, text: string, color: Color3?): TextLabel
+	local heat = statRow(statusPanel, 1, "!", RED, "HEAT")
+	heat.right.TextSize = 19
+	heat.right.TextColor3 = GOLD
+	local health = statRow(statusPanel, 2, "+", GREEN, "HEALTH")
+	local holding = statRow(statusPanel, 3, "$", GOLD, "HOLDING")
+	bagBar = holding.track
+
+	local function line(order: number, color: Color3?): TextLabel
 		return UI.label({
 			LayoutOrder = order,
-			Size = UDim2.new(1, 0, 0, 20),
-			TextSize = 16,
+			Size = UDim2.fromScale(1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextSize = 13,
+			TextColor3 = color or UI.Colors.Muted,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = color or UI.Colors.Text,
-			Text = text,
-		}, cashPanel)
+			Text = "",
+		}, statusPanel)
 	end
-
-	row(1, "🎒 BAG", UI.Colors.Muted)
-	local bag, bagFill, bagText = makeBar(cashPanel, {
-		LayoutOrder = 2,
-		Size = UDim2.new(1, 0, 0, 24),
-	}, UI.Colors.Gold)
-	bagBar = bag
-	local depositedLabel = row(3, "🏦 DEPOSITED $0", UI.Colors.Money)
-	local shareLabel = row(4, "📊 YOUR SHARE 0%")
-	local heatLabel = row(5, "🚨 HEAT", UI.Colors.Muted)
-	-- Fills toward the next star, so small crimes (half a star) still show.
-	local heatMeter = UI.frame({
-		LayoutOrder = 6,
-		Size = UDim2.new(1, 0, 0, 8),
-		BackgroundColor3 = UI.Colors.PanelDark,
-		Visible = false,
-	}, cashPanel)
-	UI.corner(heatMeter, 4)
-	UI.stroke(heatMeter, 2)
-	local heatMeterFill = UI.frame({ Size = UDim2.fromScale(0, 1), BackgroundColor3 = UI.Colors.Risk }, heatMeter)
-	UI.corner(heatMeterFill, 4)
-	local bountyLabel = row(7, "", UI.Colors.Danger)
+	local bankedLabel = line(4)
+	local bountyLabel = line(5, Color3.fromRGB(255, 150, 150))
 	bountyLabel.Visible = false
-	local rideLabel = row(8, "", UI.Colors.Gold)
+	local rideLabel = line(6)
 	rideLabel.Visible = false
-	local job = row(9, "", UI.Colors.Gold)
-	job.Size = UDim2.fromScale(1, 0) -- long job titles wrap onto a second line
-	job.AutomaticSize = Enum.AutomaticSize.Y
+	local job = line(7, UI.Colors.Text)
 	job.Visible = false
 	jobLabel = job
-	local boostsLabel = row(10, "", UI.Colors.Gold) -- convenience-store boosts and their time left
+	local boostsLabel = line(8)
 	boostsLabel.Visible = false
-	local hustlesLabel = row(11, "", HUSTLE_COLOR) -- your hustles this run
-	hustlesLabel.Size = UDim2.fromScale(1, 0)
-	hustlesLabel.AutomaticSize = Enum.AutomaticSize.Y
+	local hustlesLabel = line(9, Color3.fromRGB(225, 200, 255))
 	hustlesLabel.Visible = false
 
 	-- Jail banner while you're locked up: low on the screen, so the cell window stays clear
 	-- (above the money lines).
-	local jailBanner = UI.card(UI.Colors.Danger, {
+	local jailBanner, jailContent = UI.panel(UI.Colors.Danger, {
 		Name = "Jail",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -200),
-		Size = UDim2.fromOffset(320, 52),
+		Size = UDim2.fromOffset(300, 46),
 		Visible = false,
 	}, root)
 	local jailText = UI.label({
 		Size = UDim2.fromScale(1, 1),
-		Font = UI.Fonts.Heading,
-		TextSize = 26,
-	}, jailBanner)
-	UI.textStroke(jailText, 3)
+		FontFace = UI.Fonts.Title,
+		TextSize = 22,
+	}, jailContent)
 
 	-- A red flash over the whole screen when you're busted.
 	local flashScreen = UI.screen("Flash", 0)
@@ -244,6 +244,27 @@ function HudController.start()
 		BackgroundTransparency = 1,
 	}, flashScreen)
 
+	-- Health comes straight from your own character.
+	local function watchHealth(character: Model)
+		local humanoid = character:WaitForChild("Humanoid", 10)
+		if not humanoid or not humanoid:IsA("Humanoid") then
+			return
+		end
+		local function show()
+			local fraction = math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
+			health.fill.Size = UDim2.fromScale(fraction, 1)
+			health.fill.BackgroundColor3 = if fraction < 0.35 then RED else GREEN
+			health.right.Text = `{math.floor(fraction * 100 + 0.5)}%`
+		end
+		humanoid.HealthChanged:Connect(show)
+		show()
+	end
+	local player = Players.LocalPlayer
+	if player.Character then
+		task.spawn(watchHealth, player.Character)
+	end
+	player.CharacterAdded:Connect(watchHealth)
+
 	local lastStars = 0
 	local wasJailed = false
 
@@ -251,8 +272,8 @@ function HudController.start()
 		local phaseTitle = PHASE_TITLES[snapshot.phase]
 		if snapshot.phase == "Quota" then
 			phaseTitle = if snapshot.isEndless
-				then `🔥 ENDLESS {snapshot.quotaIndex}`
-				else `💰 QUOTA {snapshot.quotaIndex}`
+				then `ENDLESS QUOTA {snapshot.quotaIndex}`
+				else `QUOTA {snapshot.quotaIndex}`
 		end
 		title.Text = phaseTitle
 
@@ -283,34 +304,30 @@ function HudController.start()
 		if not me then
 			return
 		end
-		bagFill.Size = UDim2.fromScale(math.clamp(me.carried / math.max(me.bagCapacity, 1), 0, 1), 1)
-		bagFill.BackgroundColor3 = if me.carried >= me.bagCapacity then UI.Colors.Danger else UI.Colors.Gold
-		bagText.Text = `{Format.money(me.carried)} / {Format.money(me.bagCapacity)}`
-		depositedLabel.Text = `🏦 DEPOSITED {Format.money(me.deposited)}`
+		local full = me.carried >= me.bagCapacity
+		holding.fill.Size = UDim2.fromScale(math.clamp(me.carried / math.max(me.bagCapacity, 1), 0, 1), 1)
+		holding.fill.BackgroundColor3 = if full then RED else GOLD
+		holding.text.Text = `{Format.money(me.carried)} / {Format.money(me.bagCapacity)}`
+		holding.right.Text = if full then "FULL" else ""
+		holding.right.TextColor3 = Color3.fromRGB(255, 150, 150)
 		local share = if snapshot.teamDeposited > 0 then me.deposited / snapshot.teamDeposited else 0
-		shareLabel.Text = `📊 YOUR SHARE {Format.percent(share)}`
+		bankedLabel.Text = `Banked {Format.money(me.deposited)}  ·  {Format.percent(share)} share`
 
 		local stars = math.floor(me.heat)
-		local shown = string.rep("★", stars) .. string.rep("☆", Config.Police.MaxHeat - stars)
-		local hideText = if not me.hiding
-			then ""
-			elseif me.spotted then "  SPOTTED!"
-			elseif me.heat > 0 then "  hidden"
-			else ""
-		heatLabel.Text = `🚨 HEAT {shown}{hideText}`
-		heatLabel.TextColor3 = if stars >= 1
-			then UI.Colors.Danger
-			elseif me.heat > 0 then UI.Colors.Risk
-			else UI.Colors.Muted
-		heatMeter.Visible = me.heat > 0 and stars < Config.Police.MaxHeat
-		heatMeterFill.Size = UDim2.fromScale(me.heat - stars, 1)
+		heat.right.Text = string.rep("★", stars) .. string.rep("☆", Config.Police.MaxHeat - stars)
+		heat.title.Text = if not me.hiding
+			then "HEAT"
+			elseif me.spotted then "HEAT  SPOTTED"
+			elseif me.heat > 0 then "HEAT  HIDDEN"
+			else "HEAT"
 		if stars > lastStars then
 			Sounds.play("Wanted")
-			UI.pop(heatLabel, 0.3)
+			UI.pop(heat.right, 0.3)
 		elseif stars == 0 and lastStars >= 1 and me.hiding then
 			Sounds.play("Ding") -- lost the police in a bush
 		end
 		lastStars = stars
+		Music.setChase(stars >= 1 and snapshot.phase == "Quota")
 
 		local jailed = me.jailedUntil > Timing.now()
 		if jailed and not wasJailed then
@@ -328,13 +345,13 @@ function HudController.start()
 			end
 		end
 		hustlesLabel.Visible = #hustles > 0
-		hustlesLabel.Text = `⭐ {table.concat(hustles, " · ")}`
+		hustlesLabel.Text = `Hustles: {table.concat(hustles, ", ")}`
 
 		bountyLabel.Visible = me.bounty > 0
-		bountyLabel.Text = `🎯 BOUNTY ON YOU {Format.money(me.bounty)}`
+		bountyLabel.Text = `Bounty on you: {Format.money(me.bounty)}`
 		rideLabel.Visible = me.rideLevel > 0
-		local key = if UserInputService.TouchEnabled then "tap 🏎️" else "R"
-		rideLabel.Text = if me.riding then `🏎️ RIDING · {key} to walk` else `🏎️ KART · {key} to ride`
+		local key = if UserInputService.TouchEnabled then "tap RIDE" else "press R"
+		rideLabel.Text = if me.riding then `Riding your kart ({key} to walk)` else `Kart ready ({key} to ride)`
 	end
 
 	ClientState.changed:Connect(render)
@@ -346,18 +363,25 @@ function HudController.start()
 	RunService.RenderStepped:Connect(function()
 		local me = ClientState.me()
 		local shown: { string } = {}
-		for _, id in BOOST_ORDER do
-			local endsAt = me and me.boosts[id]
+		for _, boost in BOOSTS do
+			local endsAt = me and me.boosts[boost.id]
 			if endsAt and endsAt > Timing.now() then
-				table.insert(shown, `{BOOST_ICONS[id]} {Format.clock(endsAt - Timing.now())}`)
+				table.insert(shown, `{boost.name} {Format.clock(endsAt - Timing.now())}`)
 			end
 		end
 		boostsLabel.Visible = #shown > 0
-		boostsLabel.Text = table.concat(shown, "  ")
+		boostsLabel.Text = table.concat(shown, "  ·  ")
+		-- The heat bar counts down to when your heat clears.
+		local clearsIn = if me and me.heat > 0 then math.max(me.heatClearsAt - Timing.now(), 0) else 0
+		heat.fill.Size = UDim2.fromScale(math.clamp(clearsIn / Config.Heat.WantedSeconds, 0, 1), 1)
+		heat.text.Text = if not me or me.heat <= 0
+			then "Clean"
+			elseif me.heat >= 1 then `WANTED  {Format.clock(clearsIn)}`
+			else `Cools off in {Format.clock(clearsIn)}`
 		local jailLeft = if me then me.jailedUntil - Timing.now() else 0
 		jailBanner.Visible = jailLeft > 0
 		if jailLeft > 0 then
-			jailText.Text = `🚔 BUSTED! Out in {Format.clock(jailLeft)}`
+			jailText.Text = `BUSTED  ·  out in {Format.clock(jailLeft)}`
 		end
 
 		local snapshot = ClientState.snapshot
@@ -366,9 +390,9 @@ function HudController.start()
 			return
 		end
 		local secondsLeft = snapshot.phaseEndsAt - Timing.now()
-		timer.Text = `⏱️ {Format.clock(secondsLeft)}`
+		timer.Text = Format.clock(secondsLeft)
 		local urgent = snapshot.phase == "Quota" and secondsLeft <= Config.Guide.HurrySeconds
-		timer.TextColor3 = if urgent then UI.Colors.Danger else UI.Colors.Text
+		timer.TextColor3 = if urgent then Color3.fromRGB(255, 120, 120) else UI.Colors.Text
 		local whole = math.ceil(secondsLeft)
 		if snapshot.phase == "Quota" and whole <= COUNTDOWN_BEEPS and whole > 0 and whole ~= lastBeep then
 			lastBeep = whole

@@ -120,13 +120,7 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 		startedAt = now,
 		endsAt = now + settings.TimeLimitSeconds,
 		startPosition = root.Position,
-		package = Carry.attach(
-			player,
-			"DeliveryPackage",
-			Vector3.new(1.6, 1.3, 1.6),
-			Color3.fromRGB(176, 128, 72),
-			Enum.Material.Cardboard
-		),
+		package = Carry.prop(player, "Package"),
 	}
 	jobs[player] = job
 

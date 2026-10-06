@@ -89,7 +89,8 @@ local function getGui(): ScreenGui
 	return created
 end
 
--- A round button with a big emoji and a word under it. Lower `order` sits nearer the jump button.
+-- A round button with a word on it (and a short glyph above it, if given: "" for none). Lower
+-- `order` sits nearer the jump button.
 function TouchButtons.add(icon: string, text: string, order: number, onPress: () -> ()): TouchButton
 	local button = UI.button({
 		Name = text,
@@ -108,9 +109,9 @@ function TouchButtons.add(icon: string, text: string, order: number, onPress: ()
 		Text = icon,
 	}, button)
 	local label = UI.label({
-		Position = UDim2.fromScale(0.1, 0.6),
-		Size = UDim2.fromScale(0.8, 0.26),
-		Font = UI.Fonts.Heading,
+		Position = if icon == "" then UDim2.fromScale(0.1, 0.35) else UDim2.fromScale(0.1, 0.6),
+		Size = if icon == "" then UDim2.fromScale(0.8, 0.3) else UDim2.fromScale(0.8, 0.26),
+		FontFace = UI.Fonts.Button,
 		TextScaled = true,
 		Text = text,
 	}, button)

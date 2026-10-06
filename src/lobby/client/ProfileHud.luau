@@ -26,7 +26,7 @@ function ProfileHud.start()
 	UI.padding(panel, 10)
 	UI.list(panel, Enum.FillDirection.Vertical, 6)
 
-	local cred = UI.pill("⭐", UI.Colors.Gold, { LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 34) }, panel)
+	local cred = UI.pill("C", UI.Colors.Gold, { LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 34) }, panel)
 	local streak = UI.label({
 		LayoutOrder = 2,
 		Size = UDim2.fromScale(1, 0),
@@ -48,7 +48,7 @@ function ProfileHud.start()
 		TextSize = 14,
 		TextColor3 = UI.Colors.Gold,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "🎯 TODAY'S CHALLENGE",
+		Text = "TODAY'S CHALLENGE",
 	}, daily)
 	local challenge = UI.label({
 		LayoutOrder = 2,
@@ -85,15 +85,15 @@ function ProfileHud.start()
 		end
 		lastCred = view.cred
 		streak.Text = if view.streak > 0
-			then `🔥 {view.streak}-day streak`
-			else "🔥 Finish a daily challenge to start a streak"
+			then `{view.streak}-day streak`
+			else "Finish a daily challenge to start a streak"
 
 		local today = view.daily
 		challenge.Text = today.text
 		local done = today.done or today.progress >= today.goal
 		fill.Size = UDim2.fromScale(if done then 1 else math.clamp(today.progress / math.max(today.goal, 1), 0, 1), 1)
-		progress.Text = if done then "✅ DONE!" else `{today.progress}/{today.goal}`
-		reward.Text = if today.done then "A new one tomorrow" else `Reward: ⭐ {Format.cred(today.reward)}`
+		progress.Text = if done then "DONE!" else `{today.progress}/{today.goal}`
+		reward.Text = if today.done then "A new one tomorrow" else `Reward: {Format.cred(today.reward)}`
 	end
 
 	ProfileState.changed:Connect(render)

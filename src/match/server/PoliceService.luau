@@ -36,7 +36,14 @@ local BADGE = Color3.fromRGB(255, 200, 60)
 
 -- Any skin tone, always in uniform.
 local function copLook(): NpcService.Look
-	return { skin = NpcService.randomLook().skin, shirt = UNIFORM, pants = UNIFORM_DARK }
+	local uniform = Config.Outfits.Uniforms.Police
+	return {
+		skin = NpcService.randomLook().skin,
+		shirt = UNIFORM,
+		pants = UNIFORM_DARK,
+		top = uniform.shirt,
+		bottom = uniform.pants,
+	}
 end
 
 -- A peaked police cap with a gold badge, welded to the head.
@@ -117,7 +124,6 @@ local function putInCar(model: Model, humanoid: Humanoid, root: BasePart): Align
 			descendant:Destroy() -- the face
 		end
 	end
-	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	local car = VehicleModels.policeCar()
 	VehicleModels.attach(car, root, humanoid, model)
 	local roof = car:FindFirstChild("Cabin")

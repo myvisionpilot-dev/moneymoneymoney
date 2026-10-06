@@ -24,6 +24,7 @@ local Notifier = require(script.Parent.Parent.Notifier)
 local NpcService = require(script.Parent.Parent.NpcService)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local PromptGuard = require(script.Parent.Parent.PromptGuard)
+local PropModels = require(script.Parent.Parent.PropModels)
 local Residents = require(script.Parent.Parent.Residents)
 local ShopService = require(script.Parent.Parent.ShopService)
 local Stats = require(script.Parent.Parent.Stats)
@@ -212,8 +213,8 @@ kit = {
 		return prompt
 	end,
 
-	carry = function(job: Job, name: string, size: Vector3, color: Color3, offset: CFrame?): BasePart?
-		local prop = Carry.attach(job.player, name, size, color, nil, offset)
+	carry = function(job: Job, kind: PropModels.Kind): BasePart?
+		local prop = Carry.prop(job.player, kind)
 		if prop then
 			table.insert(job.props, prop)
 		end
@@ -286,6 +287,14 @@ end
 
 -- Offers -------------------------------------------------------------------------------
 
+-- Where the resident stands (their root), on the doorstep facing out.
+local function residentSpot(house: House): (Vector3, Vector3)
+	local door = house.door
+	local outward = door.CFrame.LookVector
+	local ground = door.Position.Y - door.Size.Y / 2
+	return Vector3.new(door.Position.X, ground + 3, door.Position.Z) + outward * 2.5, outward
+end
+
 local function spawnResident(offer: Offer)
 	task.spawn(function()
 		local house = offer.house
@@ -294,10 +303,7 @@ local function spawnResident(offer: Offer)
 			model:Destroy()
 			return
 		end
-		local door = house.door
-		local outward = door.CFrame.LookVector
-		local ground = door.Position.Y - door.Size.Y / 2
-		local position = Vector3.new(door.Position.X, ground + 3, door.Position.Z) + outward * 2.5
+		local position, outward = residentSpot(house)
 		NpcService.place(model, CFrame.lookAt(position, position + outward))
 		local root = model:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
@@ -368,18 +374,26 @@ local function knock(player: Player, house: House): (boolean, string?)
 	local offer: Offer = {
 		house = house,
 		wildcard = resident.wildcard,
-		expiresAt = now + settings.OfferSeconds,
+		expiresAt = now + settings.AnswerSeconds + settings.OfferSeconds,
 		resident = nil,
 		closed = false,
 	}
 	offers[player] = offer
-	spawnResident(offer)
-	remotes.DoorOffer:fireClient(player, {
-		residentName = resident.name,
-		greeting = resident.greeting,
-		options = options,
-		expiresAt = offer.expiresAt,
-	})
+	-- A moment later the door opens and they come out.
+	task.delay(settings.AnswerSeconds, function()
+		if offers[player] ~= offer or offer.closed or not player.Parent then
+			return
+		end
+		Sounds.at("DoorOpen", house.door)
+		spawnResident(offer)
+		remotes.DoorOffer:fireClient(player, {
+			residentName = resident.name,
+			greeting = resident.greeting,
+			options = options,
+			expiresAt = offer.expiresAt,
+			speakerAt = residentSpot(house) + Vector3.new(0, 3, 0),
+		})
+	end)
 	return true, nil
 end
 

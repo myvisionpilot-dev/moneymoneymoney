@@ -59,7 +59,7 @@ end
 
 local function payBank(hint: string): Step?
 	local desk = deskPosition()
-	return if desk then { hint = hint, marker = "🏦 PAY THE BANK", target = desk } else nil
+	return if desk then { hint = hint, marker = "PAY THE BANK", target = desk } else nil
 end
 
 local function currentStep(): Step?
@@ -75,18 +75,16 @@ local function currentStep(): Step?
 	local earned = me.carried > Config.Match.StartingCash
 	if me.deposited == 0 and not earned then
 		local door = nearestDoor(character:GetPivot().Position)
-		return if door
-			then { hint = "👉 Knock on a door to find work", marker = "🚪 KNOCK", target = door.Position }
-			else nil
+		return if door then { hint = "Knock on a door to find work", marker = "KNOCK", target = door.Position } else nil
 	end
 	if me.carried <= 0 then
 		return nil
 	elseif me.deposited == 0 then
-		return payBank("👉 Take your cash to the bank")
+		return payBank("Take your cash to the bank")
 	elseif me.carried >= me.bagCapacity then
-		return payBank("🎒 Bag full! Empty it at the bank")
+		return payBank("Bag full! Empty it at the bank")
 	elseif snapshot.phaseEndsAt - Timing.now() <= Config.Guide.HurrySeconds and snapshot.progress < snapshot.target then
-		return payBank("⏰ Pay the bank before time runs out!")
+		return payBank("Pay the bank before time runs out!")
 	end
 	return nil
 end
@@ -117,7 +115,7 @@ function GuideController.start()
 	marker.Size = UDim2.fromOffset(150, 58)
 	marker.Enabled = false
 	local tag = UI.card(UI.Colors.Gold, { Size = UDim2.new(1, 0, 0, 36) }, marker)
-	local title = UI.label({ Size = UDim2.fromScale(1, 1), Font = UI.Fonts.Heading, TextSize = 20 }, tag)
+	local title = UI.label({ Size = UDim2.fromScale(1, 1), FontFace = UI.Fonts.Title, TextSize = 20 }, tag)
 	UI.textStroke(title, 2.5)
 	local distance =
 		UI.label({ Position = UDim2.fromOffset(0, 38), Size = UDim2.new(1, 0, 0, 20), TextSize = 15 }, marker)

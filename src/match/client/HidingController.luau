@@ -43,7 +43,7 @@ function HidingController.start()
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.72),
 		Size = UDim2.fromOffset(420, 30),
-		Font = UI.Fonts.Heading,
+		FontFace = UI.Fonts.Heading,
 		TextSize = 22,
 		Visible = false,
 	}, root)
@@ -65,17 +65,17 @@ function HidingController.start()
 			return
 		end
 		if me.spotted then
-			hint.Text = "🚨 SPOTTED! A cop can see you!"
+			hint.Text = "SPOTTED! A cop can see you!"
 			hint.TextColor3 = UI.Colors.Danger
 			if not wasSpotted then
 				Sounds.play("Whistle")
 				UI.pop(hint, 0.3)
 			end
 		elseif me.heat > 0 then
-			hint.Text = "🌿 Hidden! The police lost you."
+			hint.Text = "Hidden! The police lost you."
 			hint.TextColor3 = UI.Colors.Money
 		else
-			hint.Text = "🌿 Hiding spot: lose the police here."
+			hint.Text = "Hiding spot: lose the police here."
 			hint.TextColor3 = UI.Colors.Text
 		end
 		wasSpotted = me.spotted

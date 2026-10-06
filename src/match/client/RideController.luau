@@ -39,7 +39,7 @@ function RideController.start()
 		return Enum.ContextActionResult.Sink
 	end
 
-	local touchButton = if TouchButtons.enabled() then TouchButtons.add("🏎️", "RIDE", 2, hop) else nil
+	local touchButton = if TouchButtons.enabled() then TouchButtons.add("", "RIDE", 2, hop) else nil
 	if touchButton then
 		touchButton.button.Visible = false
 	end
@@ -57,7 +57,7 @@ function RideController.start()
 		end
 		if touchButton then
 			touchButton.button.Visible = usable
-			touchButton.icon.Text = if inVehicle() then "🚶" else "🏎️"
+			touchButton.label.Text = if inVehicle() then "WALK" else "RIDE"
 			touchButton.label.Text = if inVehicle() then "GET OUT" else "RIDE"
 		end
 	end

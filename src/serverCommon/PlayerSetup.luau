@@ -1,6 +1,6 @@
 --!strict
--- Every player, in both places: the normal zoomable camera and Movement.WalkSpeed.
--- Sprinting is handled on the client (shared/Movement).
+-- Every player, in both places: the normal zoomable camera, Movement.WalkSpeed and no
+-- nametag over their head. Sprinting is handled on the client (shared/Movement).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +13,7 @@ local function setupCharacter(character: Model)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if humanoid and humanoid:IsA("Humanoid") then
 		humanoid.WalkSpeed = Config.Movement.WalkSpeed
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	end
 end
 

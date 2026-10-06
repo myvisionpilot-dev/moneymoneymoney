@@ -1,6 +1,6 @@
 --!strict
 -- Stacked pop-up notices on the right side of the screen (left on touch screens; client only):
--- bright outlined cards that bounce in.
+-- checkered cards in the shop style, blue for info, green for good news, red for bad.
 
 local UserInputService = game:GetService("UserInputService")
 
@@ -16,14 +16,8 @@ local stack: Frame? = nil
 
 local KIND_COLORS: { [Types.NoticeKind]: Color3 } = {
 	Info = UI.Colors.Panel,
-	Good = UI.Colors.Money,
+	Good = Color3.fromRGB(60, 175, 75),
 	Bad = UI.Colors.Danger,
-}
-
-local KIND_ICONS: { [Types.NoticeKind]: string } = {
-	Info = "💬",
-	Good = "✅",
-	Bad = "⚠️",
 }
 
 local function getStack(): Frame
@@ -60,31 +54,32 @@ function Toasts.show(text: string, kind: Types.NoticeKind)
 		toasts[1]:Destroy()
 	end
 
-	local toast = UI.card(KIND_COLORS[kind], {
+	-- A checkered card in the kind's colour; it slides out to the side when it's done.
+	local toast = UI.frame({
 		Name = "Toast",
 		Size = UDim2.fromOffset(270, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
 		LayoutOrder = os.clock() * 1000 // 1,
 	}, frame)
-	UI.padding(toast, 8)
-	local label = UI.label({
+	local card, content = UI.panel(KIND_COLORS[kind], {
+		Size = UDim2.fromOffset(270, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, toast, 120)
+	UI.padding(content, 9)
+	UI.label({
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Text = `{KIND_ICONS[kind]} {text}`,
-		TextSize = 16,
+		Text = text,
+		TextSize = 15,
 		TextXAlignment = Enum.TextXAlignment.Left,
-	}, toast)
-	UI.pop(toast, 0.1)
+	}, content)
+	UI.pop(toast, 0.06)
 
 	task.delay(SHOW_SECONDS, function()
 		if toast.Parent then
-			UI.tween(toast, 0.3, { BackgroundTransparency = 1 })
-			UI.tween(label, 0.3, { TextTransparency = 1 })
-			for _, child in toast:GetDescendants() do
-				if child:IsA("UIStroke") then
-					UI.tween(child, 0.3, { Transparency = 1 })
-				end
-			end
+			local away = if UserInputService.TouchEnabled then -300 else 300
+			UI.tween(card, 0.3, { Position = UDim2.fromOffset(away, 0) })
 			task.wait(0.3)
 			toast:Destroy()
 		end

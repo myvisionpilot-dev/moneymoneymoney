@@ -16,7 +16,7 @@ type Spot = { position: Vector3, normal: Vector3 }
 -- Bonnet, boot and the four sides of the body.
 local BODY: { Spot } = {
 	{ position = Vector3.new(0, 3.35, -4), normal = Vector3.yAxis },
-	{ position = Vector3.new(0, 3.35, 4.2), normal = Vector3.yAxis },
+	{ position = Vector3.new(0, 3.35, 5.1), normal = Vector3.yAxis },
 	{ position = Vector3.new(-3.05, 2, -2.5), normal = -Vector3.xAxis },
 	{ position = Vector3.new(3.05, 2, -2.5), normal = Vector3.xAxis },
 	{ position = Vector3.new(-3.05, 2, 3), normal = -Vector3.xAxis },
@@ -25,10 +25,10 @@ local BODY: { Spot } = {
 
 -- Roof, side windows, windscreen and the four wheels.
 local EXTRA: { Spot } = {
-	{ position = Vector3.new(0, 5.35, 0.8), normal = Vector3.yAxis },
-	{ position = Vector3.new(-2.75, 4.3, 0.8), normal = -Vector3.xAxis },
-	{ position = Vector3.new(2.75, 4.3, 0.8), normal = Vector3.xAxis },
-	{ position = Vector3.new(0, 4.3, -2.05), normal = -Vector3.zAxis },
+	{ position = Vector3.new(0, 5.6, 0.8), normal = Vector3.yAxis },
+	{ position = Vector3.new(-2.75, 4.3, -0.6), normal = -Vector3.xAxis },
+	{ position = Vector3.new(2.75, 4.3, -0.6), normal = Vector3.xAxis },
+	{ position = Vector3.new(0, 4.32, -2.64), normal = Vector3.new(0, 0.514, -0.857) }, -- the sloped windscreen
 	{ position = Vector3.new(-3.65, 1.1, -3.8), normal = -Vector3.xAxis },
 	{ position = Vector3.new(3.65, 1.1, -3.8), normal = Vector3.xAxis },
 	{ position = Vector3.new(-3.65, 1.1, 3.8), normal = -Vector3.xAxis },

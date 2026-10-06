@@ -36,6 +36,12 @@ function QuotaMath.earlyBonus(minutes: number, nextTarget: number, playerCount: 
 	return math.floor(share / 10 + 0.5) * 10
 end
 
+-- Pay multiplier at a quota (pay stops rising after Economy.MaxPayoutTier).
+function QuotaMath.tierMultiplier(quotaIndex: number): number
+	local tier = math.clamp(quotaIndex, 1, Config.Economy.MaxPayoutTier)
+	return Config.Economy.TierPayoutMultiplier ^ (tier - 1)
+end
+
 function QuotaMath.scale(playerCount: number): number
 	local scales = Config.Match.PlayerCountScale
 	return scales[math.clamp(playerCount, 1, #scales)]

@@ -2,6 +2,7 @@
 -- Shapes shared by the door-knock modules (DoorKnock, DoorJobs, Chores), kept apart so they
 -- can use each other's types without requiring each other.
 
+local PropModels = require(script.Parent.Parent.PropModels)
 local Residents = require(script.Parent.Parent.Residents)
 
 export type Kind = "Chore" | Residents.Wildcard
@@ -56,7 +57,7 @@ export type Kit = {
 		holdSeconds: number,
 		onDone: (prompt: ProximityPrompt) -> ()
 	) -> ProximityPrompt,
-	carry: (job: Job, name: string, size: Vector3, color: Color3, offset: CFrame?) -> BasePart?,
+	carry: (job: Job, kind: PropModels.Kind) -> BasePart?,
 	root: (job: Job) -> BasePart?,
 	arrived: (job: Job, position: Vector3) -> boolean,
 	tooFast: (job: Job) -> boolean,

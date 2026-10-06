@@ -13,6 +13,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
+local Dialogue = require(script.Parent.Dialogue)
 
 local CARD_HEIGHT = 128
 
@@ -37,6 +38,10 @@ function HustleController.start()
 	}, root)
 	local panel = window.panel
 	Cursor.registerPanel(panel)
+	-- A conversation's answers would sit on top of the picker, so they wait until it's gone.
+	panel:GetPropertyChangedSignal("Visible"):Connect(function()
+		Dialogue.setBlocked(panel.Visible)
+	end)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
 	local row = UI.frame({
@@ -71,7 +76,7 @@ function HustleController.start()
 		local title = UI.label({
 			LayoutOrder = 1,
 			Size = UDim2.new(1, 0, 0, 24),
-			Font = UI.Fonts.Heading,
+			FontFace = UI.Fonts.Title,
 			TextSize = 19,
 			TextColor3 = UI.Colors.Gold,
 			Text = option.title,
@@ -81,7 +86,7 @@ function HustleController.start()
 		UI.label({
 			LayoutOrder = 3,
 			Size = UDim2.new(1, 0, 0, 20),
-			Font = UI.Fonts.Heading,
+			FontFace = UI.Fonts.Heading,
 			TextSize = 14,
 			TextColor3 = if option.stacks > 0 then UI.Colors.Money else UI.Colors.Muted,
 			Text = stackText(option),

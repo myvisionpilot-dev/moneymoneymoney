@@ -2,7 +2,8 @@
 -- Tony's cartoon stun blasters. Buying one puts a Blaster tool in your backpack for the rest of
 -- the run. The client only says where it aimed (FireBlaster); the server checks the cooldown,
 -- range and line of sight, then:
---   a cop freezes for a few seconds (and you gain a little heat); so does a repo man (no heat);
+--   a cop freezes for a few seconds (and you gain a little heat); so does a repo man (no heat),
+--   and event NPCs registered with BlasterService.addTarget (the rival crew) decide for themselves;
 --   a teammate sits down seeing stars and drops part of their bag as a cash bundle that
 --   anyone can grab (you gain heat, and grabbing someone else's cash counts as stealing).
 -- Nobody gets hurt. No blasting in the bank (parts tagged SafeZone), and none to or from a car
@@ -48,18 +49,36 @@ local fireLimiter = RateLimiter.new(Config.Security.RemotesPerSecond, 1)
 
 local BlasterService = {}
 
-local owned: { [Player]: Types.BlasterId } = {}
-local lastShot: { [Player]: number } = {}
+-- Something else blasters can hit (an event's NPCs), besides cops, repo men and players.
+export type Target = {
+	isTarget: (model: Model) -> boolean,
+	hit: (model: Model, shooter: Player, stunSeconds: number) -> (),
+}
 
+local owned: { [Player]: Types.BlasterId } = {} -- bought from Tony
+local loaned: { [Player]: boolean } = {} -- a Zapper lent for an event
+local lastShot: { [Player]: number } = {}
+local targets: { Target } = {}
+
+-- The blaster they bought (not a loaner).
 function BlasterService.owned(player: Player): Types.BlasterId?
 	return owned[player]
+end
+
+local function heldId(player: Player): Types.BlasterId?
+	local loaner: Types.BlasterId = "Zapper"
+	return owned[player] or (if loaned[player] then loaner else nil)
 end
 
 -- True if they're holding their blaster right now.
 function BlasterService.drawn(player: Player): boolean
 	local character = player.Character
 	local tool = character and character:FindFirstChild(TOOL_NAME)
-	return owned[player] ~= nil and tool ~= nil and tool:IsA("Tool")
+	return heldId(player) ~= nil and tool ~= nil and tool:IsA("Tool")
+end
+
+function BlasterService.addTarget(target: Target)
+	table.insert(targets, target)
 end
 
 local function weldedPart(
@@ -112,28 +131,58 @@ local function makeTool(id: Types.BlasterId): Tool
 	return tool
 end
 
--- Puts their blaster in their backpack (again after a respawn).
-local function give(player: Player)
-	local id: Types.BlasterId? = owned[player]
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	if id == nil or not backpack then
-		return
-	end
-	local function removeOld(container: Instance?)
+-- A blaster for an NPC to hold (no scripts; it does nothing on its own).
+function BlasterService.prop(id: Types.BlasterId): Tool
+	return makeTool(id)
+end
+
+local function removeTool(player: Player)
+	for _, container in { player:FindFirstChildOfClass("Backpack"), player.Character } :: { Instance? } do
 		local old = container and container:FindFirstChild(TOOL_NAME)
 		if old then
 			old:Destroy()
 		end
 	end
-	removeOld(backpack)
-	removeOld(player.Character)
+end
+
+-- Puts their blaster in their backpack (again after a respawn).
+local function give(player: Player)
+	local id: Types.BlasterId? = heldId(player)
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not id or not backpack then
+		return
+	end
+	removeTool(player)
 	makeTool(id).Parent = backpack
 end
 
 -- ShopService takes the payment, then calls this.
 function BlasterService.give(player: Player, id: Types.BlasterId)
 	owned[player] = id
+	loaned[player] = nil
 	give(player)
+end
+
+-- Lends a Zapper for an event (if they haven't bought a blaster). True if they got one.
+function BlasterService.lend(player: Player): boolean
+	if owned[player] or loaned[player] then
+		return false
+	end
+	loaned[player] = true
+	give(player)
+	return true
+end
+
+function BlasterService.takeBack(player: Player)
+	if loaned[player] then
+		loaned[player] = nil
+		removeTool(player)
+	end
+end
+
+-- A blaster shot someone else fired (an NPC), on everyone's screen.
+function BlasterService.effect(from: Vector3, to: Vector3)
+	remotes.BlasterFx:fireAll({ from = from, to = to, hit = nil, stunSeconds = 0 })
 end
 
 -- The victim's dropped cash: first to touch it keeps it. Unclaimed, it goes back to them.
@@ -158,7 +207,7 @@ local function dropBundle(victim: Player, amount: number, ground: Vector3)
 	text.TextScaled = true
 	text.TextColor3 = Color3.fromRGB(120, 255, 120)
 	text.TextStrokeTransparency = 0.2
-	text.Text = `💵 {Format.money(amount)}`
+	text.Text = Format.money(amount)
 	text.Parent = label
 	label.Parent = bundle
 	bundle.Parent = workspace
@@ -209,11 +258,26 @@ local function dropBundle(victim: Player, amount: number, ground: Vector3)
 	end)
 end
 
--- The cop or player a hit part belongs to. Cars sit inside their driver's model, so look past them.
+local function extraTarget(model: Model): Target?
+	for _, target in targets do
+		if target.isTarget(model) then
+			return target
+		end
+	end
+	return nil
+end
+
+-- The cop, repo man, event NPC or player a hit part belongs to. Cars sit inside their driver's
+-- model, so look past them.
 local function targetOf(part: BasePart): Model?
 	local model = part:FindFirstAncestorOfClass("Model")
 	while model do
-		if PoliceService.isCop(model) or RepoService.isRepo(model) or Players:GetPlayerFromCharacter(model) then
+		if
+			PoliceService.isCop(model)
+			or RepoService.isRepo(model)
+			or extraTarget(model)
+			or Players:GetPlayerFromCharacter(model)
+		then
 			return model
 		end
 		model = model:FindFirstAncestorOfClass("Model")
@@ -229,6 +293,14 @@ local function stunPlayer(victim: Player, character: Model)
 		end
 	end)
 	Juice.sound(victim, "Stun")
+end
+
+-- Sits them down seeing stars (a zap from a teammate, or knocked out by the rival crew).
+function BlasterService.stunPlayer(victim: Player)
+	local character = victim.Character
+	if character then
+		stunPlayer(victim, character)
+	end
 end
 
 -- Blasting a teammate: they sit down and drop part of their bag.
@@ -259,7 +331,7 @@ local function onFire(player: Player, payload: unknown)
 	if not fireLimiter:allow(player) or typeof(payload) ~= "Vector3" then
 		return
 	end
-	local id = owned[player]
+	local id = heldId(player)
 	local character = player.Character
 	local head = character and character:FindFirstChild("Head")
 	if not id or not character or not head or not head:IsA("BasePart") or not BlasterService.drawn(player) then
@@ -309,6 +381,10 @@ local function onFire(player: Player, payload: unknown)
 	elseif target and RepoService.isRepo(target) then
 		RepoService.stun(target, model.copStunSeconds)
 		hit, stunSeconds = target, model.copStunSeconds
+	elseif target and extraTarget(target) then
+		local extra = extraTarget(target) :: Target
+		extra.hit(target, player, model.copStunSeconds)
+		hit, stunSeconds = target, model.copStunSeconds
 	elseif target then
 		local victim = Players:GetPlayerFromCharacter(target)
 		if victim and blastPlayer(player, victim, target) then
@@ -330,8 +406,7 @@ function BlasterService.start()
 	end
 	Players.PlayerAdded:Connect(watch)
 	Players.PlayerRemoving:Connect(function(player: Player)
-		owned[player] = nil
-		lastShot[player] = nil
+		owned[player], loaned[player], lastShot[player] = nil, nil, nil
 	end)
 end
 

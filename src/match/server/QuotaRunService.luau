@@ -20,7 +20,9 @@ local PrizeMath = require(script.Parent.PrizeMath)
 local PrizeService = require(script.Parent.PrizeService)
 local QuotaMath = require(script.Parent.QuotaMath)
 local RosterService = require(script.Parent.RosterService)
+local RunAwards = require(script.Parent.RunAwards)
 local RunState = require(script.Parent.RunState)
+local StaffService = require(script.Parent.StaffService)
 local Stats = require(script.Parent.Stats)
 local StealService = require(script.Parent.StealService)
 local PennyService = require(script.Parent.PennyService)
@@ -167,6 +169,7 @@ local function sendResults(recipients: { RosterService.Member }, reason: Types.E
 				mvpUserId = mvp,
 				snakeUserId = StealService.snakeUserId(),
 				players = rows,
+				awards = RunAwards.list(),
 				endsAt = endsAt,
 			})
 		end
@@ -226,6 +229,7 @@ local function runDecision(quotaIndex: number): boolean
 			nextQuotaIndex = quotaIndex + 1,
 			nextTarget = nextTarget,
 			endsAt = RunState.phaseEndsAt,
+			speakerAt = StaffService.headAt("Penny"),
 		})
 	end
 	PennyService.say(PennyService.Lines.decision())

@@ -149,7 +149,7 @@ function NpcService.makeRig(name: string, look: Look): Model
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.DisplayName = name
-		humanoid.NameDisplayDistance = 40
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None -- no nametags
 		for _, state in UNUSED_STATES do
 			humanoid:SetStateEnabled(state, false)
 		end

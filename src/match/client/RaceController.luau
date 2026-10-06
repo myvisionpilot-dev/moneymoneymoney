@@ -31,17 +31,17 @@ function RaceController.start()
 	UI.padding(panel, 9)
 	UI.list(panel, Enum.FillDirection.Vertical, 2)
 
-	local function line(order: number, size: number, color: Color3?, font: Enum.Font?): TextLabel
+	local function line(order: number, size: number, color: Color3?, font: Font?): TextLabel
 		return UI.label({
 			LayoutOrder = order,
 			Size = UDim2.new(1, 0, 0, size + 4),
 			TextSize = size,
-			Font = font or UI.Fonts.Body,
+			FontFace = font or UI.Fonts.Body,
 			TextColor3 = color or UI.Colors.Text,
 			TextXAlignment = Enum.TextXAlignment.Left,
 		}, panel)
 	end
-	local title = line(1, 22, UI.Colors.Gold, UI.Fonts.Heading)
+	local title = line(1, 22, UI.Colors.Gold, UI.Fonts.Title)
 	UI.textStroke(title)
 	local progress = line(2, 16)
 	local clock = line(3, 16)
@@ -52,7 +52,7 @@ function RaceController.start()
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.38),
 		Size = UDim2.fromOffset(300, 110),
-		Font = UI.Fonts.Heading,
+		FontFace = UI.Fonts.Number,
 		TextSize = 96,
 		TextColor3 = UI.Colors.Gold,
 		Visible = false,
@@ -101,7 +101,7 @@ function RaceController.start()
 			`Gold {Format.raceTime(pars[1])} · Silver {Format.raceTime(pars[2])} · Bronze {Format.raceTime(pars[3])}`
 
 		if current.state == "Gathering" then
-			title.Text = if current.solo then "⏱️ TIME TRIAL" else "🏁 STREET RACE"
+			title.Text = if current.solo then "TIME TRIAL" else "STREET RACE"
 			progress.Text = `{current.racers} racer{if current.racers == 1 then "" else "s"} · starts in {Format.clock(
 				current.startsAt - now
 			)}`
@@ -113,9 +113,7 @@ function RaceController.start()
 
 		local lapSize = math.max(current.total // math.max(current.laps, 1), 1)
 		local lap = math.min(current.checkpoint // lapSize + 1, current.laps)
-		title.Text = if current.solo
-			then "⏱️ TIME TRIAL"
-			else `🏁 {Format.ordinal(current.place)} OF {current.racers}`
+		title.Text = if current.solo then "TIME TRIAL" else `{Format.ordinal(current.place)} OF {current.racers}`
 		progress.Text = `Lap {lap}/{current.laps} · Checkpoint {current.checkpoint}/{current.total}`
 		clock.Text = if now < current.startsAt then "0:00.0" else Format.raceTime(now - current.startsAt)
 		hint.Text = if current.solo then parText else `Bronze par {Format.raceTime(pars[#pars])} to get paid`

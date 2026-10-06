@@ -25,7 +25,6 @@ local COUNTER_TAG = "FoodCartCounter"
 local CART_ATTRIBUTE = "PushingCart"
 local CHECK_SECONDS = 0.5
 local PAUSE_SECONDS = 1.2 -- a customer stops this long to take their hot dog
-local CART_OFFSET = CFrame.new(0, -1.4, -3.4) -- pushed low in front, like the mower
 
 type Shift = {
 	endsAt: number,
@@ -137,49 +136,9 @@ local function addSellPrompt(player: Player, shift: Shift, pedestrian: Model)
 	end)
 end
 
--- The cart: a stand on wheels with a striped umbrella, pushed in front of you.
+-- The cart (PropModels): a stand on wheels with a striped umbrella, pushed in front of you.
 local function attachCart(player: Player): BasePart?
-	local cart = Carry.attach(
-		player,
-		"HotDogCart",
-		Vector3.new(3, 2.2, 2.2),
-		Color3.fromRGB(235, 235, 235),
-		Enum.Material.SmoothPlastic,
-		CART_OFFSET
-	)
-	if not cart then
-		return nil
-	end
-	local function piece(name: string, size: Vector3, offset: CFrame, color: Color3, shape: Enum.PartType?)
-		local part = Instance.new("Part")
-		part.Name = name
-		part.Shape = shape or Enum.PartType.Block
-		part.Size = size
-		part.Color = color
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.Massless = true
-		part.CFrame = cart.CFrame * offset
-		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = cart
-		weld.Part1 = part
-		weld.Parent = part
-		part.Parent = cart
-	end
-	piece("Stripe", Vector3.new(3.05, 0.5, 2.25), CFrame.new(0, 0.5, 0), Color3.fromRGB(220, 50, 50))
-	piece("Pole", Vector3.new(0.2, 3.4, 0.2), CFrame.new(0, 2.8, 0), Color3.fromRGB(200, 200, 200))
-	piece("Umbrella", Vector3.new(4.6, 0.3, 4.6), CFrame.new(0, 4.5, 0), Color3.fromRGB(255, 200, 40))
-	for _, x in { -1.2, 1.2 } do
-		piece(
-			"CartWheel",
-			Vector3.new(0.3, 1, 1),
-			CFrame.new(x, -1.2, 0),
-			Color3.fromRGB(30, 30, 32),
-			Enum.PartType.Cylinder
-		)
-	end
-	return cart
+	return Carry.prop(player, "HotDogCart")
 end
 
 local function start(player: Player, _source: Instance?): (boolean, string?)

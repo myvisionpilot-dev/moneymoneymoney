@@ -14,11 +14,11 @@ local Leaderboards = require(ServerScriptService.Common.Leaderboards)
 local BOARD_TAG = "Leaderboard"
 local CANVAS = Vector2.new(600, 700)
 local ROW_HEIGHT = 52
-local MEDALS = { "🥇", "🥈", "🥉" }
+local MEDALS = { "1st", "2nd", "3rd" }
 
 local TITLES: { [Leaderboards.Board]: string } = {
-	Cred = "🏆 TOP EARNERS",
-	Quota = "🔥 DEEPEST RUNS",
+	Cred = "TOP EARNERS",
+	Quota = "DEEPEST RUNS",
 }
 
 type Sign = {

@@ -62,7 +62,7 @@ local function makeMarker(point: Attachment, primary: boolean)
 	gui.StudsOffset = Vector3.new(0, 3, 0)
 	local title = UI.label({
 		Size = if primary then UDim2.fromScale(1, 0.6) else UDim2.fromScale(1, 1),
-		Font = UI.Fonts.Heading,
+		FontFace = UI.Fonts.Title,
 		TextScaled = true,
 		TextColor3 = UI.Colors.Gold,
 		Text = "HERE",

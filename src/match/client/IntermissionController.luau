@@ -94,7 +94,7 @@ function IntermissionController.start()
 	local title = UI.label({
 		LayoutOrder = 1,
 		Size = UDim2.new(1, 0, 0, 36),
-		Font = UI.Fonts.Heading,
+		FontFace = UI.Fonts.Title,
 		TextSize = 32,
 	}, panel)
 	UI.textStroke(title, 3)
@@ -113,7 +113,7 @@ function IntermissionController.start()
 	local nextLabel = UI.label({
 		LayoutOrder = 4,
 		Size = UDim2.new(1, 0, 0, 22),
-		Font = UI.Fonts.Heading,
+		FontFace = UI.Fonts.Heading,
 		TextSize = 20,
 		TextColor3 = UI.Colors.Gold,
 	}, panel)
@@ -127,9 +127,7 @@ function IntermissionController.start()
 
 	Remotes.match().QuotaResult:onClient(function(result: Types.QuotaResult)
 		current = result
-		title.Text = if result.passed
-			then `🎉 QUOTA {result.quotaIndex} PAID!`
-			else `QUOTA {result.quotaIndex} MISSED`
+		title.Text = if result.passed then `QUOTA {result.quotaIndex} PAID!` else `QUOTA {result.quotaIndex} MISSED`
 		panel.BackgroundColor3 = if result.passed then UI.Colors.Money else UI.Colors.Danger
 		subtitle.Text = `Team deposited {Format.money(result.total)} of {Format.money(result.target)}`
 

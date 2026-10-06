@@ -16,6 +16,7 @@ export type PlayerRow = {
 	status: PlayerStatus,
 	decided: boolean,
 	heat: number, -- 0 to Police.MaxHeat; whole numbers are stars
+	heatClearsAt: number, -- server time the heat clears at the current pace (0 with none)
 	hiding: boolean, -- in a bush
 	spotted: boolean, -- in a bush, but a cop is close enough to see you
 	jailedUntil: number, -- 0 when free
@@ -39,6 +40,15 @@ export type HustleView = {
 export type HustleOffer = {
 	options: { HustleView },
 	endsAt: number, -- a random one is picked for you then
+}
+
+-- The town event going on right now (Config.Events), as your screen shows it.
+export type TownEventView = {
+	id: string,
+	title: string,
+	detail: string,
+	marker: Vector3?, -- where to go, if anywhere
+	endsAt: number,
 }
 
 -- A quota twist (Config.Twists), as the HUD shows it.
@@ -91,7 +101,27 @@ export type DoorOffer = {
 	greeting: string,
 	options: { DoorOfferOption },
 	expiresAt: number,
+	speakerAt: Vector3, -- just above the resident's head (what they say floats there)
 }
+
+-- Talking to a shopkeeper (or anyone else with something to say).
+export type TalkOption = {
+	text: string,
+	detail: string?, -- small text on the right: pay, heat, why it's locked
+	heat: boolean?, -- it's a crime (an orange card)
+	locked: boolean?, -- shown but can't be picked
+}
+
+export type Talk = {
+	id: number, -- answer with this id
+	name: string,
+	line: string,
+	speakerAt: Vector3,
+	options: { TalkOption }, -- none: just a line
+	progress: { label: string, endsAt: number }?, -- e.g. emptying the register
+}
+
+export type TalkAnswer = { id: number, choice: number }
 
 export type UpgradeId = "Bag" | "Lockpick" | "Ride"
 export type BoostId = "Energy" | "Disguise" | "Candy" | "Gloves" | "Scanner"
@@ -166,6 +196,7 @@ export type DecisionPrompt = {
 	nextQuotaIndex: number,
 	nextTarget: number,
 	endsAt: number,
+	speakerAt: Vector3?, -- over Mr. Penny's head (his conversation box floats there)
 }
 
 export type ResultRow = {
@@ -177,6 +208,13 @@ export type ResultRow = {
 	status: PlayerStatus,
 }
 
+-- A fun title on the results screen ("BIGGEST PAYDAY · Sam · $12,000 in one go").
+export type Award = {
+	title: string,
+	name: string,
+	detail: string,
+}
+
 export type RunResults = {
 	reason: EndReason,
 	highestQuota: number,
@@ -184,6 +222,7 @@ export type RunResults = {
 	mvpUserId: number?,
 	snakeUserId: number?,
 	players: { ResultRow },
+	awards: { Award },
 	endsAt: number,
 }
 

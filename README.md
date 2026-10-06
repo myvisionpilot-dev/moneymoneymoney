@@ -2,7 +2,10 @@
 
 A 1–6 player Roblox quota run: pay the bank each quota (7 minutes, then 9, 10, 11, 12), split the prize by contribution.
 From quota 2 each quota rolls a twist (Rush Hour, Blackout, Sale Day...: `Config.Twists`) and everyone picks a hustle,
-a run perk (`Config.Hustles`); paying early puts a bonus in everyone's bag; the cash-out vote comes after quota 3 and every quota after; from quota 4 cops get tougher and repo men
+a run perk (`Config.Hustles`); every few minutes a town event happens (cash drop, armoured truck, VIP fare, happy hour,
+fire sale, a rival crew with blasters, and with 2+ players a hustle-off: `Config.Events`, `src/match/server/Events/`);
+everyone banking within 30s of each other is a team combo (`Config.TeamCombo`); the results screen hands out fun awards
+(`RunAwards`); paying early puts a bonus in everyone's bag; the cash-out vote comes after quota 3 and every quota after; from quota 4 cops get tougher and repo men
 chase anyone carrying more than half a bag.
 One universe, two places, each synced from its own Rojo project.
 
@@ -24,11 +27,10 @@ then `tools/build_lobby_extras.luau` (speed shop stand and leaderboards), pasted
 `tools/build_town.luau` with its pieces in `tools/town/` (layout, roads, bank and shops, 60 houses, park and yards);
 after `scripts/sync-studio.ps1`, run `require(game:GetObjects("rbxasset://mmm/tools.rbxm")[1].build_town)`.
 Code finds map points by CollectionService tags: `QueuePad`, `PerkShop`, `Leaderboard`, `BankCounter`,
-`BankSpawn`, `StaffSpot`, `DeliveryDepot`, `DeliveryDropoff`, `House`, `HidingSpot`, `StoreCounter`,
-`StoreZone`, `ShopCounter`, `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`, `AlleyDrop`,
+`BankSpawn`, `StaffSpot`, `DeliveryDepot`, `DeliveryDropoff`, `House`, `HidingSpot`, `StoreZone`,
+`ShopCounter` (with `Shop` and `Staff`), `PoliceSpawn`, `JailCell`, `JailExit`, `PedWaypoint`, `ParkSpot`, `AlleyDrop`,
 `ParkedCar`, `ChopShop`, and for the legal jobs `TaxiDesk`, `TaxiSpawn`, `TaxiStop`, `BurgerCounter`, `BurgerGrill`,
-`BurgerFryer`, `BurgerShake`, `BurgerCustomer`, `CarWashDesk`, `CarWashBay`, `CarWashLever`, `FlipWreck`, `TyreStack`,
-`PaintBooth`, `FoodCartCounter`. No floating labels: buildings carry painted signs. After changing the town, run
+`BurgerFryer`, `BurgerShake`, `BurgerCustomer`, `CarWashDesk`, `CarWashBay`, `CarWashLever`, `FlipWreck`, `TyreStack`, `FoodCartCounter`. No floating labels: buildings carry painted signs. After changing the town, run
 `tools/find_zfighting.luau` to check for flickering faces.
 
 ## Saving
@@ -58,15 +60,21 @@ src/shared/        ReplicatedStorage.Shared: Config, Remotes, Types, Catalog (pe
 src/serverCommon/  ServerScriptService.Common: Profiles, Daily, Badges, Perks, Leaderboards, ProfileSync,
                    SafeTeleport, RateLimiter, Admin, Vendor/ProfileStore (both places)
 src/lobby/         QueueService (pads → reserved Match server), speed shop (permanent perks), leaderboard boards, profile panel
-src/match/server/  QuotaRunService (state machine), Twists (+ late-game pressure), Hustles, Repo men, Economy, Deposit, Prize,
+src/match/server/  QuotaRunService (state machine), Twists (+ late-game pressure), Hustles, Events + Events/*, Repo men,
+                   Economy, Deposit, Prize,
                    Path + Paths/*, Heat, Police, Jail,
-                   Shop, Vehicles, Steal, NPCs, Staff, MovementGuard, Sync, Penny (the bank), Debug
-src/match/client/  HUD, money lines ("+$1,500 | Package delivered"), Mr. Penny's banner, next-step guide, job guide,
-                   door offers, shop, pickpocket, results
+                   Shop + Counters (talk to the shopkeeper: buy or rob), Vehicles (car bodies: VehicleModels),
+                   job props (PropModels: dog, mower, bins...), Steal, NPCs, Staff, MovementGuard, Sync,
+                   Penny (the bank), Debug
+src/match/client/  HUD, money lines ("+$1,500 | Package delivered"), Mr. Penny's subtitles, conversations (Dialogue:
+                   the speaker's line over their head, numbered answer cards, orange when it adds heat; door
+                   offers, shopkeepers, the cash-out choice), next-step guide, job guide, shop (3D item pictures
+                   from shared/ItemModels turning in front of light rays), pickpocket, results
+src/shared/Music   quiet background music, swapped for the chase track while you're wanted (Config.Music)
 ```
 
 Every tunable number is in `src/shared/Config.luau`. The server owns all money: clients only send intents
-(`SubmitDecision`, `ChooseDoorOffer`, `BuyItem`, `SetRiding`, `PickHustle`, `LeaveQueue`, `ClientReady`, `BuyPerk`); jobs, crimes,
+(`SubmitDecision`, `ChooseDoorOffer`, `TalkAnswer`, `BuyItem`, `SetRiding`, `PickHustle`, `LeaveQueue`, `ClientReady`, `BuyPerk`); jobs, crimes,
 races and arrests use server-checked ProximityPrompts. Every Cred change goes through `Profiles.addCred` and is logged.
 
 ## Debug commands
@@ -85,6 +93,7 @@ Chat commands for the game owner, anyone in `Config.Debug.AdminUserIds`, and eve
 | `/drive [kart] [top speed]` | A car (or kart) where you stand |
 | `/twist <id\|none>` | Swap this quota's twist (ids in `Config.Twists`, e.g. `blackout`) |
 | `/hustle <id>` | Give yourself a hustle (ids in `Config.Hustles`, e.g. `deeppockets`) |
+| `/event <id>` | Start a town event now: `cashdrop`, `happyhour`, `firesale`, `vipfare`, `armouredtruck`, `rivalcrew`, `hustleoff` |
 
 In Studio, `game.ServerStorage.DebugHook:Invoke("cash", "5000")` runs the same commands from the server command bar.
 Set `Config.Debug.Enabled = true` to run every phase timer at `TimerScale` speed.

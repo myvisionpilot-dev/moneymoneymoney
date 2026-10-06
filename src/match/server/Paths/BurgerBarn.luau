@@ -126,14 +126,7 @@ end
 local function setReady(current: Shift, item: Item)
 	current.ready[item] = true
 	if not current.tray then
-		current.tray = Carry.attach(
-			current.player,
-			"Tray",
-			Vector3.new(2, 0.2, 1.4),
-			Color3.fromRGB(200, 60, 50),
-			Enum.Material.SmoothPlastic,
-			CFrame.new(0, -0.4, -1.4)
-		)
+		current.tray = Carry.prop(current.player, "Tray")
 	end
 	Juice.sound(current.player, "Ding")
 	refresh(current)

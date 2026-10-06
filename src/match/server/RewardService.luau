@@ -34,7 +34,7 @@ local RewardService = {}
 local function award(player: Player, data: Profiles.Data, id: string)
 	local name = Badges.award(data, id)
 	if name then
-		Notifier.send(player, `🏅 Badge earned: {name}!`, "Good")
+		Notifier.send(player, `Badge earned: {name}!`, "Good")
 		Juice.sound(player, "Badge")
 	end
 end
@@ -47,11 +47,7 @@ local function onStat(player: Player, stat: string, amount: number)
 	local result = Daily.record(data, stat, amount)
 	if result.completed then
 		Profiles.addCred(player, data, result.reward, "daily challenge")
-		Notifier.send(
-			player,
-			`⭐ Daily challenge done! +{Format.cred(result.reward)} (streak: {result.streak})`,
-			"Good"
-		)
+		Notifier.send(player, `Daily challenge done! +{Format.cred(result.reward)} (streak: {result.streak})`, "Good")
 		Juice.sound(player, "Badge")
 		if result.streak >= Config.Badges.RegularStreakDays then
 			award(player, data, "Regular")

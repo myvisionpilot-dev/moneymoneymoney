@@ -1,10 +1,10 @@
 --!strict
 -- Car flipping: buy one of the wrecks in the lot behind Speedy's for CarFlip.Cost (from your
 -- bag), then fix it up: bang out the dents and carry a tyre from the stack to each flat wheel.
--- Drive it through the paint booth, then onto the marked buyer's driveway for SalePrice (richer
+-- Drive it to the chop shop for a respray, then onto the marked buyer's driveway for SalePrice (richer
 -- streets pay a bit more). Run out of time (TimeLimitSeconds), get out of the car, get busted
 -- or let the quota end, and the money you paid for the wreck is gone.
--- Map tags: FlipWreck (where a wreck sits, facing the way it drives off), TyreStack, PaintBooth.
+-- Map tags: FlipWreck (where a wreck sits, facing the way it drives off), TyreStack, ChopShop.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -26,7 +26,7 @@ local JobKit = require(script.Parent.JobKit)
 
 local WRECK_TAG = "FlipWreck"
 local TYRE_TAG = "TyreStack"
-local BOOTH_TAG = "PaintBooth"
+local SHOP_TAG = "ChopShop" -- the respray bay (car theft hands stolen cars in there too)
 local HOUSE_TAG = "House"
 local CHECK_SECONDS = 0.2
 local REFRESH_SECONDS = 1
@@ -132,14 +132,14 @@ local function guide(job: Job)
 		end
 		if #markers == 0 and job.wreck.model then
 			table.insert(markers, job.wreck.model:GetPivot().Position)
-			title = "Drive it to the paint booth"
+			title = "Drive it to the chop shop"
 		end
 	elseif job.stage == "Paint" then
-		local booth = JobKit.first(BOOTH_TAG)
-		if booth then
-			table.insert(markers, booth.Position)
+		local shop = JobKit.first(SHOP_TAG)
+		if shop then
+			table.insert(markers, shop.Position)
 		end
-		title = "Paint booth"
+		title = "Respray at the chop shop"
 	else
 		table.insert(markers, job.buyer)
 		title = "Sell it to the buyer"
@@ -189,7 +189,11 @@ local function readyToDrive(job: Job)
 	if not upper then
 		return
 	end
-	Notifier.send(job.player, "Fixed up! Drive it through the paint booth. Don't get out, or you lose it.", "Good")
+	Notifier.send(
+		job.player,
+		"Fixed up! Drive it to the chop shop for a respray. Don't get out, or you lose it.",
+		"Good"
+	)
 	table.insert(
 		job.prompts,
 		JobKit.prompt(upper, {
@@ -337,18 +341,7 @@ local function startRepairs(job: Job, model: Model)
 					if job.tyre or #job.flats == 0 or job.stage ~= "Repair" then
 						return
 					end
-					local tyre = Carry.attach(
-						job.player,
-						"Tyre",
-						Vector3.new(1, 2.2, 2.2),
-						Color3.fromRGB(30, 30, 32),
-						Enum.Material.SmoothPlastic,
-						CFrame.new(0, -0.6, -1.6)
-					)
-					if tyre and tyre:IsA("Part") then
-						tyre.Shape = Enum.PartType.Cylinder
-					end
-					job.tyre = tyre
+					job.tyre = Carry.prop(job.player, "Tyre")
 					guide(job)
 				end
 			)
@@ -453,7 +446,7 @@ local function repaint(job: Job)
 	local color = FRESH[rng:NextInteger(1, #FRESH)]
 	if car then
 		for _, part in car:GetDescendants() do
-			if part:IsA("BasePart") and (part.Name == "Lower" or part.Name == "Upper") then
+			if part:IsA("BasePart") and part:GetAttribute("Paint") then
 				part.Color = color
 				part.Reflectance = 0.15
 			end
@@ -461,13 +454,13 @@ local function repaint(job: Job)
 	end
 	job.stage = "Sell"
 	Juice.sound(job.player, "Ding")
-	Notifier.send(job.player, "Fresh paint! Now drive it onto the buyer's driveway.", "Good")
+	Notifier.send(job.player, "Fresh paint from the chop shop! Now drive it onto the buyer's driveway.", "Good")
 	guide(job)
 end
 
 local function checkJobs()
 	local now = Timing.now()
-	local booth = JobKit.first(BOOTH_TAG)
+	local shop = JobKit.first(SHOP_TAG)
 	for player, job in jobs do
 		if not player.Parent then
 			clear(job)
@@ -475,8 +468,8 @@ local function checkJobs()
 			fail(player, "Out of time!")
 		elseif job.stage ~= "Repair" and VehicleService.kind(player) ~= "FlipCar" then
 			fail(player, "You got out of the car.")
-		elseif job.stage == "Paint" and booth then
-			if CharacterUtil.distanceTo(player, booth.Position) <= settings.BoothRadiusStuds then
+		elseif job.stage == "Paint" and shop then
+			if CharacterUtil.distanceTo(player, shop.Position) <= settings.ChopShopRadiusStuds then
 				repaint(job)
 			end
 		elseif job.stage == "Sell" then

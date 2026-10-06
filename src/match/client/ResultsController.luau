@@ -1,6 +1,7 @@
 --!strict
--- End-of-run screen: podium, everyone's contribution and prize, MVP and Snake, and the Cred you
--- earned. A fanfare for cashing out, a sad sting when the bank wasn't paid.
+-- End-of-run screen: podium, everyone's contribution and prize, MVP and Snake, fun awards
+-- (Biggest Payday...) and the Cred you earned. A fanfare for cashing out, a sad sting when the
+-- bank wasn't paid.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,7 +15,7 @@ local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 
-local MEDALS = { "🥇", "🥈", "🥉" }
+local MEDALS = { "1st", "2nd", "3rd" }
 
 local ResultsController = {}
 
@@ -34,17 +35,17 @@ end
 local function resultRow(parent: Instance, index: number, row: Types.ResultRow, results: Types.RunResults)
 	local isMe = row.userId == Players.LocalPlayer.UserId
 	local color = if isMe then UI.Colors.Gold else UI.Colors.Text
-	local frame = UI.card(if isMe then UI.Colors.PanelDark else UI.Colors.Panel, {
+	local _, frame = UI.panel(if isMe then UI.Colors.PanelDark else UI.Colors.Panel, {
 		LayoutOrder = index + 1,
 		Size = UDim2.new(1, 0, 0, 30),
 	}, parent)
 	UI.padding(frame, 4)
 	local name = `{MEDALS[index] or Format.ordinal(index)} {row.name}`
 	if row.userId == results.mvpUserId then
-		name ..= " 👑"
+		name ..= " (MVP)"
 	end
 	if row.userId == results.snakeUserId then
-		name ..= " 🐍"
+		name ..= " (Snake)"
 	end
 	if row.status == "Left" then
 		name ..= " (left)"
@@ -53,6 +54,28 @@ local function resultRow(parent: Instance, index: number, row: Types.ResultRow, 
 	cell(frame, 0.44, 0.22, Format.money(row.deposited), UI.Colors.Money, Enum.TextXAlignment.Right)
 	cell(frame, 0.68, 0.14, Format.percent(row.share), color, Enum.TextXAlignment.Right)
 	cell(frame, 0.84, 0.16, Format.number(row.prize), UI.Colors.Gold, Enum.TextXAlignment.Right)
+end
+
+-- A fun title: "BIGGEST PAYDAY", then "Sam · $12,000 in one go".
+local function awardCard(parent: Instance, index: number, award: Types.Award)
+	local _, card = UI.panel(UI.Colors.Purple, { LayoutOrder = index }, parent)
+	UI.padding(card, 4)
+	local title = UI.label({
+		Size = UDim2.fromScale(1, 0.5),
+		FontFace = UI.Fonts.Heading,
+		TextSize = 15,
+		TextColor3 = UI.Colors.Gold,
+		Text = award.title,
+	}, card)
+	UI.textStroke(title, 2)
+	UI.label({
+		Position = UDim2.fromScale(0, 0.5),
+		Size = UDim2.fromScale(1, 0.5),
+		TextSize = 13,
+		TextWrapped = false,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Text = `{award.name} · {award.detail}`,
+	}, card)
 end
 
 function ResultsController.start()
@@ -85,7 +108,7 @@ function ResultsController.start()
 	local earned = UI.label({
 		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, 44),
-		Font = UI.Fonts.Heading,
+		FontFace = UI.Fonts.Number,
 		TextSize = 38,
 		TextColor3 = UI.Colors.Gold,
 	}, window.body)
@@ -99,8 +122,16 @@ function ResultsController.start()
 	}, window.body)
 	UI.list(table_, Enum.FillDirection.Vertical, 4)
 
-	local footer = UI.label({
+	local awards = UI.frame({
 		LayoutOrder = 4,
+		Size = UDim2.fromScale(1, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+	}, window.body)
+	UI.grid(awards, UDim2.new(0.5, -3, 0, 46), 6)
+
+	local footer = UI.label({
+		LayoutOrder = 5,
 		Size = UDim2.new(1, 0, 0, 20),
 		TextSize = 16,
 	}, window.body)
@@ -110,12 +141,12 @@ function ResultsController.start()
 	Remotes.match().RunResults:onClient(function(results: Types.RunResults)
 		endsAt = results.endsAt
 		local failed = results.reason == "Failed"
-		window.title.Text = if failed then "💸 THE BANK WASN'T PAID" else "🎉 YOU CASHED OUT!"
+		window.title.Text = if failed then "THE BANK WASN'T PAID" else "YOU CASHED OUT!"
 		panel.BackgroundColor3 = if failed then UI.Colors.Danger else UI.Colors.Money
 		subtitle.Text = if failed
 			then `Quotas cleared: {results.highestQuota}. A failed run keeps only part of your prize.`
 			else `Quotas cleared: {results.highestQuota}`
-		earned.Text = `⭐ +{Format.cred(results.yourPrize)}`
+		earned.Text = `+{Format.cred(results.yourPrize)}`
 
 		for _, child in table_:GetChildren() do
 			if child:IsA("Frame") then
@@ -135,6 +166,14 @@ function ResultsController.start()
 		for index, row in results.players do
 			resultRow(table_, index, row, results)
 		end
+		for _, child in awards:GetChildren() do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		for index, award in results.awards do
+			awardCard(awards, index, award)
+		end
 
 		overlay.Visible = true
 		UI.pop(panel, 0.08)
@@ -144,7 +183,7 @@ function ResultsController.start()
 
 	RunService.RenderStepped:Connect(function()
 		if overlay.Visible then
-			footer.Text = `🏠 Back to the lobby in {Format.clock(endsAt - Timing.now())}`
+			footer.Text = `Back to the lobby in {Format.clock(endsAt - Timing.now())}`
 		end
 	end)
 end

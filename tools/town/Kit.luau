@@ -109,8 +109,9 @@ function Kit.model(parent, name)
 	return m
 end
 
--- A painted sign on one face of a part (no floating labels anywhere in town).
-function Kit.sign(part, face, text, background, textColor)
+-- A painted sign on one face of a part (no floating labels anywhere in town). Each business
+-- picks its own lettering (`font`); the text's outline is a darker shade of the board.
+function Kit.sign(part, face, text, background, textColor, font)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = face
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -121,23 +122,106 @@ function Kit.sign(part, face, text, background, textColor)
 	label.BackgroundColor3 = background or Color3.fromRGB(30, 40, 70)
 	label.BackgroundTransparency = if background then 0 else 1
 	label.BorderSizePixel = 0
-	label.Font = Enum.Font.FredokaOne
+	label.Font = font or Enum.Font.FredokaOne
 	label.TextScaled = true
 	label.TextColor3 = textColor or Color3.new(1, 1, 1)
 	label.Text = text
 	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0.04, 0)
-	padding.PaddingRight = UDim.new(0.04, 0)
-	padding.PaddingTop = UDim.new(0.1, 0)
-	padding.PaddingBottom = UDim.new(0.1, 0)
+	padding.PaddingLeft = UDim.new(0.05, 0)
+	padding.PaddingRight = UDim.new(0.05, 0)
+	padding.PaddingTop = UDim.new(0.14, 0)
+	padding.PaddingBottom = UDim.new(0.14, 0)
 	padding.Parent = label
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(22, 33, 62)
-	stroke.Thickness = 3
+	stroke.Color = if background then background:Lerp(Color3.new(0, 0, 0), 0.55) else Color3.fromRGB(22, 33, 62)
+	stroke.Thickness = 2
 	stroke.Parent = label
 	label.Parent = gui
 	gui.Parent = part
 	return gui
+end
+
+-- A framed sign board facing -Z of `cframe` (a shop's front): a border, the board and its
+-- lettering. `look` = { text, bg, fg, font, frame }.
+function Kit.board(parent, name, width, height, cframe, look)
+	Kit.decor(
+		Kit.part(
+			parent,
+			`{name}Frame`,
+			Vector3.new(width + 0.8, height + 0.8, 0.4),
+			cframe,
+			look.frame or Color3.fromRGB(40, 40, 46)
+		)
+	)
+	local board = Kit.decor(
+		Kit.part(
+			parent,
+			name,
+			Vector3.new(width, height, 0.3),
+			cframe * CFrame.new(0, 0, -0.2),
+			look.bg,
+			Enum.Material.SmoothPlastic
+		)
+	)
+	Kit.sign(board, Enum.NormalId.Front, look.text, look.bg, look.fg, look.font)
+	return board
+end
+
+-- A striped awning along the front of a building: sloping fabric wedges, high against the wall
+-- and low over the pavement. `cframe` is the middle of its top back edge, facing out (-Z).
+function Kit.awning(parent, width, depth, drop, cframe, colors)
+	local count = math.max(1, math.floor(width / 2.2 + 0.5))
+	local stripe = width / count
+	for index = 0, count - 1 do
+		local x = -width / 2 + (index + 0.5) * stripe
+		local piece = Kit.wedge(
+			parent,
+			"Awning",
+			Vector3.new(stripe, drop, depth),
+			cframe * CFrame.new(x, -drop / 2, -depth / 2),
+			colors[index % #colors + 1],
+			Enum.Material.Fabric
+		)
+		Kit.decor(piece)
+	end
+end
+
+-- A planter box with a little shrub and two flowers, standing on `ground`.
+local FLOWERS = { Color3.fromRGB(240, 90, 120), Color3.fromRGB(250, 210, 70), Color3.fromRGB(170, 110, 240) }
+function Kit.planter(parent, ground, rotation, seed)
+	local box = Kit.decor(
+		Kit.part(
+			parent,
+			"Planter",
+			Vector3.new(2.4, 1.2, 1.4),
+			CFrame.new(ground + Vector3.new(0, 0.6, 0)) * rotation,
+			Color3.fromRGB(120, 85, 60),
+			Enum.Material.Wood
+		)
+	)
+	local shrub = Kit.decor(
+		Kit.part(
+			parent,
+			"Shrub",
+			Vector3.new(2.1, 1, 1.1),
+			box.CFrame * CFrame.new(0, 0.9, 0),
+			Kit.Colors.Leaves,
+			Enum.Material.LeafyGrass
+		)
+	)
+	shrub.Shape = Enum.PartType.Block
+	for index, x in { -0.5, 0.55 } do
+		local flower = Kit.decor(
+			Kit.part(
+				parent,
+				"Flower",
+				Vector3.one * 0.6,
+				box.CFrame * CFrame.new(x, 1.5, 0),
+				FLOWERS[(seed + index) % #FLOWERS + 1]
+			)
+		)
+		flower.Shape = Enum.PartType.Ball
+	end
 end
 
 -- A leafy bush you can hide in: an invisible tagged hitbox plus leafy balls to walk through.
