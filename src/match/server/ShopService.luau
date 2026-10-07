@@ -2,9 +2,9 @@
 -- The shops. Each counter tagged ShopCounter has a Shop attribute saying what it sells, all
 -- paid from the cash in your bag (never your deposits) and all for this run only:
 --   Clothes (the BAGS shop): a bigger bag.  Hardware (Handy Hank's): lockpicks.
---   Garage (Speedy's): your own kart.       Convenience stores: five-minute boosts (the
---                                           energy drink goes in your backpack: EnergyDrink).
+--   Convenience stores: five-minute boosts (the energy drink goes in your backpack: EnergyDrink).
 --   Guns (Tony's Blasters): stun blasters, from quota Blasters.UnlockQuota.
+-- (Speedy's Garage sells nothing: it runs the street races and the car flips.)
 -- The shopkeeper's "Buy something" opens it (CounterService). The client only says which item;
 -- the server works out which shop you're standing at.
 
@@ -20,6 +20,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Perks = require(ServerScriptService.Common.Perks)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local BlasterService = require(script.Parent.BlasterService)
 local BoostService = require(script.Parent.BoostService)
@@ -43,7 +44,6 @@ type Levels = { [Types.UpgradeId]: number }
 local SHOPS: { [Types.ShopId]: { title: string, note: string } } = {
 	Clothes = { title = "BAGS", note = "A bigger bag holds more cash between trips to the bank." },
 	Hardware = { title = "HANDY HANK'S", note = "A better lockpick makes break-ins quicker." },
-	Garage = { title = "SPEEDY'S GARAGE", note = "Your own kart. Press R (or tap RIDE) to hop on and off." },
 	Convenience = { title = "CONVENIENCE STORE", note = "Treats that last 5 minutes. Different ones stack." },
 	Guns = {
 		title = "TONY'S BLASTERS",
@@ -80,7 +80,7 @@ local levels: { [Player]: Levels } = {}
 local function levelsOf(player: Player): Levels
 	local current = levels[player]
 	if not current then
-		current = { Bag = 0, Lockpick = 0, Ride = 0 }
+		current = { Bag = 0, Lockpick = 0 }
 		levels[player] = current
 	end
 	return current
@@ -88,6 +88,19 @@ end
 
 function ShopService.level(player: Player, id: Types.UpgradeId): number
 	return levelsOf(player)[id] or 0
+end
+
+-- Hands them an upgrade level for free (a Cred shop loadout unlock), unless they're already past it.
+function ShopService.grant(player: Player, id: Types.UpgradeId, level: number)
+	local current = levelsOf(player)
+	if (current[id] or 0) >= level then
+		return
+	end
+	current[id] = level
+	if id == "Bag" then
+		EconomyService.setBagCapacity(player, Config.Shop.Bag[level].capacity)
+	end
+	ShopService.upgraded:Fire(player, id)
 end
 
 -- Break-in hold time: the lockpick shortens it, and so do gloves, Safecracker and a Blackout.
@@ -100,20 +113,16 @@ function ShopService.breakInHoldSeconds(player: Player): number
 		* BoostService.breakInMultiplier(player)
 		* HustleService.breakInMultiplier(player)
 		* TwistService.crimeHoldMultiplier()
+		* (1 - Perks.amount(player, "QuickHands"))
 end
 
--- Your kart's speed, or nil if you haven't bought one.
-function ShopService.rideSpeed(player: Player): number?
-	local entry = Config.Shop.Ride[ShopService.level(player, "Ride")]
-	return if entry then entry.speed else nil
-end
-
--- A price after this quota's twists (Sale Day), a fire sale and their Haggler hustle, to the
--- nearest $10.
+-- A price after this quota's twists (Sale Day), a fire sale, their Haggler hustle and their
+-- Bargain Hunter upgrade, to the nearest $10.
 local function price(player: Player, shop: Types.ShopId, base: number): number
 	local multiplier = TwistService.shopPriceMultiplier()
 		* FireSale.multiplier(shop)
 		* HustleService.shopMultiplier(player)
+		* (1 - Perks.amount(player, "Bargain"))
 	return math.floor(base * multiplier / 10 + 0.5) * 10
 end
 
@@ -122,14 +131,11 @@ local function upgradePrice(player: Player, id: Types.UpgradeId, level: number):
 	if id == "Bag" then
 		local entry = Config.Shop.Bag[level]
 		base = if entry then entry.price else nil
-	elseif id == "Lockpick" then
+	else
 		local entry = Config.Shop.Lockpick[level]
 		base = if entry then entry.price else nil
-	else
-		local entry = Config.Shop.Ride[level]
-		base = if entry then entry.price else nil
 	end
-	local shop: Types.ShopId = if id == "Bag" then "Clothes" elseif id == "Lockpick" then "Hardware" else "Garage"
+	local shop: Types.ShopId = if id == "Bag" then "Clothes" else "Hardware"
 	return if base then price(player, shop, base) else nil
 end
 
@@ -145,19 +151,13 @@ local function upgradeItem(player: Player, id: Types.UpgradeId): Types.ShopItem
 		now, nextOne =
 			`Holds {Format.money(capacity * pockets)}`,
 			if upgrade then `holds {Format.money(upgrade.capacity * pockets)}` else nil
-	elseif id == "Lockpick" then
+	else
 		local upgrade = Config.Shop.Lockpick[level + 1]
 		title, maxLevel = "Lockpick", #Config.Shop.Lockpick
 		local base = if level == 0
 			then Config.Paths.Doors.BaseBreakInHoldSeconds
 			else Config.Shop.Lockpick[level].holdSeconds
 		now, nextOne = `{base}s break-ins`, if upgrade then `{upgrade.holdSeconds}s` else nil
-	else
-		local speed = ShopService.rideSpeed(player)
-		local upgrade = Config.Shop.Ride[level + 1]
-		title, maxLevel = "Kart", #Config.Shop.Ride
-		now, nextOne =
-			if speed then `Kart, speed {speed}` else "On foot", if upgrade then `speed {upgrade.speed}` else nil
 	end
 	return {
 		id = id,
@@ -176,8 +176,6 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 		table.insert(items, upgradeItem(player, "Bag"))
 	elseif shop == "Hardware" then
 		table.insert(items, upgradeItem(player, "Lockpick"))
-	elseif shop == "Garage" then
-		table.insert(items, upgradeItem(player, "Ride"))
 	elseif shop == "Convenience" then
 		local list = BoostService.list(player)
 		for _, boost in BOOSTS do
@@ -220,7 +218,7 @@ end
 
 -- A counter's Shop attribute, if it names a real shop.
 local function asShop(value: unknown): Types.ShopId?
-	if value == "Convenience" or value == "Clothes" or value == "Hardware" or value == "Garage" or value == "Guns" then
+	if value == "Convenience" or value == "Clothes" or value == "Hardware" or value == "Guns" then
 		return value :: any
 	end
 	return nil
@@ -281,22 +279,18 @@ end
 local UPGRADE_LABELS: { [Types.UpgradeId]: string } = {
 	Bag = "Bigger bag purchased",
 	Lockpick = "Better lockpick purchased",
-	Ride = "Faster kart purchased",
 }
 
 local function buyUpgrade(player: Player, id: Types.UpgradeId): boolean
 	local current = levelsOf(player)
 	local newLevel = (current[id] or 0) + 1
 	local price = upgradePrice(player, id, newLevel)
-	local label = if id == "Ride" and newLevel == 1 then "Kart purchased" else UPGRADE_LABELS[id]
-	if not price or not pay(player, price, `shop: {id:lower()} level {newLevel}`, label) then
+	if not price or not pay(player, price, `shop: {id:lower()} level {newLevel}`, UPGRADE_LABELS[id]) then
 		return false
 	end
 	current[id] = newLevel
 	if id == "Bag" then
 		EconomyService.setBagCapacity(player, Config.Shop.Bag[newLevel].capacity)
-	elseif id == "Ride" and newLevel == 1 then
-		Notifier.send(player, "Press R (or tap RIDE) to hop on or off your kart.", "Info")
 	end
 	ShopService.upgraded:Fire(player, id)
 	return true
@@ -363,8 +357,6 @@ local function onBuy(player: Player, payload: unknown)
 		buyUpgrade(player, "Bag")
 	elseif shop == "Hardware" and payload == "Lockpick" then
 		buyUpgrade(player, "Lockpick")
-	elseif shop == "Garage" and payload == "Ride" then
-		buyUpgrade(player, "Ride")
 	elseif shop == "Convenience" then
 		for _, boost in BOOSTS do
 			if boost.id == payload then

@@ -1,7 +1,7 @@
 --!strict
--- Permanent perks from the lobby's speed shop (both places), read from the saved profile. The
--- speed buff shows on your character as the SpeedBuff attribute, which shared/Movement
--- multiplies into on-foot speed.
+-- Upgrades and unlocks bought in the lobby's Cred shop (both places), read from the saved
+-- profile. Speed shows on your character as the SpeedBuff attribute, which shared/Movement
+-- multiplies into on-foot speed; the Match's services ask Perks.amount for the rest.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,10 +16,20 @@ local Perks = {
 	changed = Signal.new() :: Signal.Signal<Player>,
 }
 
-function Perks.level(player: Player, id: Catalog.PerkId): number
+-- Levels bought of an upgrade (or 1 for an unlock they own). 0 before their save loads.
+function Perks.level(player: Player, id: string): number
 	local data = Profiles.get(player)
 	local level = if data then data.Perks[id] else nil
 	return if typeof(level) == "number" then level else 0
+end
+
+-- What their levels of an upgrade add up to, e.g. 0.16 for two levels of Pockets.
+function Perks.amount(player: Player, id: string): number
+	return Catalog.upgradeAmount(id, Perks.level(player, id))
+end
+
+function Perks.has(player: Player, unlockId: string): boolean
+	return Perks.level(player, unlockId) > 0
 end
 
 function Perks.speedMultiplier(player: Player): number

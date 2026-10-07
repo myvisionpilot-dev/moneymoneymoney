@@ -1,7 +1,7 @@
 --!strict
--- Vehicles: your ride (a kart from the garage, hop in or out with SetRiding), race cars lent
--- by the garage (Paths/Racing), stolen cars (Paths/CarTheft), City Cabs taxis (Paths/Taxi) and
--- flipped wrecks (Paths/CarFlip). SetRiding off gets you out of anything but a race car.
+-- Vehicles: race cars lent by the garage (Paths/Racing), stolen cars (Paths/CarTheft), City Cabs
+-- taxis (Paths/Taxi) and flipped wrecks (Paths/CarFlip). LeaveCar (R) gets you out of anything
+-- but a race car.
 -- Each is a real physics car (CarBuilder) that you sit in; your own computer drives it
 -- (client/CarController). The car's TopSpeed attribute caps it (0 holds it still), the
 -- VehicleSpeed attribute on your character tells everything else you're driving, and
@@ -13,29 +13,23 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Cosmetics = require(ReplicatedStorage.Shared.Cosmetics)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Signal = require(ReplicatedStorage.Shared.Signal)
-local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local Style = require(ServerScriptService.Common.Style)
 local CarBuilder = require(script.Parent.CarBuilder)
 local CollisionGroups = require(script.Parent.CollisionGroups)
 local JailService = require(script.Parent.JailService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
-local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
-local ShopService = require(script.Parent.ShopService)
 local VehicleModels = require(script.Parent.VehicleModels)
 
 local SPEED_ATTRIBUTE = "VehicleSpeed"
 local GROUND_PROBE = 30 -- how far down to look for the road under you
-local RIDE_COLORS = { -- by ride level
-	Color3.fromRGB(80, 200, 105),
-	Color3.fromRGB(95, 160, 245),
-	Color3.fromRGB(255, 196, 50),
-}
 
-export type Kind = "Ride" | "RaceCar" | "StolenCar" | "Taxi" | "FlipCar" | "Debug" -- Debug: DebugService's /drive
+export type Kind = "RaceCar" | "StolenCar" | "Taxi" | "FlipCar" | "Debug" -- Debug: DebugService's /drive
 
 type Mounted = {
 	kind: Kind,
@@ -76,10 +70,6 @@ end
 function VehicleService.kind(player: Player): Kind?
 	local current = mounted[player]
 	return if current then current.kind else nil
-end
-
-function VehicleService.isRiding(player: Player): boolean
-	return VehicleService.kind(player) == "Ride"
 end
 
 -- The car they're driving, if any (CarFlip repaints it in the paint booth).
@@ -170,6 +160,40 @@ local function driverMass(character: Model): number
 	return mass
 end
 
+-- Their race car wears their paint and underglow from the Cred shop: the glow
+-- is a neon slab under the floor with a light, tagged RainbowGlow when it cycles (shared/Rainbow).
+local function dress(player: Player, body: Model)
+	local paint = Style.worn(player, "Paint")
+	if paint then
+		Cosmetics.paint(body, paint)
+	end
+	local glow = Style.worn(player, "Glow")
+	local hull = body:FindFirstChild("Hull")
+	if glow and hull and hull:IsA("BasePart") then
+		local slab = Instance.new("Part")
+		slab.Name = "Underglow"
+		-- A little wider than the body, so the glowing edge shows even in daylight.
+		slab.Size = Vector3.new(hull.Size.X + 1.4, 0.12, hull.Size.Z + 0.4)
+		slab.CFrame = CFrame.new(0, 0.3, hull.Position.Z)
+		slab.Color = glow.color
+		slab.Material = Enum.Material.Neon
+		slab.CanCollide = false
+		slab.CanQuery = false
+		slab.CanTouch = false
+		slab.Massless = true
+		slab.CastShadow = false
+		local light = Instance.new("PointLight")
+		light.Color = glow.color
+		light.Range = 14
+		light.Brightness = 4
+		light.Parent = slab
+		if glow.rainbow then
+			slab:AddTag("RainbowGlow")
+		end
+		slab.Parent = body
+	end
+end
+
 -- Puts the player in a car with this top speed (0 holds it still). `at` is the ground point to
 -- park it on (a race grid slot, a stolen car's spot); otherwise it appears right where they
 -- stand. Replaces any car they're in.
@@ -180,11 +204,11 @@ function VehicleService.mount(player: Player, kind: Kind, speed: number, color: 
 	if not character or not humanoid or humanoid.Health <= 0 then
 		return false
 	end
-	-- Your own kart is a kart, a taxi is a taxi; everything else is a car in `color`.
-	local body = if kind == "Ride"
-		then VehicleModels.kart(color)
-		elseif kind == "Taxi" then VehicleModels.taxi()
-		else VehicleModels.car(color)
+	-- A taxi is a taxi; everything else is a car in `color`.
+	local body = if kind == "Taxi" then VehicleModels.taxi() else VehicleModels.car(color)
+	if kind == "RaceCar" then
+		dress(player, body) -- their Cred shop paint and underglow
+	end
 	local ground = if at then onGround(at) else spaceFor(player, body)
 	if not ground then
 		body:Destroy()
@@ -233,47 +257,11 @@ function VehicleService.setSpeed(player: Player, speed: number)
 	end
 end
 
-local function mountRide(player: Player): boolean
-	local speed = ShopService.rideSpeed(player)
-	if not speed then
-		return false
-	end
+local function onLeaveCar(player: Player, _payload: unknown)
 	local current = mounted[player]
-	local at = if current then current.car:GetPivot() else nil -- a new kart where the old one was
-	local color = RIDE_COLORS[ShopService.level(player, "Ride")] or RIDE_COLORS[1]
-	return VehicleService.mount(player, "Ride", speed, color, at)
-end
-
-local function onSetRiding(player: Player, payload: unknown)
-	if not limiter:allow(player) or typeof(payload) ~= "boolean" then
-		return
+	if limiter:allow(player) and current and current.kind ~= "RaceCar" then
+		VehicleService.dismount(player) -- out of a taxi or flip car, or ditching a stolen car
 	end
-	local current = mounted[player]
-	if not payload then
-		if current and current.kind ~= "RaceCar" then
-			VehicleService.dismount(player) -- out of your ride, or ditching a stolen car
-		end
-		return
-	end
-	if current then
-		return -- already riding, in a race car or in a stolen car
-	end
-	local character = player.Character
-	if character and character:GetAttribute("PushingCart") then
-		Notifier.send(player, "You can't ride while you're pushing the hot-dog cart.", "Info")
-		return
-	end
-	if not ShopService.rideSpeed(player) then
-		Notifier.send(player, "You don't have a ride yet. Buy a kart at Speedy's Garage.", "Info")
-		return
-	end
-	if not RosterService.isActive(player) or JailService.isJailed(player) then
-		return
-	end
-	if RunState.phase == "Results" or RunState.phase == "Ended" then
-		return
-	end
-	mountRide(player)
 end
 
 local function forget(player: Player)
@@ -287,13 +275,7 @@ local function forget(player: Player)
 end
 
 function VehicleService.start()
-	remotes.SetRiding:onServer(onSetRiding)
-
-	ShopService.upgraded:Connect(function(player: Player, id: Types.UpgradeId)
-		if id == "Ride" and VehicleService.isRiding(player) then
-			mountRide(player) -- faster kart right away
-		end
-	end)
+	remotes.LeaveCar:onServer(onLeaveCar)
 	JailService.arrested:Connect(VehicleService.dismount)
 	RunState.changed:Connect(function()
 		if RunState.phase == "Results" or RunState.phase == "Ended" then

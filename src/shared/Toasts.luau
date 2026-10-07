@@ -1,7 +1,9 @@
 --!strict
 -- Stacked pop-up notices on the right side of the screen (left on touch screens; client only):
--- checkered cards in the shop style, blue for info, green for good news, red for bad.
+-- checkered cards in the shop style, blue for info, green for good news, red for bad. Each
+-- slides in with a shine sweeping across it.
 
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Types = require(script.Parent.Types)
@@ -70,11 +72,19 @@ function Toasts.show(text: string, kind: Types.NoticeKind)
 	UI.label({
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
+		FontFace = UI.Fonts.Heading,
 		Text = text,
 		TextSize = 15,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, content)
-	UI.pop(toast, 0.06)
+	-- It slides in from the side with a little overshoot, and a shine sweeps across it.
+	local from = if UserInputService.TouchEnabled then -300 else 300
+	card.Position = UDim2.fromOffset(from, 0)
+	TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.fromOffset(0, 0),
+	}):Play()
+	local sweep = UI.shine(card, nil, 12)
+	task.delay(0.25, sweep)
 
 	task.delay(SHOW_SECONDS, function()
 		if toast.Parent then

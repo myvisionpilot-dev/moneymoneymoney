@@ -4,6 +4,8 @@
 -- once it's cooked (GrillSeconds) and before it burns (BurnSeconds later), or scrape it off
 -- and start again. Fryer and shake machine: hold E. Then serve the tray at the counter. Pays
 -- per order, plus NoBurnBonus for a full shift with nothing burnt. One cook at a time.
+-- The grill and fryer sizzle while they cook, the shake machine whirrs while you pour, and a desk
+-- bell rings when a customer walks up.
 -- Map tags: BurgerCounter, BurgerGrill, BurgerFryer, BurgerShake (kitchen stations),
 -- BurgerCustomer (where customers stand, facing the counter).
 
@@ -12,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Carry = require(script.Parent.Parent.Carry)
 local Juice = require(script.Parent.Parent.Juice)
@@ -44,6 +47,7 @@ type Shift = {
 	grill: Grill,
 	cookStarted: number,
 	patty: BasePart?,
+	machine: Sound?, -- the fryer's sizzle or the shake machine's whirr while E is held
 	tray: BasePart?,
 	prompts: { [string]: ProximityPrompt },
 	waiting: boolean, -- between orders
@@ -149,7 +153,30 @@ local function newOrder(current: Shift)
 	if spot then
 		current.customer = JobKit.customer(JobKit.ground(spot))
 	end
+	local counter = JobKit.first("BurgerCounter")
+	if counter then
+		Sounds.at("CustomerBell", counter)
+	end
 	refresh(current)
+end
+
+local function stopMachine(current: Shift)
+	if current.machine then
+		current.machine:Destroy()
+		current.machine = nil
+	end
+end
+
+-- A sound from the station for as long as E is held on its prompt.
+local function soundWhileHeld(current: Shift, prompt: ProximityPrompt, station: BasePart, sound: string)
+	prompt.PromptButtonHoldBegan:Connect(function()
+		if shift == current and not current.machine then
+			current.machine = Sounds.at(sound, station, true)
+		end
+	end)
+	prompt.PromptButtonHoldEnded:Connect(function()
+		stopMachine(current)
+	end)
 end
 
 local function clearPatty(current: Shift)
@@ -170,6 +197,7 @@ local function endShift(reason: string?, kind: ("Info" | "Good" | "Bad")?)
 		prompt:Destroy()
 	end
 	clearPatty(current)
+	stopMachine(current)
 	if current.tray then
 		current.tray:Destroy()
 	end
@@ -222,6 +250,7 @@ local function onGrill(current: Shift, grillPart: BasePart)
 			RAW,
 			Enum.Material.Sand
 		)
+		Sounds.at("Sizzle", current.patty :: BasePart, true) -- goes when the patty does
 		current.grill = "Cooking"
 		current.cookStarted = os.clock()
 		refresh(current)
@@ -259,6 +288,7 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 		grill = "Empty",
 		cookStarted = 0,
 		patty = nil,
+		machine = nil,
 		tray = nil,
 		prompts = {},
 		waiting = false,
@@ -281,9 +311,11 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 			fryer,
 			{ action = "Fry", object = "Fryer", hold = settings.FryHoldSeconds, range = range, owner = player },
 			function()
+				stopMachine(current)
 				setReady(current, "Fries")
 			end
 		)
+		soundWhileHeld(current, current.prompts.Fryer, fryer, "Sizzle")
 	end
 	local shaker = JobKit.first("BurgerShake")
 	if shaker then
@@ -294,8 +326,10 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 			range = range,
 			owner = player,
 		}, function()
+			stopMachine(current)
 			setReady(current, "Shake")
 		end)
+		soundWhileHeld(current, current.prompts.Shake, shaker, "Milkshake")
 	end
 	local counter = JobKit.first("BurgerCounter")
 	if counter then

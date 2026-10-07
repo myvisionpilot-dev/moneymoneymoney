@@ -127,8 +127,8 @@ local STAFF: { [string]: Staff } = {
 			bottom = 398635338, -- Ripped Skater Pants
 		},
 		greetings = {
-			"Speedy's Garage! Want some wheels?",
-			"Karts, karts, karts. What can I get you?",
+			"Speedy's Garage! Here for a race?",
+			"Fixer-uppers out back, races out front.",
 		},
 	},
 	-- At the job desks: they just stand there and look busy.

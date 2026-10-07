@@ -269,7 +269,7 @@ local function leave(racer: Racer, message: string?)
 	end
 end
 
--- The shortest possible race (straight lines between checkpoints) at kart speed.
+-- The shortest possible race (straight lines between checkpoints) at race car speed.
 local function minimumSeconds(): number
 	local length = 0
 	for index, checkpoint in course do

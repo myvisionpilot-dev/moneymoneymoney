@@ -1,14 +1,17 @@
 --!strict
--- Arrests: lose Police.CaughtLosePercent of carried cash, heat cleared, Police.JailSeconds in the cell.
+-- Arrests: lose Police.CaughtLosePercent of carried cash, heat cleared, Police.JailSeconds in the cell
+-- (less of both with the Cred shop's Insurance and Good Lawyer).
 -- Everyone is let out when the quota ends.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
+local Perks = require(ServerScriptService.Common.Perks)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local HustleService = require(script.Parent.HustleService)
@@ -17,6 +20,7 @@ local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local WorldFx = require(script.Parent.WorldFx)
 
 local CELL_TAG = "JailCell"
 local EXIT_TAG = "JailExit"
@@ -76,12 +80,15 @@ function JailService.arrest(player: Player, byWhom: string)
 		then 0
 		else EconomyService.removeCarried(
 			player,
-			account.carried * Config.Police.CaughtLosePercent,
+			account.carried * math.max(Config.Police.CaughtLosePercent - Perks.amount(player, "Insurance"), 0),
 			`arrested by {byWhom}`
 		)
 	HeatService.clear(player)
+	-- The Good Lawyer upgrade takes seconds off (down to a minimum).
 	local seconds = math.ceil(Config.Police.JailSeconds * HustleService.jailMultiplier(player))
+	seconds = math.max(seconds - Perks.amount(player, "Lawyer"), math.min(seconds, Config.CredShop.MinJailSeconds))
 	jailed[player] = Timing.now() + seconds
+	WorldFx.busted(player) -- where they got caught, before the cell
 	putInCell(player)
 	JailService.arrested:Fire(player)
 	JailService.changed:Fire(player)

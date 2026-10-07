@@ -1,15 +1,15 @@
 --!strict
 -- Always-on HUD in the shop style (blue checkered panels): the quota (name, timer, progress bar
--- and the next-step hint) top centre; heat, health and the cash you're holding top right, with small lines under them
--- for what you've banked, your job, boosts, ride, bounty and hustles; a banner while you're in
--- jail. It also plays the sting when you gain a star, the clang and red flash when you're
+-- and the next-step hint) top centre; heat, health, the cash you're holding and your run level
+-- (with its XP bar) top right, with small lines under them for what you've banked, your job,
+-- boosts, bounty and hustles; a banner while you're in jail. Money rolls up instead of jumping,
+-- and a full bag throbs red. It also plays the sting when you gain a star, the clang and red flash when you're
 -- busted, beeps for the last 10 seconds, and swaps in the chase music while you're wanted.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -33,6 +33,8 @@ local BOOSTS: { { id: string, name: string } } = {
 local RED = UI.Colors.Danger
 local GREEN = UI.Colors.Money
 local GOLD = UI.Colors.Gold
+local PURPLE = UI.Colors.Purple
+local DARK_RED = Color3.fromRGB(150, 25, 40)
 
 local PHASE_TITLES: { [Types.Phase]: string } = {
 	Waiting = "WAITING FOR CREW",
@@ -48,7 +50,10 @@ local HudController = {}
 
 local jobLabel: TextLabel? = nil
 local bagBar: Frame? = nil
+local levelBar: Frame? = nil
 local quotaBarFrame: Frame? = nil
+local hudRoot: Frame? = nil
+local quotaFrame: Frame? = nil
 local statusLabel: TextLabel? = nil
 local phaseStatus = "" -- the quota panel's line for the current phase
 local hint: string? = nil -- GuideController's next step, shown instead during a quota
@@ -91,10 +96,43 @@ function HudController.popBag()
 	end
 end
 
+-- The HUD's screen and its quota panel (announcements slide out from under it).
+function HudController.quotaPanel(): (Frame?, Frame?)
+	return hudRoot, quotaFrame
+end
+
 function HudController.popQuota()
 	if quotaBarFrame then
 		UI.pop(quotaBarFrame, 0.06)
 	end
+end
+
+function HudController.popLevel()
+	if levelBar then
+		UI.pop(levelBar, 0.25)
+	end
+end
+
+-- The middle of a HUD bar on screen (where flying cash heads); the screen's middle before the
+-- HUD is built.
+local function centre(frame: GuiObject?): Vector2
+	if not frame then
+		local camera = workspace.CurrentCamera
+		return if camera then camera.ViewportSize / 2 else Vector2.new(400, 300)
+	end
+	return frame.AbsolutePosition + frame.AbsoluteSize / 2
+end
+
+function HudController.bagTarget(): Vector2
+	return centre(bagBar)
+end
+
+function HudController.quotaTarget(): Vector2
+	return centre(quotaBarFrame)
+end
+
+function HudController.levelTarget(): Vector2
+	return centre(levelBar)
 end
 
 type Stat = { title: TextLabel, right: TextLabel, track: Frame, fill: Frame, text: TextLabel }
@@ -135,14 +173,18 @@ function HudController.start()
 	Music.start()
 
 	local root = UI.root(UI.screen("Hud", 1))
+	hudRoot = root
 
-	-- Quota (top centre)
-	local _, quotaPanel = UI.panel(UI.Colors.Panel, {
+	-- Quota (top centre), drawn over the announcement drawer under it.
+	local quotaOuter, quotaPanel = UI.panel(UI.Colors.Panel, {
 		Name = "Quota",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 6),
 		Size = UDim2.fromOffset(320, 80),
+		ZIndex = 3,
 	}, root)
+	quotaFrame = quotaOuter
+	UI.shine(quotaOuter, 6, 12) -- catches the light now and then
 	local title = UI.label({
 		Position = UDim2.fromOffset(12, 5),
 		Size = UDim2.new(1, -110, 0, 24),
@@ -194,6 +236,9 @@ function HudController.start()
 	local health = statRow(statusPanel, 2, "+", GREEN, "HEALTH")
 	local holding = statRow(statusPanel, 3, "$", GOLD, "HOLDING")
 	bagBar = holding.track
+	local level = statRow(statusPanel, 4, "LV", PURPLE, "LEVEL 1")
+	level.right.TextColor3 = GOLD
+	levelBar = level.track
 
 	local function line(order: number, color: Color3?): TextLabel
 		return UI.label({
@@ -206,11 +251,9 @@ function HudController.start()
 			Text = "",
 		}, statusPanel)
 	end
-	local bankedLabel = line(4)
-	local bountyLabel = line(5, Color3.fromRGB(255, 150, 150))
+	local bankedLabel = line(5)
+	local bountyLabel = line(6, Color3.fromRGB(255, 150, 150))
 	bountyLabel.Visible = false
-	local rideLabel = line(6)
-	rideLabel.Visible = false
 	local job = line(7, UI.Colors.Text)
 	job.Visible = false
 	jobLabel = job
@@ -267,6 +310,32 @@ function HudController.start()
 
 	local lastStars = 0
 	local wasJailed = false
+	local full = false
+	local lastXp: number? = nil
+	local lastLevel = 1
+
+	-- "+12 XP" floating up off the level bar.
+	local function xpFloat(gained: number)
+		local floater = UI.label({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -4, 0, 30),
+			Size = UDim2.fromOffset(90, 18),
+			FontFace = UI.Fonts.Number,
+			TextSize = 15,
+			TextColor3 = Color3.fromRGB(225, 190, 255),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Text = `+{gained} XP`,
+			ZIndex = 5,
+		}, level.track.Parent)
+		UI.tween(floater, 0.9, { Position = UDim2.new(1, -4, 0, 6), TextTransparency = 1 })
+		local outline = floater:FindFirstChild("TextOutline")
+		if outline and outline:IsA("UIStroke") then
+			UI.tween(outline, 0.9, { Transparency = 1 })
+		end
+		task.delay(1, function()
+			floater:Destroy()
+		end)
+	end
 
 	local function render(snapshot: Types.RunSnapshot)
 		local phaseTitle = PHASE_TITLES[snapshot.phase]
@@ -281,8 +350,11 @@ function HudController.start()
 		quotaBar.Visible = showBar
 		if showBar then
 			local fraction = math.clamp(snapshot.progress / snapshot.target, 0, 1)
-			quotaFill.Size = UDim2.fromScale(fraction, 1)
-			quotaText.Text = `{Format.money(snapshot.progress)} / {Format.money(snapshot.target)}`
+			UI.tween(quotaFill, 0.35, { Size = UDim2.fromScale(fraction, 1) })
+			local target = snapshot.target
+			UI.roll(quotaText, snapshot.progress, function(value: number): string
+				return `{Format.money(value)} / {Format.money(target)}`
+			end, 0.9)
 		end
 
 		if snapshot.phase == "Quota" then
@@ -304,11 +376,37 @@ function HudController.start()
 		if not me then
 			return
 		end
-		local full = me.carried >= me.bagCapacity
-		holding.fill.Size = UDim2.fromScale(math.clamp(me.carried / math.max(me.bagCapacity, 1), 0, 1), 1)
-		holding.fill.BackgroundColor3 = if full then RED else GOLD
-		holding.text.Text = `{Format.money(me.carried)} / {Format.money(me.bagCapacity)}`
+		full = me.carried >= me.bagCapacity
+		UI.tween(
+			holding.fill,
+			0.3,
+			{ Size = UDim2.fromScale(math.clamp(me.carried / math.max(me.bagCapacity, 1), 0, 1), 1) }
+		)
+		if not full then
+			holding.fill.BackgroundColor3 = GOLD
+		end
+		local capacity = me.bagCapacity
+		UI.roll(holding.text, me.carried, function(value: number): string
+			return `{Format.money(value)} / {Format.money(capacity)}`
+		end)
 		holding.right.Text = if full then "FULL" else ""
+
+		-- Run level and XP.
+		level.title.Text = `LEVEL {me.level}`
+		local bonus = math.floor(Config.Levels.PayPerLevel * (me.level - 1) * 100 + 0.5)
+		level.right.Text = if bonus > 0 then `+{bonus}% PAY` else ""
+		if me.xpNeeded > 0 then
+			UI.tween(level.fill, 0.3, { Size = UDim2.fromScale(math.clamp(me.xp / me.xpNeeded, 0, 1), 1) })
+			level.text.Text = `{me.xp} / {me.xpNeeded} XP`
+		else
+			level.fill.Size = UDim2.fromScale(1, 1)
+			level.text.Text = "MAX LEVEL"
+		end
+		if lastXp ~= nil and me.level == lastLevel and me.xp > lastXp then
+			xpFloat(me.xp - lastXp)
+		end
+		lastXp = me.xp
+		lastLevel = me.level
 		holding.right.TextColor3 = Color3.fromRGB(255, 150, 150)
 		local share = if snapshot.teamDeposited > 0 then me.deposited / snapshot.teamDeposited else 0
 		bankedLabel.Text = `Banked {Format.money(me.deposited)}  ·  {Format.percent(share)} share`
@@ -349,9 +447,6 @@ function HudController.start()
 
 		bountyLabel.Visible = me.bounty > 0
 		bountyLabel.Text = `Bounty on you: {Format.money(me.bounty)}`
-		rideLabel.Visible = me.rideLevel > 0
-		local key = if UserInputService.TouchEnabled then "tap RIDE" else "press R"
-		rideLabel.Text = if me.riding then `Riding your kart ({key} to walk)` else `Kart ready ({key} to ride)`
 	end
 
 	ClientState.changed:Connect(render)
@@ -371,6 +466,14 @@ function HudController.start()
 		end
 		boostsLabel.Visible = #shown > 0
 		boostsLabel.Text = table.concat(shown, "  ·  ")
+		-- A full bag throbs red (and so does its FULL), so you head for the bank.
+		if full then
+			local beat = (math.sin(os.clock() * 8) + 1) / 2
+			holding.fill.BackgroundColor3 = RED:Lerp(DARK_RED, beat)
+			holding.right.TextTransparency = beat * 0.6
+		else
+			holding.right.TextTransparency = 0
+		end
 		-- The heat bar counts down to when your heat clears.
 		local clearsIn = if me and me.heat > 0 then math.max(me.heatClearsAt - Timing.now(), 0) else 0
 		heat.fill.Size = UDim2.fromScale(math.clamp(clearsIn / Config.Heat.WantedSeconds, 0, 1), 1)

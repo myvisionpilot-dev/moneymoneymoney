@@ -16,7 +16,9 @@ export type Data = {
 	LifetimeCred: number,
 	HighestQuota: number,
 	Runs: number,
-	Perks: { [string]: number }, -- perk id -> level bought (0 = none)
+	Perks: { [string]: number }, -- upgrade id -> level bought (0 = none); unlocks are level 1
+	Owned: { [string]: boolean }, -- cosmetic ids bought
+	Equipped: { [string]: string }, -- cosmetic slot -> the id worn there
 	Badges: { [string]: number }, -- badge id -> os.time() when earned
 	Daily: { Day: number, Progress: number, Done: boolean },
 	Streak: { Count: number, LastDay: number },
@@ -28,6 +30,8 @@ local TEMPLATE: Data = {
 	HighestQuota = 0,
 	Runs = 0,
 	Perks = { Speed = 0 },
+	Owned = {},
+	Equipped = {},
 	Badges = {},
 	Daily = { Day = 0, Progress = 0, Done = false },
 	Streak = { Count = 0, LastDay = 0 },
@@ -114,6 +118,13 @@ local function load(player: Player)
 	end
 	profiles[player] = profile
 	local data = profile.Data :: Data
+	-- Anything the Cred shop stopped selling goes back as Cred (once: it's gone after).
+	for id, price in Config.CredShop.Retired do
+		if (data.Perks[id] or 0) > 0 then
+			data.Perks[id] = nil
+			Profiles.addCred(player, data, price, `refund: {id} is no longer sold`)
+		end
+	end
 	print(`[Profiles] {player.Name} loaded: {data.Cred} Cred, {data.Runs} runs`)
 	Profiles.loaded:Fire(player)
 	Profiles.changed:Fire(player)

@@ -8,6 +8,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local Style = require(ServerScriptService.Common.Style)
 local EconomyService = require(script.Parent.EconomyService)
 local HappyHour = require(script.Parent.Events.HappyHour)
 local HustleService = require(script.Parent.HustleService)
@@ -16,7 +17,9 @@ local Notifier = require(script.Parent.Notifier)
 local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local StreakService = require(script.Parent.StreakService)
 local TeamCombo = require(script.Parent.TeamCombo)
+local WorldFx = require(script.Parent.WorldFx)
 
 local DESK_TAG = "BankCounter"
 local DESK_ATTRIBUTE = "BankCounterPosition" -- on ReplicatedStorage, for guides when the desk isn't streamed in
@@ -47,6 +50,11 @@ local function onDeposit(player: Player, desk: BasePart)
 	local interest = math.floor(amount * HustleService.depositBonus(player) + 0.5)
 	local happy = math.floor(amount * HappyHour.bonus() + 0.5)
 	Juice.deposited(player, amount)
+	-- A fountain everyone at the bank sees, in their Cred shop bank burst if they wear one; and
+	-- banking keeps their streak going.
+	local burst = Style.worn(player, "Burst")
+	WorldFx.deposit(player, amount, if burst then burst.id else nil)
+	StreakService.refill(player)
 	local combo = TeamCombo.deposited(player, amount)
 	QuotaRunService.addProgress(amount + interest + happy + combo)
 	if interest > 0 then

@@ -24,7 +24,7 @@ local RunState = require(script.Parent.Parent.RunState)
 local SafeZone = require(script.Parent.Parent.SafeZone)
 local TownEvent = require(script.Parent.TownEvent)
 
-local VEHICLE_ATTRIBUTE = "VehicleSpeed" -- in a kart or car
+local VEHICLE_ATTRIBUTE = "VehicleSpeed" -- in a car
 local STUN_ATTRIBUTE = "Stunned" -- already down
 local HOODIE = Color3.fromRGB(110, 40, 140)
 local HOODIE_DARK = Color3.fromRGB(40, 30, 50)

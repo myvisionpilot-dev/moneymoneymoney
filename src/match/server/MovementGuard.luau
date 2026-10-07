@@ -24,7 +24,7 @@ type Track = {
 local MovementGuard = {}
 
 local tracks: { [Player]: Track } = {}
-local speedOverrides: { [Player]: number } = {} -- kart speeds
+local speedOverrides: { [Player]: number } = {} -- car speeds
 local boosts: { [Player]: number } = {} -- energy drink and speed buff: on foot only
 local graces: { [Player]: { speed: number, untilAt: number } } = {} -- old speed, briefly, after slowing down
 
@@ -43,7 +43,7 @@ local function allowedSpeed(player: Player): number
 end
 
 -- nil goes back to sprint speed. Slowing down keeps the old limit for two checks, so the
--- last stretch in a kart isn't judged at walking speed.
+-- last stretch in a car isn't judged at walking speed.
 function MovementGuard.setAllowedSpeed(player: Player, speed: number?)
 	local before = allowedSpeed(player)
 	if speed then

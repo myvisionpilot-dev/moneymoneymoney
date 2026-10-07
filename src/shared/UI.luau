@@ -182,6 +182,117 @@ function UI.gradient(parent: Instance, darken: number?): UIGradient
 	return gradient
 end
 
+-- Like UI.gradient, with a hard glossy edge across the middle: the candy-button look.
+function UI.gloss(parent: Instance, darken: number?): UIGradient
+	local bottom = 1 - (darken or 0.24)
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	local function grey(value: number): Color3
+		return Color3.new(value, value, value)
+	end
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, grey(1)),
+		ColorSequenceKeypoint.new(0.47, grey(0.97)),
+		ColorSequenceKeypoint.new(0.53, grey(0.86)),
+		ColorSequenceKeypoint.new(1, grey(bottom)),
+	})
+	gradient.Parent = parent
+	return gradient
+end
+
+-- A soft glow (Roblox's own glow image) behind or over something: tint it with `color`.
+function UI.glow(color: Color3, props: Props?, parent: Instance?): ImageLabel
+	return place(Instance.new("ImageLabel"), {
+		Name = "Glow",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Image = "rbxasset://textures/glow.png",
+		ImageColor3 = color,
+		ImageTransparency = 0.2,
+	}, props, parent)
+end
+
+-- A bright streak that sweeps across `target` now and then (every `every` seconds, or only when
+-- you call the returned function). Clipped to its rounded corners.
+function UI.shine(target: GuiObject, every: number?, radius: number?): () -> ()
+	local clip = Instance.new("CanvasGroup")
+	clip.Name = "Shine"
+	clip.Size = UDim2.fromScale(1, 1)
+	clip.BackgroundTransparency = 1
+	clip.ZIndex = 50
+	clip.Active = false
+	UI.corner(clip, radius or 12)
+	local streak = UI.frame({
+		Size = UDim2.fromScale(0.45, 1),
+		Position = UDim2.fromScale(-0.5, 0),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+	}, clip)
+	local fade = Instance.new("UIGradient")
+	fade.Rotation = 20
+	fade.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.45, 0.62),
+		NumberSequenceKeypoint.new(0.55, 0.62),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	fade.Parent = streak
+	clip.Parent = target
+	local function sweep()
+		streak.Position = UDim2.fromScale(-0.5, 0)
+		TweenService:Create(
+			streak,
+			TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+			{ Position = UDim2.fromScale(1.05, 0) }
+		):Play()
+	end
+	if every then
+		task.spawn(function()
+			while clip.Parent do
+				task.wait(every)
+				if target.Visible then
+					sweep()
+				end
+			end
+		end)
+	end
+	return sweep
+end
+
+-- Numbers that roll to a new value instead of jumping (money, XP): `format` turns the number
+-- on its way into the label's text. The first call just sets it.
+type Roll = { from: number, to: number, startedAt: number, seconds: number, format: (number) -> string }
+local rolling: { [TextLabel]: Roll } = setmetatable({}, { __mode = "k" }) :: any
+local shown: { [TextLabel]: number } = setmetatable({}, { __mode = "k" }) :: any
+
+function UI.roll(label: TextLabel, value: number, format: (number) -> string, seconds: number?)
+	local current = shown[label]
+	if current == nil or current == value then
+		shown[label] = value
+		rolling[label] = nil
+		label.Text = format(value)
+		return
+	end
+	rolling[label] = { from = current, to = value, startedAt = os.clock(), seconds = seconds or 0.6, format = format }
+end
+
+if RunService:IsClient() then
+	RunService.RenderStepped:Connect(function()
+		local now = os.clock()
+		for label, roll in rolling do
+			local t = math.clamp((now - roll.startedAt) / roll.seconds, 0, 1)
+			local eased = 1 - (1 - t) ^ 3
+			local value = roll.from + (roll.to - roll.from) * eased
+			shown[label] = value
+			label.Text = roll.format(math.floor(value + 0.5))
+			if t >= 1 then
+				shown[label] = roll.to
+				rolling[label] = nil
+			end
+		end
+	end)
+end
+
 function UI.frame(props: Props?, parent: Instance?): Frame
 	return place(Instance.new("Frame"), {
 		BorderSizePixel = 0,
@@ -232,7 +343,7 @@ function UI.button(props: Props?, parent: Instance?): TextButton
 	UI.corner(button, 12)
 	UI.stroke(button, 3)
 	UI.textStroke(button)
-	UI.gradient(button)
+	UI.gloss(button)
 
 	local squish = Instance.new("UIScale")
 	squish.Name = "Squish"
@@ -264,7 +375,7 @@ function UI.card(color: Color3, props: Props?, parent: Instance?): Frame
 	card.BackgroundColor3 = color
 	UI.corner(card, 14)
 	UI.stroke(card, 3)
-	UI.gradient(card, 0.18)
+	UI.gloss(card, 0.2)
 	return card
 end
 
@@ -309,7 +420,7 @@ end
 -- A coloured panel in the shop style: rounded, outlined, glossy, with the checkerboard over it.
 -- Put content (and any layout) in the see-through `content` frame it returns, not the panel:
 -- it fills the panel, or grows with it when the panel has AutomaticSize Y. `tall` is how far
--- down the checkerboard goes on a panel that grows.
+-- down the checkerboard goes on a panel that grows (or one a grid sizes later).
 function UI.panel(color: Color3, props: Props?, parent: Instance?, tall: number?): (Frame, Frame)
 	local panel = UI.frame({ BackgroundColor3 = color })
 	apply(panel, props)
@@ -318,7 +429,7 @@ function UI.panel(color: Color3, props: Props?, parent: Instance?, tall: number?
 	UI.gradient(panel, 0.2)
 	local grows = panel.AutomaticSize == Enum.AutomaticSize.Y
 	-- Grid cells and scale sizes aren't known yet, so the pattern goes wide enough for most.
-	UI.checker(panel, 18, 12, math.max(panel.Size.X.Offset, 360), if grows then tall or 240 else nil)
+	UI.checker(panel, 18, 12, math.max(panel.Size.X.Offset, 360), if grows then tall or 240 else tall)
 	local content = UI.frame({
 		Name = "Content",
 		Size = if grows then UDim2.fromScale(1, 0) else UDim2.fromScale(1, 1),
@@ -421,7 +532,16 @@ function UI.bar(color: Color3, props: Props?, parent: Instance?): (Frame, Frame,
 	UI.stroke(track, 2)
 	local fill = UI.frame({ Size = UDim2.fromScale(0, 1), BackgroundColor3 = color }, track)
 	UI.corner(fill, 8)
-	UI.gradient(fill, 0.25)
+	UI.gloss(fill, 0.3)
+	-- A glassy highlight along the top of the fill.
+	local shineStrip = UI.frame({
+		Name = "Highlight",
+		Position = UDim2.fromOffset(4, 2),
+		Size = UDim2.new(1, -8, 0.32, 0),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundTransparency = 0.6,
+	}, fill)
+	UI.corner(shineStrip, 4)
 	local text = UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 13, ZIndex = 2, Text = "" }, track)
 	track.Parent = parent
 	return track, fill, text
@@ -491,10 +611,16 @@ function UI.window(title: string, props: Props?, parent: Instance?, closable: bo
 	UI.stroke(body, 3)
 	UI.padding(body, 10)
 
-	-- A little pop and whoosh whenever it opens.
+	-- It springs open (from small, overshooting a little) with a whoosh.
+	local opening = Instance.new("UIScale")
+	opening.Name = "Opening"
+	opening.Parent = panel
 	panel:GetPropertyChangedSignal("Visible"):Connect(function()
 		if panel.Visible then
-			UI.pop(panel, 0.06)
+			opening.Scale = 0.72
+			TweenService
+				:Create(opening, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+				:Play()
 			Sounds.play("Open")
 		end
 	end)

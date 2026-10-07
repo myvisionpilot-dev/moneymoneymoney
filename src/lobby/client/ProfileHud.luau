@@ -79,7 +79,7 @@ function ProfileHud.start()
 	local lastCred: number? = nil
 	local function render(view: Types.ProfileView)
 		panel.Visible = true
-		cred.Text = Format.cred(view.cred)
+		UI.roll(cred, view.cred, Format.cred, 0.8) -- rolls up (or down, after you spend it)
 		if lastCred and lastCred ~= view.cred then
 			UI.pop(cred, 0.3)
 		end

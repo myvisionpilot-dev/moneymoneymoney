@@ -21,9 +21,12 @@ export type PlayerRow = {
 	spotted: boolean, -- in a bush, but a cop is close enough to see you
 	jailedUntil: number, -- 0 when free
 	stolen: number, -- total stolen from teammates this run
-	rideLevel: number, -- 0 = no ride bought
-	riding: boolean,
 	bounty: number, -- what a teammate earns for arresting you (0 = can't be arrested)
+	streak: number, -- payouts in a row (Config.Streak); 0 = none
+	streakEndsAt: number, -- server time the streak runs out without another payout
+	level: number, -- run level (Config.Levels), from 1
+	xp: number, -- XP into this level...
+	xpNeeded: number, -- ...of this many for the next (0 at the top level)
 	boosts: { [string]: number }, -- BoostId -> when it wears off (server time)
 	hustles: { [string]: number }, -- hustle id -> how many you've picked this run
 }
@@ -75,7 +78,9 @@ export type Notice = {
 	kind: NoticeKind,
 }
 
-export type PennyLine = {
+-- An announcement everyone sees under the quota panel: Mr. Penny, or town news.
+export type Announcement = {
+	speaker: string,
 	text: string,
 }
 
@@ -123,10 +128,10 @@ export type Talk = {
 
 export type TalkAnswer = { id: number, choice: number }
 
-export type UpgradeId = "Bag" | "Lockpick" | "Ride"
+export type UpgradeId = "Bag" | "Lockpick"
 export type BoostId = "Energy" | "Disguise" | "Candy" | "Gloves" | "Scanner"
 export type BlasterId = "Zapper" | "MegaZapper"
-export type ShopId = "Convenience" | "Clothes" | "Hardware" | "Garage" | "Guns"
+export type ShopId = "Convenience" | "Clothes" | "Hardware" | "Guns"
 export type ShopItemKind = "Upgrade" | "Boost" | "Blaster"
 
 export type ShopItem = {
@@ -152,6 +157,9 @@ export type BlasterFx = {
 	to: Vector3,
 	hit: Model?,
 	stunSeconds: number,
+	color: Color3?, -- the shooter's zap colour (Cred shop); default cyan
+	design: string?, -- the blaster's look (shared/BlasterLooks): each has its own effects
+	muzzle: Vector3?, -- where the beam leaves the blaster (from is the head)
 }
 
 export type RaceState = "Gathering" | "Countdown" | "Racing"
@@ -228,13 +236,29 @@ export type RunResults = {
 
 -- Moments the client dresses up with sounds and effects. Money kinds show as a line at the
 -- bottom of the screen: "+$10,000 | Customer served".
-export type JuiceKind = "Paid" | "Spent" | "Lost" | "Deposited" | "BagFull" | "Sound"
+export type JuiceKind = "Paid" | "Spent" | "Lost" | "Deposited" | "BagFull" | "Sound" | "LevelUp"
 
 export type JuiceEvent = {
 	kind: JuiceKind,
-	amount: number?, -- money kinds (BagFull: what didn't fit)
+	amount: number?, -- money kinds (BagFull: what didn't fit); LevelUp: Cred it gave (0 most levels)
 	label: string?, -- money kinds: a few words on what happened
 	sound: string?, -- Sound: a Config.Sounds name
+	streak: number?, -- Paid: the streak multiplier it was paid at (1 or more)
+	level: number?, -- LevelUp: the level you just reached
+}
+
+-- Something everyone nearby sees happen to a player in the world: cash bursting out of them
+-- when they get paid, a fountain at the bank when they deposit (in their bank burst), a pillar
+-- of light when they level up, a flash when they're busted.
+export type FxKind = "Payout" | "Deposit" | "LevelUp" | "Busted"
+
+export type FxEvent = {
+	kind: FxKind,
+	player: Player,
+	at: Vector3,
+	amount: number?, -- Payout, Deposit
+	level: number?, -- LevelUp
+	burst: string?, -- Deposit: their bank burst cosmetic id, if they wear one
 }
 
 -- The pickpocket minigame: one round per zone. The needle bounces along the bar at the round's
@@ -266,18 +290,38 @@ export type ProfileView = {
 	lifetimeCred: number,
 	highestQuota: number,
 	runs: number,
-	perks: { [string]: number }, -- perk id -> level bought
+	perks: { [string]: number }, -- upgrade id -> level bought (unlocks: 1 when owned)
+	owned: { string }, -- cosmetic ids bought
+	equipped: { [string]: string }, -- cosmetic slot -> id worn
 	badges: { string }, -- earned badge ids
 	daily: DailyView,
 	streak: number, -- days in a row (0 if it lapsed)
 }
 
+-- What you picked after PLAY in the lobby: go on your own, host a lobby for others to join,
+-- or join one (group is its id from the list).
+export type PlayRequest = {
+	mode: "Solo" | "Host" | "Join",
+	group: string?,
+}
+
+-- A lobby waiting for players, as the FIND A LOBBY list shows it.
+export type GroupListing = {
+	id: string,
+	hostName: string,
+	count: number,
+	partySize: number,
+	departsAt: number,
+}
+
+-- The group you're in after pressing PLAY.
 export type QueueStatus = {
 	count: number,
-	partySize: number, -- the pad leaves once this many are on it
+	partySize: number, -- the group leaves once this many have joined
 	departsAt: number,
-	isHost: boolean, -- the first player on the pad picks the party size
+	isHost: boolean, -- whoever hosts the lobby picks the party size and can start it early
 	hostName: string,
+	leaving: boolean, -- on its way to town right now
 }
 
 return {}

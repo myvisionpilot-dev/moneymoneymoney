@@ -12,6 +12,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Badges = require(ServerScriptService.Common.Badges)
 local Daily = require(ServerScriptService.Common.Daily)
 local Leaderboards = require(ServerScriptService.Common.Leaderboards)
+local Perks = require(ServerScriptService.Common.Perks)
 local Profiles = require(ServerScriptService.Common.Profiles)
 local HeatService = require(script.Parent.HeatService)
 local Juice = require(script.Parent.Juice)
@@ -88,6 +89,12 @@ local function onRunEnded(userId: number, prize: number, failed: boolean)
 	end
 	data.Runs += 1
 	Profiles.addCred(player, data, prize, if failed then "run prize (failed, kept share)" else "run prize")
+	-- The Cred shop's Investor upgrade adds a cut on top.
+	local bonus = math.floor(prize * Perks.amount(player, "Investor"))
+	if bonus > 0 then
+		Profiles.addCred(player, data, bonus, "Investor bonus")
+		Notifier.send(player, `Investor: +{Format.cred(bonus)} on top of your prize.`, "Good")
+	end
 	award(player, data, "FirstRun")
 	if StealService.snakeUserId() == userId then
 		award(player, data, "Snake")

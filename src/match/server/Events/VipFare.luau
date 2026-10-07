@@ -1,5 +1,5 @@
 --!strict
--- VIP fare: a celebrity waits at a taxi stop. Pull up in any car or kart and pick them up,
+-- VIP fare: a celebrity waits at a taxi stop. Pull up in any car and pick them up,
 -- then drive them to the marked stop for Events.VipFare.Multiplier times a normal taxi fare.
 -- Getting out of the car (or busted) loses them. First come, first served.
 
@@ -56,7 +56,7 @@ local function pickUp(current: Ride, player: Player)
 		return
 	end
 	if not VehicleService.kind(player) then
-		Notifier.send(player, `{current.name} doesn't walk. Pull up in a car or kart!`, "Info")
+		Notifier.send(player, `{current.name} doesn't walk. Pull up in a car!`, "Info")
 		return
 	end
 	current.rider = player

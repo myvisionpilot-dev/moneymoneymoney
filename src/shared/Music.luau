@@ -1,11 +1,14 @@
 --!strict
 -- Music on this player's screen (client only), kept quiet: the background track all the time,
--- swapped for the police chase track while you're wanted (Music.setChase).
+-- swapped for the police chase track while you're wanted (Music.setChase). During a chase a
+-- siren wails under the music and every other sound effect goes quiet except money, sirens
+-- and the quota clock (Sounds.setQuiet, Config.Music.ChaseKeeps).
 
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local Config = require(script.Parent.Config)
+local Sounds = require(script.Parent.Sounds)
 
 local FADE = TweenInfo.new(1.5)
 
@@ -15,6 +18,7 @@ local Music = {}
 
 local background: Sound? = nil
 local chase: Sound? = nil
+local siren: Sound? = nil
 local chasing = false
 
 local function make(name: string, track: Track): Sound
@@ -47,22 +51,33 @@ function Music.start()
 	fade(music, Config.Music.Background.volume, false)
 end
 
--- On while you're wanted: the chase track from the top, the background faded out.
+-- On while you're wanted: the chase track from the top with a siren under it, the background
+-- faded out and the other sound effects hushed.
 function Music.setChase(on: boolean)
-	local music, siren = background, chase
-	if on == chasing or not music or not siren then
+	local music, track = background, chase
+	if on == chasing or not music or not track then
 		return
 	end
 	chasing = on
+	Sounds.setQuiet(on)
 	if on then
-		siren.TimePosition = 0
-		siren:Play()
-		fade(siren, Config.Music.Chase.volume, false)
+		track.TimePosition = 0
+		track:Play()
+		fade(track, Config.Music.Chase.volume, false)
 		fade(music, 0, true)
+		siren = Sounds.loop("Siren", Config.Music.ChaseSiren)
 	else
-		fade(siren, 0, true)
+		fade(track, 0, true)
 		music:Resume()
 		fade(music, Config.Music.Background.volume, false)
+		local wailing = siren
+		siren = nil
+		if wailing then
+			TweenService:Create(wailing, FADE, { Volume = 0 }):Play()
+			task.delay(FADE.Time, function()
+				wailing:Destroy()
+			end)
+		end
 	end
 end
 

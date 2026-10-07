@@ -13,6 +13,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
+local ScreenFx = require(Shared:WaitForChild("ScreenFx"))
 local UI = require(Shared:WaitForChild("UI"))
 
 local MEDALS = { "1st", "2nd", "3rd" }
@@ -87,6 +88,15 @@ function ResultsController.start()
 		BackgroundTransparency = 0.4,
 		Visible = false,
 	}, root)
+	-- Light rays turning behind the panel when you cash out.
+	local rays = UI.frame({
+		Name = "Rays",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(900, 900),
+		BackgroundTransparency = 1,
+	}, overlay)
+	UI.rays(rays, 900, UI.Colors.Gold, 450)
 	local window = UI.window("", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -146,7 +156,26 @@ function ResultsController.start()
 		subtitle.Text = if failed
 			then `Quotas cleared: {results.highestQuota}. A failed run keeps only part of your prize.`
 			else `Quotas cleared: {results.highestQuota}`
-		earned.Text = `+{Format.cred(results.yourPrize)}`
+		-- Your Cred counts up from nothing, clinking as it goes.
+		local function credText(value: number): string
+			return `+{Format.cred(value)}`
+		end
+		UI.roll(earned, 0, credText)
+		task.delay(0.5, function()
+			UI.roll(earned, results.yourPrize, credText, 1.6)
+			for index = 1, 8 do
+				task.delay(index * 0.18, function()
+					Sounds.play("Coins", 0.9 + index * 0.06, 0.6)
+				end)
+			end
+			task.delay(1.7, function()
+				UI.pop(earned, 0.35)
+				if not failed then
+					ScreenFx.stars(earned.AbsolutePosition + earned.AbsoluteSize / 2, 20, UI.Colors.Gold)
+				end
+			end)
+		end)
+		rays.Visible = not failed
 
 		for _, child in table_:GetChildren() do
 			if child:IsA("Frame") then
@@ -177,8 +206,11 @@ function ResultsController.start()
 
 		overlay.Visible = true
 		UI.pop(panel, 0.08)
-		UI.pop(earned, 0.4)
 		Sounds.play(if failed then "Fail" else "Fanfare")
+		if not failed then
+			ScreenFx.rain(50)
+			ScreenFx.flash(UI.Colors.Gold, 0.25)
+		end
 	end)
 
 	RunService.RenderStepped:Connect(function()

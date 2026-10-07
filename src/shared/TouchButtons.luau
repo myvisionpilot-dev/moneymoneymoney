@@ -37,7 +37,7 @@ local function jumpButton(): GuiObject?
 	return if jump and jump:IsA("GuiObject") then jump else nil
 end
 
--- Beside the jump button (it keeps its place even while hidden in a kart), then upward.
+-- Beside the jump button (it keeps its place even while hidden in a car), then upward.
 local function layout()
 	local screen = gui
 	if not screen then

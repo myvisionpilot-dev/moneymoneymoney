@@ -14,11 +14,14 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local BlasterLooks = require(ReplicatedStorage.Shared.BlasterLooks)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
+local Particles = require(ReplicatedStorage.Shared.Particles)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
+local Style = require(ServerScriptService.Common.Style)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local JailService = require(script.Parent.JailService)
@@ -33,14 +36,10 @@ local StealService = require(script.Parent.StealService)
 
 local TOOL_NAME = "Blaster"
 local STUN_ATTRIBUTE = "Stunned" -- on a stunned player's character; their client sits them down
-local VEHICLE_ATTRIBUTE = "VehicleSpeed" -- VehicleService sets it on a character in any kart or car
+local VEHICLE_ATTRIBUTE = "VehicleSpeed" -- VehicleService sets it on a character in any car
 local AIM_SLACK = 6 -- studs past the aim point the shot may still travel
 local COOLDOWN_TOLERANCE = 0.9 -- a little network jitter on the cooldown
-local BODY = Color3.fromRGB(60, 60, 75)
-local GLOW: { [Types.BlasterId]: Color3 } = {
-	Zapper = Color3.fromRGB(60, 220, 255),
-	MegaZapper = Color3.fromRGB(255, 110, 220),
-}
+local MEGA_SCALE = 1.15 -- a Mega Zapper in a custom blaster's look is a size up
 local NAMES: { [Types.BlasterId]: string } = { Zapper = "Zapper", MegaZapper = "Mega Zapper" }
 
 local settings = Config.Blasters
@@ -81,54 +80,78 @@ function BlasterService.addTarget(target: Target)
 	table.insert(targets, target)
 end
 
-local function weldedPart(
-	tool: Tool,
-	handle: BasePart,
-	name: string,
-	size: Vector3,
-	offset: CFrame,
-	color: Color3,
-	neon: boolean
-)
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.Color = color
-	part.Material = if neon then Enum.Material.Neon else Enum.Material.SmoothPlastic
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.Massless = true
-	part.CFrame = handle.CFrame * offset
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = handle
-	weld.Part1 = part
-	weld.Parent = part
-	part.Parent = tool
-end
-
--- A chunky toy blaster: body, glowing barrel and grip. Parts only, no scripts.
-local function makeTool(id: Types.BlasterId): Tool
+-- The blaster in your hand, in its look (shared/BlasterLooks): Tony's own design, or the custom
+-- blaster you wear from the lobby, its glow in your zap colour. An invisible handle in the
+-- middle of the body, every piece welded to it. Parts only, no scripts.
+local function makeTool(id: Types.BlasterId, player: Player?): Tool
+	local custom = if player then Style.worn(player, "Blaster") else nil
+	local zap = if player then Style.worn(player, "Zap") else nil
+	local design = if custom and custom.model then custom.model else id
+	local scale = if custom and id == "MegaZapper" then MEGA_SCALE else 1
 	local tool = Instance.new("Tool")
 	tool.Name = TOOL_NAME
 	tool.ToolTip = NAMES[id]
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
-	tool.Grip = CFrame.new(0, -0.3, 0.4)
+	tool.Grip = CFrame.new(0, -0.3 * scale, 0.4 * scale)
 	tool:SetAttribute("Cooldown", settings[id].cooldown) -- so the client doesn't fire faster than we'd accept
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"
-	handle.Size = Vector3.new(0.7, 0.8, 2.2)
-	handle.Color = BODY
+	handle.Size = Vector3.one * 0.4
+	handle.Transparency = 1
 	handle.CanCollide = false
 	handle.CanQuery = false
 	handle.CanTouch = false
 	handle.Massless = true
 	handle.Parent = tool
-	weldedPart(tool, handle, "Barrel", Vector3.new(0.45, 0.45, 1), CFrame.new(0, 0.1, -1.5), GLOW[id], true)
-	weldedPart(tool, handle, "Fin", Vector3.new(0.15, 0.5, 1.2), CFrame.new(0, 0.6, 0), GLOW[id], true)
-	weldedPart(tool, handle, "Grip", Vector3.new(0.5, 1, 0.5), CFrame.new(0, -0.8, 0.5), BODY, false)
+	local pieces: { BlasterLooks.Piece } = BlasterLooks.pieces(design) or BlasterLooks.pieces(id) or {}
+	for _, piece in pieces do
+		local part = Instance.new("Part")
+		part.Name = if piece.role == "glow" then "Glow" else "Piece"
+		part.Shape = piece.shape or Enum.PartType.Block
+		part.Size = piece.size * scale
+		part.Color = if piece.role == "glow" and zap then zap.color else piece.color
+		part.Material = piece.material or Enum.Material.SmoothPlastic
+		part.Reflectance = piece.reflectance or 0
+		part.Transparency = piece.transparency or 0
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Massless = true
+		part.CFrame = handle.CFrame * CFrame.new(piece.at.Position * scale) * piece.at.Rotation
+		if piece.role == "glow" and zap and zap.rainbow then
+			part:AddTag("RainbowGlow")
+		end
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = handle
+		weld.Part1 = part
+		weld.Parent = part
+		part.Parent = tool
+	end
+	-- The rarest custom blasters crackle in your hand.
+	local glow = tool:FindFirstChild("Glow")
+	if custom and glow and (custom.tier == "Epic" or custom.tier == "Legendary") then
+		local zapColor = if zap then zap.color else custom.color
+		Particles.keep(glow, if custom.tier == "Legendary" then "Sparkles" else "Sparks", 6, zapColor, 0.25)
+	end
 	return tool
+end
+
+-- Which look a player's shots come out in (their custom blaster, or Tony's design).
+local function designOf(player: Player, id: string): string
+	local custom = Style.worn(player, "Blaster")
+	return if custom and custom.model then custom.model else id
+end
+
+-- Where the beam leaves their blaster: just in front of the one in their hand.
+local function muzzleOf(character: Model): Vector3?
+	local tool = character:FindFirstChild(TOOL_NAME)
+	local handle = tool and tool:FindFirstChild("Handle")
+	if handle and handle:IsA("BasePart") then
+		return (handle.CFrame * CFrame.new(0, 0.1, -1.5)).Position
+	end
+	return nil
 end
 
 -- A blaster for an NPC to hold (no scripts; it does nothing on its own).
@@ -153,7 +176,7 @@ local function give(player: Player)
 		return
 	end
 	removeTool(player)
-	makeTool(id).Parent = backpack
+	makeTool(id, player).Parent = backpack
 end
 
 -- ShopService takes the payment, then calls this.
@@ -180,9 +203,9 @@ function BlasterService.takeBack(player: Player)
 	end
 end
 
--- A blaster shot someone else fired (an NPC), on everyone's screen.
-function BlasterService.effect(from: Vector3, to: Vector3)
-	remotes.BlasterFx:fireAll({ from = from, to = to, hit = nil, stunSeconds = 0 })
+-- A blaster shot someone else fired (an NPC), on everyone's screen, in a design's style.
+function BlasterService.effect(from: Vector3, to: Vector3, design: string?, color: Color3?)
+	remotes.BlasterFx:fireAll({ from = from, to = to, hit = nil, stunSeconds = 0, design = design, color = color })
 end
 
 -- The victim's dropped cash: first to touch it keeps it. Unclaimed, it goes back to them.
@@ -327,6 +350,16 @@ local function blastPlayer(shooter: Player, victim: Player, character: Model): b
 	return true
 end
 
+-- Their Cred shop zap colour (a rainbow zap picks a fresh colour every shot); nil is the
+-- normal cyan.
+local function zapColor(player: Player): Color3?
+	local zap = Style.worn(player, "Zap")
+	if not zap then
+		return nil
+	end
+	return if zap.rainbow then Color3.fromHSV(math.random(), 0.8, 1) else zap.color
+end
+
 local function onFire(player: Player, payload: unknown)
 	if not fireLimiter:allow(player) or typeof(payload) ~= "Vector3" then
 		return
@@ -391,7 +424,15 @@ local function onFire(player: Player, payload: unknown)
 			hit, stunSeconds = target, settings.PlayerStunSeconds
 		end
 	end
-	remotes.BlasterFx:fireAll({ from = origin, to = stopAt, hit = hit, stunSeconds = stunSeconds })
+	remotes.BlasterFx:fireAll({
+		from = origin,
+		to = stopAt,
+		hit = hit,
+		stunSeconds = stunSeconds,
+		color = zapColor(player),
+		design = designOf(player, id),
+		muzzle = muzzleOf(character),
+	})
 end
 
 function BlasterService.start()

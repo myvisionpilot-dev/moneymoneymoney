@@ -2,13 +2,15 @@
 -- Cars never hit people: every physics car part is in the Cars group, every player character
 -- and NPC in People, and the two groups pass through each other. A driver joins Cars while
 -- seated (or pedestrians would bump the driver, and the whole car with them). Pedestrians
--- still dash out of the way: see DodgeService.
+-- still dash out of the way: see DodgeService. Cash flying out of people (client effects) is in
+-- Fx: it lands on the ground but goes through people, cars and itself.
 
 local Players = game:GetService("Players")
 local PhysicsService = game:GetService("PhysicsService")
 
 local CARS = "Cars"
 local PEOPLE = "People"
+local FX = "Fx"
 
 local CollisionGroups = {}
 
@@ -47,6 +49,10 @@ function CollisionGroups.start()
 	PhysicsService:RegisterCollisionGroup(CARS)
 	PhysicsService:RegisterCollisionGroup(PEOPLE)
 	PhysicsService:CollisionGroupSetCollidable(CARS, PEOPLE, false)
+	PhysicsService:RegisterCollisionGroup(FX)
+	for _, other in { CARS, PEOPLE, FX } do
+		PhysicsService:CollisionGroupSetCollidable(FX, other, false)
+	end
 	local function watch(player: Player)
 		if player.Character then
 			CollisionGroups.people(player.Character)

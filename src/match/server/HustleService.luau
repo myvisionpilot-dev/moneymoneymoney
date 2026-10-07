@@ -14,6 +14,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Perks = require(ServerScriptService.Common.Perks)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
 local Juice = require(script.Parent.Juice)
@@ -118,7 +119,8 @@ function HustleService.offer(players: { Player })
 			continue
 		end
 		local options: { Hustle } = {}
-		for _ = 1, math.min(settings.Offered, #pool) do
+		local count = settings.Offered + (if Perks.has(player, "WideOptions") then 1 else 0)
+		for _ = 1, math.min(count, #pool) do
 			table.insert(options, table.remove(pool, rng:NextInteger(1, #pool)) :: Hustle)
 		end
 		local offer = { options = options, endsAt = Timing.now() + settings.PickSeconds }

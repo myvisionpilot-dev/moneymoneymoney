@@ -15,7 +15,6 @@ local COUNTER_TAG = "ShopCounter"
 local NAMES: { [string]: string } = {
 	Clothes = "BAGS",
 	Hardware = "Handy Hank's",
-	Garage = "Speedy's Garage",
 	Convenience = "The convenience stores",
 	Guns = "Tony's Blasters",
 }

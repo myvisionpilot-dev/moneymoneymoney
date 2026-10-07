@@ -1,6 +1,7 @@
 --!strict
 -- The town event going on right now: an orange checkered card under the twist cards (what's happening
 -- and the time left), plus a light pillar and a marker with the distance over the spot to go to.
+-- A new event also drops the big ALERT (EventAlertController).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,10 +10,10 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
-local Sounds = require(Shared:WaitForChild("Sounds"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
+local EventAlertController = require(script.Parent.EventAlertController)
 local TwistController = require(script.Parent.TwistController)
 
 local PILLAR_HEIGHT = 150
@@ -113,7 +114,7 @@ function EventController.start()
 		card.Visible = true
 		if isNew then
 			UI.pop(card, 0.2)
-			Sounds.play("Ding", 0.8)
+			EventAlertController.show(view) -- the big ALERT drops down
 		end
 		if view.marker then
 			showMarker(view.marker)

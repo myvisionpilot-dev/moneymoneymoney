@@ -6,8 +6,10 @@
 -- buy or rob), StoreZone (the convenience stores' door bell), DeliveryDepot, AlleyDrop,
 -- JailCell + JailExit (the cell inside the police station).
 
+local BankInterior = require(script.Parent.BankInterior)
 local Kit = require(script.Parent.Kit)
 local Layout = require(script.Parent.Layout)
+local Signatures = require(script.Parent.Signatures)
 
 local Buildings = {}
 
@@ -173,10 +175,121 @@ local function ceilingLight(model, cf, width, height)
 	light.Parent = lamp
 end
 
+-- Above the cornice (its top at y `top`), so the shops' skylines differ:
+--   flat      nothing more            stepped   a raised block in the middle
+--   pediment  a triangular gable      arch      a half-round arch with a ball on top
+--   crenel    blocks like a castle    tall      a false front, like an old western street
+local function roofline(model, cf, width, top, z0, kind, wall, trim)
+	local z = z0 - 0.1
+	if kind == "stepped" then
+		local w = math.min(width * 0.5, 16)
+		Kit.quiet(piece(model, cf, "Step", Vector3.new(w, 2.2, 1.2), 0, top + 1.1, z, wall))
+		Kit.decor(piece(model, cf, "StepCap", Vector3.new(w + 0.8, 0.4, 1.6), 0, top + 2.4, z, trim))
+	elseif kind == "pediment" then
+		local w, rise = width + 1.2, 3.2
+		for _, side in { -1, 1 } do
+			Kit.quiet(
+				Kit.wedge(
+					model,
+					"Gable",
+					Vector3.new(1.2, rise, w / 2),
+					cf * CFrame.new(side * w / 4, top + rise / 2, z) * CFrame.Angles(0, math.rad(side * -90), 0),
+					wall,
+					Enum.Material.SmoothPlastic
+				)
+			)
+		end
+		local window = Kit.decor(
+			Kit.part(
+				model,
+				"GableWindow",
+				Vector3.new(0.2, 1.6, 1.6),
+				cf * CFrame.new(0, top + rise * 0.38, z - 0.7) * CFrame.Angles(0, math.rad(90), 0),
+				trim
+			)
+		)
+		window.Shape = Enum.PartType.Cylinder
+	elseif kind == "arch" then
+		local arch = Kit.quiet(
+			Kit.part(
+				model,
+				"Arch",
+				Vector3.new(1, 7, 7),
+				cf * CFrame.new(0, top, z) * CFrame.Angles(0, math.rad(90), 0),
+				wall
+			)
+		)
+		arch.Shape = Enum.PartType.Cylinder
+		local finial = Kit.decor(Kit.part(model, "Finial", Vector3.one * 0.8, cf * CFrame.new(0, top + 3.75, z), trim))
+		finial.Shape = Enum.PartType.Ball
+	elseif kind == "crenel" then
+		local count = math.floor((width + 1.6) / 2.8)
+		for index = 0, count - 1 do
+			local x = -((count - 1) * 2.8) / 2 + index * 2.8
+			Kit.decor(piece(model, cf, "Merlon", Vector3.new(1.4, 1.2, 1.2), x, top + 0.6, z, wall))
+		end
+	elseif kind == "tall" then
+		local w = width * 0.8
+		Kit.quiet(piece(model, cf, "FalseFront", Vector3.new(w, 4, 0.8), 0, top + 2, z, wall))
+		Kit.decor(piece(model, cf, "FalseFrontCap", Vector3.new(w + 0.6, 0.4, 1.2), 0, top + 4.2, z, trim))
+	end
+end
+
+-- Over the shop window and door, its top at `top`:
+--   stripes  sloping striped fabric (Kit.awning)   scallop  the same with a bobble fringe
+--   canopy   a flat metal canopy on two rods       none     nothing
+local function awning(model, cf, width, top, drop, z0, kind, stripes, trim)
+	local depth = 3.2
+	if kind == "stripes" or kind == "scallop" then
+		Kit.awning(model, width - 2, depth, drop, cf * CFrame.new(0, top, z0 - 0.06), stripes)
+	end
+	if kind == "scallop" then
+		local count = math.floor((width - 2) / 1.1)
+		for index = 0, count - 1 do
+			local x = -((count - 1) * 1.1) / 2 + index * 1.1
+			local bobble = Kit.decor(
+				piece(
+					model,
+					cf,
+					"Bobble",
+					Vector3.one * 0.55,
+					x,
+					top - drop - 0.12,
+					z0 - 0.06 - depth + 0.1,
+					stripes[index % #stripes + 1],
+					Enum.Material.Fabric
+				)
+			)
+			bobble.Shape = Enum.PartType.Ball
+		end
+	elseif kind == "canopy" then
+		Kit.decor(
+			piece(model, cf, "Canopy", Vector3.new(width - 2, 0.35, depth + 0.2), 0, top - 0.175, z0 - 1.76, stripes[1])
+		)
+		Kit.decor(piece(model, cf, "CanopyEdge", Vector3.new(width - 2, 0.7, 0.2), 0, top - 0.35, z0 - 3.56, trim))
+		for _, side in { -1, 1 } do
+			local from = cf * CFrame.new(side * (width / 2 - 2), top + 1.8, z0 - 0.05)
+			local to = cf * CFrame.new(side * (width / 2 - 2), top, z0 - 3.3)
+			local length = (to.Position - from.Position).Magnitude
+			Kit.decor(
+				Kit.part(
+					model,
+					"CanopyRod",
+					Vector3.new(0.15, 0.15, length),
+					CFrame.lookAt(from.Position:Lerp(to.Position, 0.5), to.Position),
+					Color3.fromRGB(60, 60, 66),
+					Enum.Material.Metal
+				)
+			)
+		end
+	end
+end
+
 -- The street side of a business whose front wall's outside face is at depth z0: paving out to
 -- the footpath, corner pilasters, a parapet with a cornice and a framed sign in the shop's own
--- lettering, a striped awning, and planters by the door. `style` = { wall, accent, trim, text,
--- fg, font, awning (stripe colours), height of the awning's top (awningTop), planters (x of each) }.
+-- lettering, its own roofline, an awning, planters by the door, and its signature piece.
+-- `style` = { name (for Signatures), wall, accent, trim, text, fg, font, roofline, awningKind,
+-- awning (stripe colours), height of the awning's top (awningTop), planters (x of each) }.
 local PATH_EDGE = -(41 - Layout.EDGE) -- the footpath's outer edge, in a shop's frame
 local function storefront(model, cf, width, height, z0, style)
 	local trim = style.trim or Kit.Colors.White
@@ -213,6 +326,7 @@ local function storefront(model, cf, width, height, z0, style)
 	end
 	Kit.quiet(piece(model, cf, "Parapet", Vector3.new(width + 1.2, 3.6, 1.2), 0, height + 2.75, z0 - 0.1, style.wall))
 	Kit.decor(piece(model, cf, "Cornice", Vector3.new(width + 2, 0.5, 1.8), 0, height + 4.78, z0 - 0.1, trim))
+	roofline(model, cf, width, height + 5.03, z0, style.roofline or "flat", style.wall, trim)
 	Kit.board(model, "Sign", math.min(width * 0.72, 32), 2.5, cf * CFrame.new(0, height + 2.75, z0 - 0.92), {
 		text = style.text or style.sign,
 		bg = style.accent,
@@ -222,16 +336,23 @@ local function storefront(model, cf, width, height, z0, style)
 	})
 	-- The awning clears the door's frame (low shops get a shallower one).
 	local top = style.awningTop or math.min(DOOR_HEIGHT + 2.4, height - 0.4)
-	Kit.awning(
-		model,
-		width - 2,
-		3.2,
-		style.awningDrop or math.min(1.8, top - DOOR_HEIGHT - 0.45),
-		cf * CFrame.new(0, top, z0 - 0.06),
-		style.awning or { style.accent, Kit.Colors.White }
-	)
+	local drop = style.awningDrop or math.min(1.8, top - DOOR_HEIGHT - 0.45)
+	local stripes = style.awning or { style.accent, Kit.Colors.White }
+	awning(model, cf, width, top, drop, z0, style.awningKind or "stripes", stripes, trim)
 	for index, x in style.planters or { -(DOOR / 2 + 2.4), DOOR / 2 + 2.4 } do
 		Kit.planter(model, (cf * CFrame.new(x, 0.52, z0 - 1.1)).Position, cf.Rotation, index)
+	end
+	-- Something only this shop has (tools/town/Signatures).
+	local signature = style.name and Signatures[style.name]
+	if signature then
+		signature(model, cf, {
+			width = width,
+			height = height,
+			z0 = z0,
+			wall = style.wall,
+			accent = style.accent,
+			trim = trim,
+		})
 	end
 end
 
@@ -295,6 +416,7 @@ local function walkIn(parent, name, slot, style)
 		style.wall
 	)
 	piece(model, cf, "Roof", Vector3.new(width + 1, 1, DEPTH + 1), 0, height + 0.5, 0, Kit.Colors.White)
+	style.name = style.name or name
 	storefront(model, cf, width, height, -DEPTH / 2, style)
 	-- An open doorway: a frame round it.
 	for _, side in { -1, 1 } do
@@ -802,10 +924,10 @@ local EXTRAS = {
 
 -- A small business you can't walk into: a solid building with a lit front room behind a big
 -- window, where someone stands behind the counter (a StaffSpot). `look` = { wall, accent, fg,
--- text, font, staff, kind, inside (wall colour of the room) }.
+-- text, font, staff, kind, inside (wall colour of the room), height, roofline, awningKind }.
 local function frontRoom(parent, name, slot, look)
 	local cf = frameOf(slot)
-	local width, height = slot.width - 4, 13
+	local width, height = slot.width - 4, look.height or 13
 	local z0 = -DEPTH / 2 + 2 -- the front wall's outside face
 	local model = Kit.model(parent, name)
 	-- The solid back of the building, and the room in front of it.
@@ -965,6 +1087,9 @@ local function frontRoom(parent, name, slot, look)
 		extras(model, cf, width)
 	end
 	storefront(model, cf, width, height, z0, {
+		name = name,
+		roofline = look.roofline,
+		awningKind = look.awningKind,
 		wall = look.wall,
 		accent = look.accent,
 		trim = look.trim,
@@ -1201,6 +1326,8 @@ local function hardware(parent, slot)
 		font = Enum.Font.Sarpanch,
 		sign = "HANDY HANK'S HARDWARE",
 		posters = { "TOOLS", "KEYS CUT" },
+		roofline = "stepped",
+		awningKind = "canopy",
 	})
 	shopCounter(model, cf, 14, 12, Color3.fromRGB(160, 110, 70), "Hardware", "Hank")
 	shelves(model, cf, slot.width, HARDWARE)
@@ -1269,6 +1396,8 @@ local function clothes(parent, slot)
 		awning = { Color3.fromRGB(35, 28, 40), Color3.fromRGB(255, 170, 215) },
 		sign = "BAGS",
 		posters = { "NEW IN", "BIG BAGS" },
+		roofline = "arch",
+		awningKind = "scallop",
 	})
 	shopCounter(model, cf, 12, 12, Color3.fromRGB(200, 170, 220), "Clothes", "Bea")
 	-- Shelving built against each side wall, floor to shoulder height, with bags sitting on the
@@ -1318,31 +1447,6 @@ local function clothes(parent, slot)
 	end
 end
 
--- A stun blaster (like the ones Tony sells) at `at` in a shop's local space: body, glowing
--- barrel and fin, and a grip.
-local function blaster(model, cf, at, glow)
-	local body = Color3.fromRGB(60, 60, 75)
-	bit(model, cf, "BlasterBody", Vector3.new(0.7, 0.8, 2.2), at, body)
-	bit(
-		model,
-		cf,
-		"BlasterBarrel",
-		Vector3.new(0.45, 0.45, 1),
-		at * CFrame.new(0, 0.1, -1.55),
-		glow,
-		Enum.Material.Neon
-	)
-	bit(model, cf, "BlasterFin", Vector3.new(0.15, 0.5, 1.2), at * CFrame.new(0, 0.62, 0), glow, Enum.Material.Neon)
-	bit(
-		model,
-		cf,
-		"BlasterGrip",
-		Vector3.new(0.5, 1, 0.5),
-		at * CFrame.new(0, -0.8, 0.55) * CFrame.Angles(math.rad(-15), 0, 0),
-		body
-	)
-end
-
 local function gunStore(parent, slot)
 	local model, cf = walkIn(parent, "GunStore", slot, {
 		wall = Color3.fromRGB(90, 90, 110),
@@ -1353,14 +1457,16 @@ local function gunStore(parent, slot)
 		awning = { Color3.fromRGB(25, 30, 45), Color3.fromRGB(60, 200, 240) },
 		sign = "TONY'S BLASTERS",
 		posters = { "STUN ONLY", "NO REFUNDS" },
+		roofline = "crenel",
+		awningKind = "canopy",
 	})
 	shopCounter(model, cf, 16, 12, Color3.fromRGB(60, 60, 75), "Guns", "Tony")
 	-- A rack of blasters on the wall behind Tony.
 	local back = DEPTH / 2 - 1.15
 	bit(model, cf, "Rack", Vector3.new(14, 4, 0.2), CFrame.new(0, 7.5, back), Color3.fromRGB(45, 45, 55))
 	for index, x in { -4.5, 0, 4.5 } do
-		local glow = if index == 2 then Color3.fromRGB(255, 120, 220) else Color3.fromRGB(60, 220, 255)
-		blaster(model, cf, CFrame.new(x, 7.6, back - 0.6) * CFrame.Angles(0, math.rad(90), 0), glow)
+		local design = if index == 2 then "MegaZapper" else "Zapper"
+		Signatures.blaster(model, cf, CFrame.new(x, 7.6, back - 0.6) * CFrame.Angles(0, math.rad(90), 0), design)
 	end
 	for index, x in { -13, 13 } do
 		local case = Kit.quiet(
@@ -1378,8 +1484,8 @@ local function gunStore(parent, slot)
 		)
 		case.Transparency = 0.5
 		-- Blasters lying on their sides in the case.
-		for _, info in { { -2.5, Color3.fromRGB(60, 220, 255) }, { 2.5, Color3.fromRGB(255, 120, 220) } } do
-			blaster(model, cf, CFrame.new(x, 3, info[1]) * CFrame.Angles(0, 0, math.rad(90)), info[2])
+		for _, info in { { -2.5, "Zapper" }, { 2.5, "MegaZapper" } } do
+			Signatures.blaster(model, cf, CFrame.new(x, 3, info[1]) * CFrame.Angles(0, 0, math.rad(90)), info[2])
 		end
 	end
 end
@@ -1393,6 +1499,7 @@ local function burger(parent, slot)
 		font = Enum.Font.Bangers,
 		sign = "BURGER BARN",
 		posters = { "BURGERS", "SHAKES" },
+		awningKind = "scallop",
 	})
 	counter(model, cf, 18, 12, Color3.fromRGB(220, 60, 50), "BurgerCounter")
 	-- The kitchen behind the counter (Paths/BurgerBarn), and where customers wait.
@@ -1560,6 +1667,8 @@ local function depot(parent, slot)
 		sign = "ZOOM DELIVERIES",
 		posters = { "FAST", "FRAGILE" },
 		height = 15,
+		roofline = "tall",
+		awningKind = "none",
 	})
 	counter(model, cf, 16, 12, Color3.fromRGB(176, 128, 72), "DeliveryDepot")
 	staffSpot(model, cf, "Dee", 15)
@@ -1899,6 +2008,20 @@ local function alley(parent, slot)
 	Kit.quiet(
 		piece(model, cf, "Dumpster", Vector3.new(6, 4, 3), 15, 2.2, 12, Color3.fromRGB(40, 90, 50), Enum.Material.Metal)
 	)
+	-- Its lid (added by hand in Studio).
+	Kit.quiet(
+		piece(
+			model,
+			cf,
+			"Dumpster",
+			Vector3.new(6, 0.5, 3),
+			15,
+			4.45,
+			12,
+			Color3.fromRGB(17, 17, 17),
+			Enum.Material.Metal
+		)
+	)
 	local drop = piece(model, cf, "AlleyDrop", Vector3.new(6, 0.3, 6), 15, 0.35, 6, Color3.fromRGB(35, 35, 40))
 	drop.CanCollide = false
 	Kit.tag(drop, "AlleyDrop")
@@ -1912,18 +2035,7 @@ local function bank(parent)
 	local W, D, H = 60, 44, 20
 	local stone = Color3.fromRGB(236, 232, 220)
 	local gold = Color3.fromRGB(240, 196, 60)
-	-- The floor stops just inside the walls' outer faces (matching faces flicker).
-	piece(
-		model,
-		cf,
-		"Floor",
-		Vector3.new(W - 0.4, 0.5, D - 0.4),
-		0,
-		0.25,
-		0,
-		Color3.fromRGB(245, 240, 230),
-		Enum.Material.Marble
-	)
+	-- The floor, plaster, panelling, windows, ceiling and chandeliers come from BankInterior (below).
 	-- The north wall is solid all the way across: the vault hangs on it, behind Mr. Penny.
 	piece(model, cf, "Wall", Vector3.new(W, H, 1.5), 0, H / 2, -(D / 2 - 0.75), stone, Enum.Material.Limestone)
 	-- The other three have a door gap in the middle. East and west fit between north and south.
@@ -2052,9 +2164,10 @@ local function bank(parent)
 	local wallFace = -D / 2 + 1.5
 	for _, info in
 		{
-			{ "VaultFrame", 0.6, 13.4, wallFace + 0.05, Color3.fromRGB(70, 70, 80) },
-			{ "VaultDoor", 1, 12, wallFace + 0.3, Color3.fromRGB(150, 150, 160) },
-			{ "VaultWheel", 0.6, 3, wallFace + 1, Color3.fromRGB(200, 170, 70) },
+			-- Thick and standing out from the wall (made that way by hand in Studio).
+			{ "VaultFrame", 2.1, 13.4, wallFace - 0.7, Color3.fromRGB(70, 70, 80) },
+			{ "VaultDoor", 3, 12, wallFace - 0.7, Color3.fromRGB(150, 150, 160) },
+			{ "VaultWheel", 4.1, 3, wallFace - 0.75, Color3.fromRGB(200, 170, 70) },
 		}
 	do
 		local disc =
@@ -2075,22 +2188,8 @@ local function bank(parent)
 		)
 		leaves.Shape = Enum.PartType.Ball
 	end
-	for index = 1, 2 do
-		local lamp = Kit.decor(
-			Kit.part(
-				model,
-				`Chandelier{index}`,
-				Vector3.new(4, 1, 4),
-				Vector3.new(index == 1 and -12 or 12, H - 2, 4),
-				gold,
-				Enum.Material.Neon
-			)
-		)
-		local light = Instance.new("PointLight")
-		light.Range = 36
-		light.Brightness = 1.2
-		light.Parent = lamp
-	end
+	-- Inside it looks like the lobby's hall: marble floor, panelling, windows, chandeliers.
+	BankInterior.dress(model)
 	-- Where everyone appears at the start of the run and between quotas.
 	for index, x in { -8, 0, 8 } do
 		local spawn = Instance.new("SpawnLocation")
@@ -2137,6 +2236,8 @@ function Buildings.build(map)
 		font = Enum.Font.LuckiestGuy,
 		sign = "MINI MART",
 		posters = { "2 FOR 1", "OPEN LATE" },
+		roofline = "pediment",
+		awningKind = "canopy",
 	}, "MiniClerk")
 	hardware(folder, s.Hardware)
 	clothes(folder, s.Clothes)
@@ -2149,7 +2250,8 @@ function Buildings.build(map)
 	taxi(folder, s.Taxi)
 	market(folder, s.Market)
 	alley(folder, s.Alley)
-	-- The small businesses: name, sign, wall, sign board, lettering colour, font, room wall.
+	-- The small businesses: name, sign, wall, sign board, lettering colour, font, room wall,
+	-- then each one's height, roofline and awning, so the street isn't one shop copied.
 	local white = Kit.Colors.White
 	local fillers = {
 		{
@@ -2160,6 +2262,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.Fondamento,
 			Color3.fromRGB(220, 235, 240),
+			13,
+			"flat",
+			"scallop",
 		},
 		{
 			"Laundromat",
@@ -2169,6 +2274,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.Nunito,
 			Color3.fromRGB(235, 245, 250),
+			13,
+			"arch",
+			"canopy",
 		},
 		{
 			"Cafe",
@@ -2178,6 +2286,9 @@ function Buildings.build(map)
 			Color3.fromRGB(250, 235, 210),
 			Enum.Font.PatrickHand,
 			Color3.fromRGB(240, 225, 200),
+			13,
+			"flat",
+			"scallop",
 		},
 		{
 			"Pharmacy",
@@ -2187,6 +2298,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.ArimoBold,
 			Color3.fromRGB(240, 250, 240),
+			15,
+			"stepped",
+			"canopy",
 		},
 		{
 			"Bakery",
@@ -2196,6 +2310,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.IndieFlower,
 			Color3.fromRGB(255, 235, 215),
+			13,
+			"pediment",
+			"scallop",
 		},
 		{
 			"Florist",
@@ -2205,6 +2322,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.AmaticSC,
 			Color3.fromRGB(250, 235, 240),
+			13,
+			"flat",
+			"none",
 		},
 		{
 			"PostOffice",
@@ -2214,6 +2334,9 @@ function Buildings.build(map)
 			Color3.fromRGB(250, 220, 80),
 			Enum.Font.Merriweather,
 			Color3.fromRGB(240, 230, 210),
+			15,
+			"pediment",
+			"canopy",
 		},
 		{
 			"Diner",
@@ -2223,6 +2346,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.DenkOne,
 			Color3.fromRGB(250, 240, 230),
+			13,
+			"arch",
+			"canopy",
 		},
 		{
 			"Gym",
@@ -2232,6 +2358,9 @@ function Buildings.build(map)
 			Color3.fromRGB(30, 30, 35),
 			Enum.Font.GothamBlack,
 			Color3.fromRGB(200, 200, 205),
+			16,
+			"flat",
+			"none",
 		},
 		{
 			"Books",
@@ -2241,6 +2370,9 @@ function Buildings.build(map)
 			Color3.fromRGB(245, 235, 210),
 			Enum.Font.Antique,
 			Color3.fromRGB(230, 215, 190),
+			15,
+			"crenel",
+			"stripes",
 		},
 		{
 			"PetShop",
@@ -2250,6 +2382,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.Cartoon,
 			Color3.fromRGB(250, 245, 225),
+			13,
+			"stepped",
+			"scallop",
 		},
 		{
 			"Toys",
@@ -2259,6 +2394,9 @@ function Buildings.build(map)
 			Color3.fromRGB(255, 230, 90),
 			Enum.Font.LuckiestGuy,
 			Color3.fromRGB(230, 240, 255),
+			14,
+			"crenel",
+			"stripes",
 		},
 		{
 			"Music",
@@ -2268,6 +2406,9 @@ function Buildings.build(map)
 			white,
 			Enum.Font.PermanentMarker,
 			Color3.fromRGB(70, 70, 85),
+			15,
+			"flat",
+			"canopy",
 		},
 	}
 	for _, filler in fillers do
@@ -2278,6 +2419,9 @@ function Buildings.build(map)
 			fg = filler[5],
 			font = filler[6],
 			inside = filler[7],
+			height = filler[8],
+			roofline = filler[9],
+			awningKind = filler[10],
 			staff = filler[1],
 			kind = filler[1],
 		})

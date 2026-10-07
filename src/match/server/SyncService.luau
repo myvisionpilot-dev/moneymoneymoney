@@ -15,10 +15,12 @@ local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local HustleService = require(script.Parent.HustleService)
 local JailService = require(script.Parent.JailService)
+local LevelService = require(script.Parent.LevelService)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
 local ShopService = require(script.Parent.ShopService)
 local StealService = require(script.Parent.StealService)
+local StreakService = require(script.Parent.StreakService)
 local TwistService = require(script.Parent.TwistService)
 local VehicleService = require(script.Parent.VehicleService)
 
@@ -50,9 +52,12 @@ function SyncService.build(): Types.RunSnapshot
 			spotted = HeatService.isSpotted(member.player),
 			jailedUntil = JailService.releaseAt(member.player),
 			stolen = StealService.totalStolen(member.userId),
-			rideLevel = ShopService.level(member.player, "Ride"),
-			riding = VehicleService.isRiding(member.player),
 			bounty = BountyHunting.bountyFor(member.player),
+			streak = StreakService.count(member.player),
+			streakEndsAt = StreakService.endsAt(member.player),
+			level = LevelService.level(member.player),
+			xp = LevelService.xp(member.player),
+			xpNeeded = LevelService.needed(LevelService.level(member.player)),
 			boosts = BoostService.list(member.player),
 			hustles = HustleService.list(member.player),
 		})
@@ -83,9 +88,11 @@ function SyncService.start()
 	VehicleService.changed:Connect(markDirty)
 	BoostService.changed:Connect(markDirty)
 	TwistService.changed:Connect(markDirty)
-	HustleService.changed:Connect(function(_player: Player)
-		dirty = true
-	end)
+	for _, signal in { HustleService.changed, StreakService.changed, LevelService.changed } do
+		signal:Connect(function(_player: Player)
+			dirty = true
+		end)
+	end
 	EconomyService.changed:Connect(function(_userId: number)
 		dirty = true
 	end)

@@ -16,6 +16,7 @@ local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
 local ItemModels = require(Shared:WaitForChild("ItemModels"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local ScreenFx = require(Shared:WaitForChild("ScreenFx"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
@@ -29,7 +30,6 @@ local WINDOW_WIDTH = 520
 local CARD_COLORS: { [string]: Color3 } = {
 	Bag = Color3.fromRGB(235, 70, 110),
 	Lockpick = Color3.fromRGB(245, 150, 40),
-	Ride = Color3.fromRGB(150, 90, 240),
 	Energy = Color3.fromRGB(240, 70, 70),
 	Disguise = Color3.fromRGB(245, 190, 40),
 	Candy = Color3.fromRGB(245, 130, 50),
@@ -49,7 +49,8 @@ local function card(
 	locked: boolean,
 	onBuy: () -> ()
 )
-	local _, frame = UI.panel(CARD_COLORS[item.id] or UI.Colors.Info, { LayoutOrder = order }, parent)
+	local _, frame =
+		UI.panel(CARD_COLORS[item.id] or UI.Colors.Info, { LayoutOrder = order }, parent, CARD_SIZE.Y.Offset)
 
 	-- The picture: the item turning slowly in front of spinning light rays.
 	local art = UI.frame({
@@ -124,6 +125,9 @@ local function card(
 			onBuy()
 		end
 	end)
+	if canBuy then
+		UI.shine(buy, 2.4 + order * 0.3, 12) -- what you can afford catches the light
+	end
 end
 
 function ShopController.start()
@@ -168,7 +172,24 @@ function ShopController.start()
 	}, window.body)
 	UI.grid(cards, CARD_SIZE, 10)
 
+	-- What you just tried to buy, and how it looked before: if it's changed when the shop comes
+	-- back, the purchase went through and gets its moment.
+	local lastBuy: { id: string, before: string, at: number }? = nil
+	local function look(item: Types.ShopItem): string
+		return `{item.status or ""}|{item.price or 0}`
+	end
+
 	remotes.ShopOpen:onClient(function(state: Types.ShopState)
+		local attempt = lastBuy
+		lastBuy = nil
+		if attempt and os.clock() - attempt.at < 3 then
+			for _, item in state.items do
+				if item.id == attempt.id and look(item) ~= attempt.before then
+					ScreenFx.stars(panel.AbsolutePosition + panel.AbsoluteSize / 2, 24, UI.Colors.Gold)
+					ScreenFx.banner("PURCHASED!", UI.Colors.Money, item.title, 1.3, 0.2)
+				end
+			end
+		end
 		for _, child in cards:GetChildren() do
 			if child:IsA("Frame") then
 				child:Destroy()
@@ -183,6 +204,7 @@ function ShopController.start()
 		lockedText.Text = state.locked or ""
 		for order, item in state.items do
 			card(cards, order, item, carried, state.locked ~= nil, function()
+				lastBuy = { id = item.id, before = look(item), at = os.clock() }
 				remotes.BuyItem:fire(item.id)
 			end)
 		end

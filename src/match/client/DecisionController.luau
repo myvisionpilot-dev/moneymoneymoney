@@ -2,7 +2,7 @@
 -- After quota Match.CashOutAfterQuota and each one after: Mr. Penny asks whether you cash out now or keep
 -- going for a bigger quota and prize: his words over his head (or above the answers when he's
 -- far away), the two choices as answer cards. Shows the risk plainly; no answer counts as
--- cashing out.
+-- cashing out. It opens with a BIG DECISION! banner, an alarm and a jolt.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,8 +11,11 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local ScreenFx = require(Shared:WaitForChild("ScreenFx"))
+local Sounds = require(Shared:WaitForChild("Sounds"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
+local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
 local Dialogue = require(script.Parent.Dialogue)
 
@@ -33,6 +36,10 @@ function DecisionController.start()
 	remotes.DecisionPrompt:onClient(function(newPrompt: Types.DecisionPrompt)
 		close()
 		prompt = newPrompt
+		Sounds.play("EventAlert", 0.85)
+		ScreenFx.flash(UI.Colors.Gold, 0.25)
+		ScreenFx.shake(0.5, 0.4)
+		ScreenFx.banner("BIG DECISION!", UI.Colors.Gold, "Cash out, or go bigger?", 2)
 		local keep = Format.percent(Config.Match.FailKeepPercent)
 		handle = Dialogue.open({
 			at = newPrompt.speakerAt,

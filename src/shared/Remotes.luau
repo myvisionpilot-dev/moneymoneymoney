@@ -22,15 +22,17 @@ export type LobbyRemotes = {
 	QueueStatus: ToClient<Types.QueueStatus?>,
 	Notify: ToClient<Types.Notice>,
 	ProfileSync: ToClient<Types.ProfileView>,
-	OpenPerkShop: ToClient<nil>, -- you used the speed shop stand
+	GroupList: ToClient<{ Types.GroupListing }>, -- the lobbies waiting for players
+	Play: ToServer<Types.PlayRequest>, -- go alone, host a lobby or join one
 	LeaveQueue: ToServer<nil>,
 	SetPartySize: ToServer<number>,
-	BuyPerk: ToServer<string>, -- perk id: buys its next level
+	BuyCredItem: ToServer<string>, -- an upgrade (its next level), unlock or cosmetic id
+	EquipCosmetic: ToServer<string>, -- a cosmetic id you own: wear it, or take it off if worn
 }
 
 export type MatchRemotes = {
 	RunSnapshot: ToClient<Types.RunSnapshot>,
-	PennySays: ToClient<Types.PennyLine>,
+	Announce: ToClient<Types.Announcement>, -- Mr. Penny or town news, under the quota panel
 	Notify: ToClient<Types.Notice>,
 	JobGuide: ToClient<Types.JobGuide?>,
 	QuotaResult: ToClient<Types.QuotaResult>,
@@ -42,6 +44,7 @@ export type MatchRemotes = {
 	Juice: ToClient<Types.JuiceEvent>,
 	PickpocketGame: ToClient<Types.PickpocketGame?>, -- nil ends it
 	BlasterFx: ToClient<Types.BlasterFx>, -- someone fired a blaster
+	Fx: ToClient<Types.FxEvent>, -- a payout, deposit, level-up or bust everyone nearby sees
 	HustleOffer: ToClient<Types.HustleOffer?>, -- pick one of these; nil closes the offer
 	TownEvent: ToClient<Types.TownEventView?>, -- nil: no event right now
 	Talk: ToClient<Types.Talk?>, -- someone talks to you; nil ends the conversation
@@ -51,7 +54,7 @@ export type MatchRemotes = {
 	ChooseDoorOffer: ToServer<number>, -- 1 or 2, or 0 to walk away
 	BuyItem: ToServer<string>, -- an item id from the shop you're at
 	FireBlaster: ToServer<Vector3>, -- where you aimed
-	SetRiding: ToServer<boolean>, -- get on or off your ride
+	LeaveCar: ToServer<nil>, -- get out of the car you're driving (not a race car)
 	PickHustle: ToServer<string>, -- a hustle id from your current offer
 	TalkAnswer: ToServer<Types.TalkAnswer>, -- the answer you picked in a conversation
 }
@@ -128,10 +131,12 @@ function Remotes.lobby(): LobbyRemotes
 		QueueStatus = toClient("QueueStatus"),
 		Notify = toClient("Notify"),
 		ProfileSync = toClient("ProfileSync"),
-		OpenPerkShop = toClient("OpenPerkShop"),
+		GroupList = toClient("GroupList"),
+		Play = toServer("Play"),
 		LeaveQueue = toServer("LeaveQueue"),
 		SetPartySize = toServer("SetPartySize"),
-		BuyPerk = toServer("BuyPerk"),
+		BuyCredItem = toServer("BuyCredItem"),
+		EquipCosmetic = toServer("EquipCosmetic"),
 	}
 	lobbyRemotes = remotes
 	return remotes
@@ -143,7 +148,7 @@ function Remotes.match(): MatchRemotes
 	end
 	local remotes: MatchRemotes = {
 		RunSnapshot = toClient("RunSnapshot"),
-		PennySays = toClient("PennySays"),
+		Announce = toClient("Announce"),
 		Notify = toClient("Notify"),
 		JobGuide = toClient("JobGuide"),
 		QuotaResult = toClient("QuotaResult"),
@@ -155,6 +160,7 @@ function Remotes.match(): MatchRemotes
 		Juice = toClient("Juice"),
 		PickpocketGame = toClient("PickpocketGame"),
 		BlasterFx = toClient("BlasterFx"),
+		Fx = toClient("Fx"),
 		HustleOffer = toClient("HustleOffer"),
 		TownEvent = toClient("TownEvent"),
 		Talk = toClient("Talk"),
@@ -164,7 +170,7 @@ function Remotes.match(): MatchRemotes
 		ChooseDoorOffer = toServer("ChooseDoorOffer"),
 		BuyItem = toServer("BuyItem"),
 		FireBlaster = toServer("FireBlaster"),
-		SetRiding = toServer("SetRiding"),
+		LeaveCar = toServer("LeaveCar"),
 		PickHustle = toServer("PickHustle"),
 		TalkAnswer = toServer("TalkAnswer"),
 	}

@@ -1,6 +1,7 @@
 --!strict
--- Leaderboard boards in the lobby: parts tagged Leaderboard with a Board attribute ("Cred" or
--- "Quota") get a sign showing the top players, refreshed every Leaderboards.RefreshSeconds.
+-- Leaderboard boards on the bank hall's walls: parts tagged Leaderboard with a Board attribute
+-- ("Cred" or "Quota") get a sign showing the top players, refreshed every
+-- Leaderboards.RefreshSeconds.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +16,8 @@ local BOARD_TAG = "Leaderboard"
 local CANVAS = Vector2.new(600, 700)
 local ROW_HEIGHT = 52
 local MEDALS = { "1st", "2nd", "3rd" }
+local BOARD_GREEN = Color3.fromRGB(32, 78, 57)
+local BRASS = Color3.fromRGB(214, 170, 72)
 
 local TITLES: { [Leaderboards.Board]: string } = {
 	Cred = "TOP EARNERS",
@@ -54,20 +57,21 @@ local function setupBoard(instance: Instance)
 	gui.Face = Enum.NormalId.Front
 	gui.CanvasSize = CANVAS
 	gui.LightInfluence = 0
-	-- Inset so the thick border fits on the sign.
+	-- The bank's green and brass, inset so the thick border fits on the sign.
 	local background = UI.frame({
 		Position = UDim2.fromOffset(10, 10),
 		Size = UDim2.new(1, -20, 1, -20),
-		BackgroundColor3 = UI.Colors.Panel,
+		BackgroundColor3 = BOARD_GREEN,
 	}, gui)
 	UI.corner(background, 28)
-	UI.stroke(background, 10)
-	UI.gradient(background, 0.2)
+	UI.stroke(background, 10, BRASS)
+	UI.gradient(background, 0.3)
 
 	local title = label(background, UDim2.fromOffset(20, 14), UDim2.new(1, -40, 0, 70), 56, UI.Colors.Gold)
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	title.Text = TITLES[board]
-	local subtitle = label(background, UDim2.fromOffset(20, 84), UDim2.new(1, -40, 0, 34), 26, UI.Colors.Muted)
+	local subtitle =
+		label(background, UDim2.fromOffset(20, 84), UDim2.new(1, -40, 0, 34), 26, Color3.fromRGB(230, 222, 200))
 	subtitle.TextXAlignment = Enum.TextXAlignment.Center
 	subtitle.Text = if board == "Cred" then "All-time Cred earned" else "Highest quota cleared"
 

@@ -1,6 +1,7 @@
 --!strict
 -- The money lines at the bottom of the screen: "+$10,000 | Customer served", underlined. The
--- newest sits at the bottom and pushes older ones up; each fades after a few seconds.
+-- newest sits at the bottom and pushes older ones up; each fades after a few seconds. A big
+-- payout gets a bigger, gold-shining amount; a streak payout gets a flaming "x1.5" chip.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -40,7 +41,7 @@ local function getStack(): Frame
 	return frame
 end
 
-local function addText(words: Frame, order: number, text: string, size: number, color: Color3, font: Font)
+local function addText(words: Frame, order: number, text: string, size: number, color: Color3, font: Font): TextLabel
 	local label = UI.label({
 		LayoutOrder = order,
 		Size = UDim2.fromOffset(0, LINE_HEIGHT - 6),
@@ -52,6 +53,36 @@ local function addText(words: Frame, order: number, text: string, size: number, 
 		TextWrapped = false,
 	}, words)
 	UI.textStroke(label, 2.5)
+	return label
+end
+
+-- "x1.5": the streak a payout was paid at, in a flaming pill.
+local function streakChip(words: Frame, multiplier: number)
+	local chip = UI.frame({
+		LayoutOrder = 4,
+		Size = UDim2.fromOffset(0, LINE_HEIGHT - 10),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = Color3.fromRGB(255, 120, 30),
+	}, words)
+	UI.corner(chip, 10)
+	UI.stroke(chip, 2.5)
+	local fire = Instance.new("UIGradient")
+	fire.Rotation = 90
+	fire.Color = ColorSequence.new(Color3.fromRGB(255, 220, 80), Color3.fromRGB(230, 50, 30))
+	fire.Parent = chip
+	local padding = UI.padding(chip, 0)
+	padding.PaddingLeft = UDim.new(0, 8)
+	padding.PaddingRight = UDim.new(0, 8)
+	local text = UI.label({
+		Size = UDim2.fromScale(0, 1),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = UI.Fonts.Title,
+		TextSize = 24,
+		TextWrapped = false,
+		Text = `x{multiplier}`,
+	}, chip)
+	UI.textStroke(text, 2.5)
+	UI.pop(chip, 0.4)
 end
 
 local function fadeOut(line: Frame)
@@ -69,7 +100,11 @@ local function fadeOut(line: Frame)
 	end)
 end
 
-function MoneyFeed.show(amount: string, color: Color3, label: string)
+export type Extras = { big: boolean?, streak: number? }
+
+function MoneyFeed.show(amount: string, color: Color3, label: string, extras: Extras?)
+	local big = extras ~= nil and extras.big == true
+	local streak = if extras then extras.streak else nil
 	local frame = getStack()
 	local lines: { Frame } = {}
 	for _, child in frame:GetChildren() do
@@ -104,9 +139,18 @@ function MoneyFeed.show(amount: string, color: Color3, label: string)
 	padding.PaddingRight = UDim.new(0, OVERHANG)
 	local layout = UI.list(words, Enum.FillDirection.Horizontal, GAP)
 	layout.VerticalAlignment = Enum.VerticalAlignment.Top
-	addText(words, 1, amount, AMOUNT_SIZE, color, UI.Fonts.Number)
+	local amountLabel = addText(words, 1, amount, if big then AMOUNT_SIZE + 10 else AMOUNT_SIZE, color, UI.Fonts.Number)
+	if big then
+		local shine = Instance.new("UIGradient")
+		shine.Rotation = 90
+		shine.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(255, 200, 60))
+		shine.Parent = amountLabel
+	end
 	addText(words, 2, "|", LABEL_SIZE, UI.Colors.Text, UI.Fonts.Body)
 	addText(words, 3, label, LABEL_SIZE, UI.Colors.Text, UI.Fonts.Speech)
+	if streak and streak > 1 then
+		streakChip(words, streak)
+	end
 	local underline = UI.frame({
 		Name = "Underline",
 		AnchorPoint = Vector2.new(0, 1),
@@ -115,7 +159,7 @@ function MoneyFeed.show(amount: string, color: Color3, label: string)
 		BackgroundColor3 = UI.Colors.Text,
 	}, line)
 	UI.stroke(underline, 1.5)
-	UI.pop(line, 0.2)
+	UI.pop(line, if big then 0.45 else 0.2)
 
 	task.delay(SHOW_SECONDS, function()
 		if line.Parent then

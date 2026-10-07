@@ -6,9 +6,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Announcer = require(script.Parent.Announcer)
 local JailService = require(script.Parent.JailService)
 local MoneyPath = require(script.Parent.Paths.MoneyPath)
-local Notifier = require(script.Parent.Notifier)
 local QuotaMath = require(script.Parent.QuotaMath)
 local RosterService = require(script.Parent.RosterService)
 local TwistService = require(script.Parent.TwistService)
@@ -65,7 +65,7 @@ function PathService.openQuota(newQuotaIndex: number)
 	open = true
 	for _, path in paths do
 		if path.unlockQuota == newQuotaIndex and newQuotaIndex > 1 then
-			Notifier.all(`New money path unlocked: {path.displayName}!`, "Good")
+			Announcer.all(Announcer.TOWN_NEWS, `New money path unlocked: {path.displayName}!`)
 		end
 	end
 end

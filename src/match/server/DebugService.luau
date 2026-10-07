@@ -1,13 +1,15 @@
 --!strict
 -- Debug chat commands for the owner (and anyone in a Studio test):
 --   /cash <amount> [player]   give carried cash (ignores bag size)
+--   /pay <amount>             get paid as if for a job (streak, XP, effects)
+--   /zapfx [design]           a blaster shot's effects straight ahead of you (BlasterLooks ids)
 --   /cred <amount>            add saved Cred to yourself (to test the lobby shop)
 --   /skip                     pass the current quota now
 --   /timer <seconds>          set time left in the current phase
 --   /start                    start the run without waiting for arrivals
 --   /heat <stars>             add heat to yourself (to test police)
 --   /tp <x> <y> <z>           teleport yourself (goes through MovementGuard)
---   /drive [kart] [top speed] a car (or kart) right where you stand (default: race car speed)
+--   /drive [top speed]        a car right where you stand (default: race car speed)
 --   /twist <id|none>          swap this quota's twist (ids in Config.Twists)
 --   /hustle <id>              give yourself a hustle (ids in Config.Hustles)
 --   /event <id>               start a town event now (CashDrop, HappyHour, FireSale, VipFare...)
@@ -20,16 +22,19 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 local TextChatService = game:GetService("TextChatService")
 
+local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Admin = require(ServerScriptService.Common.Admin)
 local Profiles = require(ServerScriptService.Common.Profiles)
+local BlasterService = require(script.Parent.BlasterService)
 local EconomyService = require(script.Parent.EconomyService)
 local EventService = require(script.Parent.EventService)
 local HeatService = require(script.Parent.HeatService)
 local HustleService = require(script.Parent.HustleService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
+local PayNotice = require(script.Parent.PayNotice)
 local QuotaRunService = require(script.Parent.QuotaRunService)
 local RosterService = require(script.Parent.RosterService)
 local TwistService = require(script.Parent.TwistService)
@@ -71,6 +76,18 @@ local handlers: { [string]: Handler } = {
 		end
 		local added = EconomyService.addCarried(target, amount, `debug /cash by {player.Name}`, true)
 		return `Gave {Format.money(added)} to {target.DisplayName}`
+	end,
+
+	pay = function(player: Player, args: { string }): string
+		local amount = tonumber(args[1])
+		if not amount or amount <= 0 then
+			return "Usage: /pay <amount>"
+		end
+		if not RosterService.isActive(player) then
+			return "You aren't active in the run"
+		end
+		local added = PayNotice.earn(player, amount, "Debug payout", `debug /pay by {player.Name}`, true)
+		return `Paid {Format.money(added)} like a job`
 	end,
 
 	cred = function(player: Player, args: { string }): string
@@ -121,16 +138,27 @@ local handlers: { [string]: Handler } = {
 	end,
 
 	drive = function(player: Player, args: { string }): string
-		local kart = args[1] == "kart"
-		local speed = tonumber(if kart then args[2] else args[1]) or Config.Paths.Racing.CarSpeed
+		local speed = tonumber(args[1]) or Config.Paths.Racing.CarSpeed
 		local color = Color3.fromRGB(225, 75, 65)
-		return if VehicleService.mount(player, if kart then "Ride" else "Debug", speed, color)
-			then `In a {if kart then "kart" else "car"} (top speed {speed}). R gets out.`
+		return if VehicleService.mount(player, "Debug", speed, color)
+			then `In a car (top speed {speed}). R gets out.`
 			else "No room for a car here"
 	end,
 
 	start = function(_player: Player, _args: { string }): string
 		return if QuotaRunService.forceStart() then "Starting the run" else "The run has already started"
+	end,
+
+	zapfx = function(player: Player, args: { string }): string
+		local root = CharacterUtil.getRoot(player)
+		if not root then
+			return "No character"
+		end
+		local design = args[1] or "Zapper"
+		local from = (root.CFrame * CFrame.new(1.2, 1, -2)).Position
+		local to = (root.CFrame * CFrame.new(0, 0, -28)).Position
+		BlasterService.effect(from, to, design, Color3.fromRGB(90, 230, 255))
+		return `Fired a {design} shot ahead of you`
 	end,
 
 	event = function(_player: Player, args: { string }): string

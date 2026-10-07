@@ -1,7 +1,7 @@
 --!strict
--- R (D-pad up on a controller, the Ride button on touch screens): hop on or off your ride, or ditch a
--- stolen car. The key works once you've bought a kart or while you're in a vehicle; the server
--- checks everything else.
+-- R (D-pad up on a controller, the GET OUT button on touch screens): get out of the car you're
+-- driving, or ditch a stolen one. It only works while you're in a vehicle; the server checks
+-- everything else (a race car keeps you in until the race ends).
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -13,7 +13,7 @@ local TouchButtons = require(Shared:WaitForChild("TouchButtons"))
 local Types = require(Shared:WaitForChild("Types"))
 local ClientState = require(script.Parent.ClientState)
 
-local RIDE_ACTION = "Ride"
+local LEAVE_ACTION = "LeaveCar"
 local VEHICLE_ATTRIBUTE = "VehicleSpeed"
 
 local RideController = {}
@@ -27,38 +27,35 @@ function RideController.start()
 	local remotes = Remotes.match()
 	local bound = false
 
-	local function hop()
-		remotes.SetRiding:fire(not inVehicle())
+	local function leave()
+		remotes.LeaveCar:fire(nil)
 	end
 
-	local function toggle(_name: string, state: Enum.UserInputState, _input: InputObject): Enum.ContextActionResult
+	local function onKey(_name: string, state: Enum.UserInputState, _input: InputObject): Enum.ContextActionResult
 		if state ~= Enum.UserInputState.Begin then
 			return Enum.ContextActionResult.Pass
 		end
-		hop()
+		leave()
 		return Enum.ContextActionResult.Sink
 	end
 
-	local touchButton = if TouchButtons.enabled() then TouchButtons.add("", "RIDE", 2, hop) else nil
+	local touchButton = if TouchButtons.enabled() then TouchButtons.add("", "GET OUT", 2, leave) else nil
 	if touchButton then
 		touchButton.button.Visible = false
 	end
 
 	local function refresh()
 		local me = ClientState.me()
-		local active = me ~= nil and me.status == "Active"
-		local usable = active and (inVehicle() or (me ~= nil and me.rideLevel > 0))
+		local usable = me ~= nil and me.status == "Active" and inVehicle()
 		if usable and not bound then
-			ContextActionService:BindAction(RIDE_ACTION, toggle, false, Enum.KeyCode.R, Enum.KeyCode.DPadUp)
+			ContextActionService:BindAction(LEAVE_ACTION, onKey, false, Enum.KeyCode.R, Enum.KeyCode.DPadUp)
 			bound = true
 		elseif not usable and bound then
-			ContextActionService:UnbindAction(RIDE_ACTION)
+			ContextActionService:UnbindAction(LEAVE_ACTION)
 			bound = false
 		end
 		if touchButton then
 			touchButton.button.Visible = usable
-			touchButton.label.Text = if inVehicle() then "WALK" else "RIDE"
-			touchButton.label.Text = if inVehicle() then "GET OUT" else "RIDE"
 		end
 	end
 

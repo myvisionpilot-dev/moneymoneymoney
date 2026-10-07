@@ -1,7 +1,8 @@
 --!strict
 -- Police NPCs chase wanted players: Police.CopsPerStar per whole star (more, and faster, in
 -- the late game and some twists: TwistService), at most Police.MaxCops in town. Cops for stars from Police.CarFromStar up come in police cars. A cop that gets
--- close enough arrests their target (a car pulls you over). No weapons.
+-- close enough arrests their target (a car pulls you over). No weapons. Every cop and police car
+-- has a red outline everyone can see through walls.
 -- Hide in a bush with no cop within Police.SpotHiddenStuds and they lose you: they circle
 -- where they last saw you until you come out or your heat drains. Police only chase during a quota.
 
@@ -147,6 +148,17 @@ local function putInCar(model: Model, humanoid: Humanoid, root: BasePart): Align
 	return turner
 end
 
+-- A red outline round a cop (and their car) that everyone sees, even through walls.
+local function outline(model: Model)
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "CopOutline"
+	highlight.FillTransparency = 1
+	highlight.OutlineColor = Config.Police.OutlineColor
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = model
+end
+
 -- Points a police car toward where it's heading.
 local function steer(cop: Cop, goal: Vector3)
 	local turner = cop.turner
@@ -240,6 +252,7 @@ local function spawnCop(target: Player, inCar: boolean)
 		end
 		humanoid.WalkSpeed = speedFor(inCar)
 		local turner = if inCar then putInCar(model, humanoid, root) else nil
+		outline(model)
 		local minStuds = if inCar then Config.Police.CarMinSpawnStuds else Config.Police.MinSpawnStuds
 		NpcService.place(model, CFrame.new(spawnPosition(target, minStuds)), true)
 		if not inCar then

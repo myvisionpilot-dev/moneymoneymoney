@@ -7,12 +7,14 @@
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Timing = require(ReplicatedStorage.Shared.Timing)
+local Perks = require(ServerScriptService.Common.Perks)
 local BlasterService = require(script.Parent.Parent.BlasterService)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local HeatService = require(script.Parent.Parent.HeatService)
@@ -96,6 +98,7 @@ function StoreRobbery.begin(player: Player, counter: BasePart, onEnd: OnEnd): (n
 	local holdUp = BlasterService.drawn(player)
 	local seconds = (if holdUp then settings.HoldSeconds / Config.Blasters.HoldUpSpeed else settings.HoldSeconds)
 		* TwistService.crimeHoldMultiplier()
+		* (1 - Perks.amount(player, "QuickHands"))
 	local endsAt = Timing.now() + seconds
 	emptyUntil[counter] = math.huge
 	robberies[player] = { counter = counter, endsAt = endsAt, holdUp = holdUp, onEnd = onEnd }

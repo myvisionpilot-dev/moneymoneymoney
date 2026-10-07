@@ -1,8 +1,8 @@
 --!strict
 -- Town events (Events/*): during a quota, one at a time, never in the quota's first
 -- Events.FirstAfterSeconds and with a random gap after each. Everyone sees a banner (TownEvent
--- remote); an event can give one player their own banner, such as the VIP's driver. Events
--- stop when the quota ends.
+-- remote; a new event drops a big ALERT on every screen); an event can give one player their
+-- own banner, such as the VIP's driver. Events stop when the quota ends.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -88,6 +88,7 @@ local function begin(event: TownEvent.TownEvent)
 		tierMultiplier = QuotaMath.tierMultiplier(RunState.quotaIndex),
 		announce = function(detail: string, marker: Vector3?)
 			if running == run then
+				-- The first one is the event starting: everyone's screen drops its ALERT.
 				banner = { detail = detail, marker = marker }
 				sendAll()
 			end

@@ -34,7 +34,7 @@ return {
 	Match = {
 		MinPlayers = 1,
 		MaxPlayers = 6,
-		QueueWaitSeconds = 20,
+		QueueWaitSeconds = 60, -- a hosted lobby leaves this long after it opens (the host can start it sooner)
 		StartingCash = 500,
 		QuotaSeconds = { 420, 540, 600, 660, 720 }, -- clock per quota; endless quotas get the last one
 		-- Beating a quota early: everyone gets a bonus in their bag when the next quota starts,
@@ -46,7 +46,7 @@ return {
 		Quotas = { 50_000, 150_000, 300_000, 600_000, 1_000_000 },
 		CashOutAfterQuota = 3, -- the cash-out vote comes after this quota and every one after it
 		AdvanceWhenMet = true, -- filling a quota starts the next one straight away (the cash-out choice still comes after CashOutAfterQuota)
-		QuotaPaidBannerSeconds = 6, -- how long the "quota paid" panel shows when the next quota starts straight away
+		QuotaPaidBannerSeconds = 8, -- how long the "quota paid" screens show (then the hustle pick) when the next quota starts straight away
 		EndlessQuotaMultiplier = 1.6,
 		CarryOverExcess = true,
 		PlayerCountScale = { [1] = 0.35, [2] = 0.55, [3] = 0.70, [4] = 0.80, [5] = 0.90, [6] = 1.00 },
@@ -73,9 +73,10 @@ return {
 		JailSeconds = 30,
 		CopsPerStar = 1,
 		MaxCops = 6, -- across the whole town
+		OutlineColor = Color3.fromRGB(255, 40, 40), -- every cop (and police car) is outlined in this, seen through walls
 		CopSpeed = 35, -- studs/s on foot: as fast as sprinting
 		CarFromStar = 2, -- the cop for this star and above comes in a police car
-		CarSpeed = 85, -- catches a level-1 kart, matches level 2, loses level 3
+		CarSpeed = 85, -- police cars: well past a sprint, slower than a race car
 		TagRangeStuds = 4,
 		CarTagRangeStuds = 8, -- a car pulls you over from a little further away
 		RepathSeconds = 1,
@@ -222,6 +223,20 @@ return {
 		FirstAfterSeconds = 60,
 		MinGapSeconds = 120,
 		MaxGapSeconds = 180,
+		-- The ALERT that drops down from under the quota panel when an event starts, in the
+		-- event's colour (Sounds.EventAlert plays when it lands).
+		Alert = {
+			Seconds = 5.5, -- how long it stays down
+			Colors = {
+				CashDrop = Color3.fromRGB(55, 185, 75),
+				HappyHour = Color3.fromRGB(240, 170, 20),
+				FireSale = Color3.fromRGB(240, 90, 25),
+				VipFare = Color3.fromRGB(185, 65, 225),
+				ArmouredTruck = Color3.fromRGB(140, 15, 30),
+				RivalCrew = Color3.fromRGB(215, 30, 50),
+				HustleOff = Color3.fromRGB(30, 145, 230),
+			} :: { [string]: Color3 },
+		},
 		CashDrop = { Seconds = 60, Pay = 3_000, FallSeconds = 3, RangeStuds = 10 }, -- first to grab it
 		HappyHour = { Seconds = 90, Bonus = 0.25 }, -- deposits count this much extra toward the quota
 		FireSale = { Seconds = 90, Discount = 0.5 }, -- one shop
@@ -259,6 +274,47 @@ return {
 	-- Everyone still in the run (2+ players) deposits within Seconds of each other: those
 	-- deposits count Bonus extra toward the quota.
 	TeamCombo = { Seconds = 30, Bonus = 0.1 },
+	-- Your STREAK: every payout (jobs, crimes, events) within WindowSeconds of the last one adds
+	-- one, and pays more. Depositing refills the timer; getting busted ends it. Characters on a
+	-- streak of FlameCount+ burn (everyone sees it).
+	Streak = {
+		WindowSeconds = 45,
+		Tiers = { -- payouts in a row -> pay multiplier (the highest tier reached counts)
+			{ count = 2, multiplier = 1.1 },
+			{ count = 3, multiplier = 1.25 },
+			{ count = 5, multiplier = 1.5 },
+			{ count = 8, multiplier = 2 },
+		},
+		FlameCount = 3, -- sparks at your feet from here...
+		BlazeCount = 5, -- ...flames from here...
+		InfernoCount = 8, -- ...and a full blaze from here
+	},
+	-- Run levels: every payout gives XpPerPayout + 1 XP per XpPerDollars earned. Level n to n+1
+	-- takes FirstLevelXp * Growth^(n-1) XP. Each level above 1 pays PayPerLevel more for the
+	-- rest of the run; every CredEvery levels also gives CredReward x (level / CredEvery) Cred.
+	Levels = {
+		XpPerPayout = 10,
+		XpPerDollars = 100,
+		FirstLevelXp = 40,
+		Growth = 1.12,
+		PayPerLevel = 0.02,
+		MaxLevel = 25,
+		CredEvery = 5,
+		CredReward = 25,
+	},
+	-- How hard the screen celebrates money (client effects only).
+	Fx = {
+		BigPayout = 3_000, -- a gold flash, a camera shake and a bigger money line
+		HugePayout = 10_000, -- and a shower of coins down the screen
+		BillsMin = 4, -- bills flying into your bag for a small payout...
+		BillsMax = 22, -- ...up to this many for a huge one
+		ShakeStuds = 0.35, -- camera shake on a big payout (more on a huge one)
+		PitchStep = 0.06, -- each payout within PitchSeconds of the last rings this much higher...
+		PitchMax = 0.5, -- ...up to this much
+		PitchSeconds = 3,
+		Milestones = { 0.25, 0.5, 0.75 }, -- quota progress that gets a pop on screen
+		WorldRange = 160, -- studs: you see other players' payout bursts and level-ups this close
+	},
 	-- The late game gets tougher from FromQuota: cops get faster and more of them come.
 	Pressure = {
 		FromQuota = 4,
@@ -378,7 +434,7 @@ return {
 		Delivery = {
 			BasePayout = 1_500, -- tier-1 pay per delivery
 			TimeLimitSeconds = 90,
-			MaxSpeedStudsPerSecond = 130, -- faster than this voids the job; keep above the top kart speed
+			MaxSpeedStudsPerSecond = 130, -- faster than this voids the job; keep above the fastest car
 			DropoffRadiusStuds = 8,
 			PromptRangeStuds = 10,
 			MinDropoffDistance = 60, -- skip drop-offs closer than this to the depot
@@ -391,7 +447,7 @@ return {
 			JobTimeLimitSeconds = 90,
 			TargetRadiusStuds = 7, -- how close counts as arriving
 			BaseBreakInHoldSeconds = 6, -- lockpick upgrades shorten this
-			MaxSpeedStudsPerSecond = 130, -- faster than this voids a travel job; keep above the top kart speed
+			MaxSpeedStudsPerSecond = 130, -- faster than this voids a travel job; keep above the fastest car
 			MinLetterDistance = 100,
 			HouseTierPayMultiplier = { 1, 1.3, 1.6, 2.2 }, -- tiers get richer away from the bank; 4 = mansion
 			-- Chores you actually do: mow every patch of long grass, wheel both bins to the kerb,
@@ -483,11 +539,6 @@ return {
 			{ holdSeconds = 3, price = 6_000 },
 			{ holdSeconds = 2, price = 20_000 },
 		},
-		Ride = { -- levels 1-3: kart top speed in studs/s (sprinting is 35)
-			{ speed = 70, price = 2_500 },
-			{ speed = 85, price = 10_000 },
-			{ speed = 100, price = 35_000 },
-		},
 	},
 	-- Five-minute treats from the convenience stores. Different ones stack; buying one you
 	-- already have starts its clock again. The energy drink goes in your backpack (one at a
@@ -511,9 +562,9 @@ return {
 		HoldUpSpeed = 2, -- robbing a store with a blaster out is this much faster...
 		HoldUpPay = 1.5, -- ...and pays this much more
 	},
-	-- Physics cars (karts, race cars, stolen cars): real wheels on springs, driven by the
-	-- driver's own computer (client/CarController). Top speeds are per car (Shop.Ride,
-	-- Racing.CarSpeed, CarTheft.DriveSpeed). Accelerations are in studs/s².
+	-- Physics cars (race cars, stolen cars, taxis, flip cars): real wheels on springs, driven by
+	-- the driver's own computer (client/CarController). Top speeds are per car (Racing.CarSpeed,
+	-- CarTheft.DriveSpeed and the other paths' DriveSpeed). Accelerations are in studs/s².
 	Car = {
 		Acceleration = 42, -- off the line; fades toward top speed (0-100 in ~4s at 120)
 		TorqueFade = 2, -- how quickly power fades with speed: 1 - (speed / top) ^ this
@@ -644,8 +695,27 @@ return {
 	-- Music, played quietly on each player's screen. Chase plays instead of Background while
 	-- you're wanted (it's 32s long, the same as Heat.WantedSeconds).
 	Music = {
-		Background = { id = 1848354536, volume = 0.05 },
+		Background = { id = 1848354536, volume = 0.1 }, -- as loud as the chase track
 		Chase = { id = 1842577591, volume = 0.1 },
+		-- While the chase music plays, every other sound effect goes quiet on your screen except
+		-- these: money (and the streak and level-ups it brings), sirens and the cell door when
+		-- you're caught.
+		ChaseKeeps = {
+			"Paid",
+			"Deposit",
+			"Purchase",
+			"Fanfare",
+			"Siren",
+			"JailDoor",
+			"Coins",
+			"CoinPour",
+			"LevelUp",
+			"StreakUp",
+			"Milestone",
+			"EventAlert",
+			"Boom",
+		},
+		ChaseSiren = 0.35, -- a siren wails under the chase music (this much of Sounds.Siren's volume)
 	},
 	-- Sound effects from Roblox's audio library (ProSoundEffects and APM are Roblox-licensed).
 	Sounds = {
@@ -654,24 +724,34 @@ return {
 		Paid = { id = 135483737426662, volume = 0.6 },
 		Deposit = { id = 120891770644830, volume = 0.6 },
 		Purchase = { id = 133292918309565, volume = 0.6 },
-		StoreBell = { id = 9125935023, volume = 0.6 },
+		StoreBell = { id = 127488139302452, volume = 0.6 }, -- the user's pick, also the Burger Barn bell
 		Alarm = { id = 138656991212198, volume = 0.7 },
 		Siren = { id = 4832498807, volume = 0.45 },
 		Knock = { id = 9114141551, volume = 0.8 },
 		DoorOpen = { id = 120873363783894, volume = 0.7 },
 		Whistle = { id = 9117260548, volume = 0.6 },
-		JailDoor = { id = 9117911726, volume = 0.7 },
+		JailDoor = { id = 73078778903922, volume = 0.7 }, -- the user's pick: a cell door closing when you're arrested
 		Wanted = { id = 1846885714, volume = 0.4 },
 		Fail = { id = 125909120236588, volume = 0.45 },
-		Ding = { id = 18448089848, volume = 0.5 },
+		Ding = { id = 135165335432475, volume = 0.5 }, -- the user's pick
 		Beep = { id = 9117060347, volume = 0.5 },
 		Horn = { id = 9114075424, volume = 0.35 },
 		Fanfare = { id = 1840119665, volume = 0.45 },
-		Badge = { id = 1841980129, volume = 0.45 },
+		Badge = { id = 134821092416328, volume = 0.45 }, -- Rewards Level Up - Next Tier: a hustle, a badge or the daily challenge
 		Rustle = { id = 9114519078, volume = 0.5 },
 		Swipe = { id = 9126283592, volume = 0.6 },
 		Zap = { id = 9114277757, volume = 0.5 }, -- Electric Zaps 12 (Pro Sound Effects)
 		Stun = { id = 9116421639, volume = 0.6 }, -- Magic Transformation 8: cartoon boinks
+		Sizzle = { id = 9114542867, volume = 0.35 }, -- Fry Or Sizzle 1 (Pro Sound Effects): the grill and fryer
+		CustomerBell = { id = 127488139302452, volume = 0.6 }, -- the same bell as StoreBell (the user's pick)
+		Milkshake = { id = 9113459621, volume = 0.4 }, -- Blender With Shake 7 (Pro Sound Effects): the shake machine
+		Coins = { id = 607665037, volume = 0.35 }, -- coins_get: bills landing in your bag
+		CoinPour = { id = 9121189379, volume = 0.5 }, -- BagOfCoins: a deposit pouring into the quota
+		LevelUp = { id = 89481514209130, volume = 0.5 }, -- Level Up (EasyPlay Creations): a rising chime
+		StreakUp = { id = 103911273184692, volume = 0.45 }, -- fire_ignite_1: your streak catches fire
+		Milestone = { id = 139330213484352, volume = 0.45 }, -- a star chime: 25/50/75% of the quota
+		Whoosh = { id = 9120711836, volume = 0.35 }, -- Whoosh Fast Swish By 4 (Pro Sound Effects): banners
+		EventAlert = { id = 3165700530, volume = 0.8 }, -- the user's pick: a town event's ALERT lands
 	} :: { [string]: { id: number, volume: number } },
 	Profiles = {
 		StoreName = "Players_v1", -- the DataStore every profile lives in
@@ -699,13 +779,37 @@ return {
 			{ stat = "HotDog", goal = 10, text = "Sell 10 hot dogs" },
 		},
 	},
-	-- Permanent upgrades from the lobby's speed shop, bought with Cred and kept forever.
-	Perks = {
-		ShopRangeStuds = 14,
-		Speed = {
-			PerLevel = 0.1, -- each level: walk and sprint 0.1x faster (on foot, both places)
-			Prices = { 250, 600, 1_200, 2_400, 4_500 }, -- Cred for level 1, 2, 3...; the list length is the max level
+	-- What Cred buys in the lobby (the UPGRADES and CUSTOMISATION windows): everything is at a
+	-- fixed price (nothing random) and kept for good. Names and looks are in shared/Catalog and
+	-- shared/Cosmetics.
+	CredShop = {
+		-- Levelled upgrades that help in every run. PerLevel is what each level adds; Prices[n]
+		-- buys level n, and the list's length is the max level.
+		Upgrades = {
+			Speed = { PerLevel = 0.1, Prices = { 250, 600, 1_200, 2_400, 4_500 } }, -- x faster on foot
+			Pockets = { PerLevel = 0.08, Prices = { 300, 700, 1_400, 2_800, 5_000 } }, -- bigger bag
+			HeadStart = { PerLevel = 250, Prices = { 200, 500, 1_000, 2_000, 3_500 } }, -- $ at the start
+			SilverTongue = { PerLevel = 0.04, Prices = { 350, 800, 1_600, 3_000, 5_500 } }, -- honest work pays more
+			SmoothOperator = { PerLevel = 0.04, Prices = { 350, 800, 1_600, 3_000, 5_500 } }, -- crimes pay more
+			LowProfile = { PerLevel = 0.06, Prices = { 400, 900, 1_800, 3_500 } }, -- crimes add less heat
+			QuickHands = { PerLevel = 0.06, Prices = { 400, 900, 1_800, 3_500 } }, -- quicker break-ins and robberies
+			Lawyer = { PerLevel = 4, Prices = { 300, 700, 1_400, 2_600, 4_500 } }, -- seconds off jail
+			Insurance = { PerLevel = 0.04, Prices = { 300, 700, 1_400, 2_600, 4_500 } }, -- less lost when busted
+			Bargain = { PerLevel = 0.04, Prices = { 250, 600, 1_200, 2_400, 4_000 } }, -- town shops cheaper
+			Investor = { PerLevel = 0.05, Prices = { 800, 2_000, 4_500, 9_000 } }, -- more Cred per run
 		},
+		MinJailSeconds = 8, -- Lawyer can't take it below this
+		-- One-time unlocks for your starting loadout.
+		Unlocks = {
+			Toolbelt = 1_500, -- every run starts with a level-1 lockpick
+			Thermos = 1_200, -- every run starts with an energy drink in your backpack
+			ZapperLicense = 3_500, -- a free Zapper the moment blasters go on sale
+			WideOptions = 3_000, -- pick hustles from one more choice
+		},
+		-- Things no longer sold, refunded at what they cost the first time a profile loads.
+		Retired = { PitPass = 2_500 } :: { [string]: number }, -- the kart unlock (karts were removed)
+		-- Cosmetics (paint, underglow, trails, bags, zaps, bursts) cost this much by rarity.
+		Tiers = { Common = 300, Rare = 900, Epic = 2_500, Legendary = 6_000 },
 	},
 	Badges = {
 		GettingSeriousQuota = 3,

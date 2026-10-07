@@ -5,14 +5,14 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Format = require(ReplicatedStorage.Shared.Format)
-local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Announcer = require(script.Parent.Announcer)
 
-local remotes = Remotes.match()
+local SPEAKER = "MR. PENNY, THE BANK"
 
 local PennyService = {}
 
 function PennyService.say(text: string)
-	remotes.PennySays:fireAll({ text = text })
+	Announcer.all(SPEAKER, text)
 end
 
 PennyService.Lines = {

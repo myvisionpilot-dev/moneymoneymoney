@@ -1,8 +1,8 @@
 --!strict
--- Vehicle bodies built from parts (no Creator Store models): a go-kart, a sedan (parked,
+-- Vehicle bodies built from parts (no Creator Store models): a sedan (race car, parked,
 -- stolen, taxi, police) and the armoured truck. Each model is built around its ground point,
 -- facing -Z, with Wheel1-4 (front left, front right, back left, back right), an invisible Hull
--- box inside the wheels and a Seat: CarBuilder turns karts and cars into physics cars from those.
+-- box inside the wheels and a Seat: CarBuilder turns them into physics cars.
 -- Hubcaps are named WheelCap* and welded to their wheel, so they bounce and steer with it.
 -- Painted panels carry the Paint attribute (CarFlip's respray). Police cars are still welded
 -- under their (humanoid) cop and never collide.
@@ -122,53 +122,6 @@ local function sideLabel(part: BasePart, face: Enum.NormalId, text: string, colo
 	label.Text = text
 	label.Parent = gui
 	gui.Parent = part
-end
-
-function VehicleModels.kart(color: Color3): Model
-	local model = Instance.new("Model")
-	model.Name = "Kart"
-	piece(model, "Chassis", Vector3.new(3.6, 0.35, 7), Vector3.new(0, 0.75, -0.3), TRIM, Enum.Material.Metal)
-	paint(piece(model, "Hood", Vector3.new(2.6, 0.9, 2.6), Vector3.new(0, 1.35, -2.9), color))
-	paint(wedge(model, "Nose", Vector3.new(2.6, 0.9, 1.2), CFrame.new(0, 1.35, -4.8), color))
-	for _, side in { -1, 1 } do
-		paint(piece(model, "SidePod", Vector3.new(0.9, 0.7, 2.4), Vector3.new(side * 1.85, 1.25, 0), color))
-	end
-	piece(model, "FrontBar", Vector3.new(4.4, 0.3, 0.3), Vector3.new(0, 0.95, -5.55), BLACK, Enum.Material.Metal)
-	piece(model, "RearBar", Vector3.new(4.4, 0.3, 0.3), Vector3.new(0, 0.95, 3.75), BLACK, Enum.Material.Metal)
-	piece(
-		model,
-		"Column",
-		Vector3.new(0.2, 0.2, 1.4),
-		CFrame.new(0, 1.85, -1.3) * CFrame.Angles(math.rad(-35), 0, 0),
-		TRIM
-	)
-	piece(
-		model,
-		"SteeringWheel",
-		Vector3.new(0.15, 1, 1),
-		CFrame.new(0, 2.2, -0.75) * CFrame.Angles(math.rad(-35), math.rad(90), 0),
-		BLACK,
-		nil,
-		Enum.PartType.Cylinder
-	)
-	piece(model, "Seat", Vector3.new(3, 0.6, 2.4), Vector3.new(0, 1.4, 0.9), BLACK)
-	piece(model, "SeatBack", Vector3.new(2.8, 1.9, 0.5), Vector3.new(0, 2.15, 2.15), BLACK, Enum.Material.Fabric)
-	piece(model, "Engine", Vector3.new(2, 1, 1.1), Vector3.new(0, 1.45, 3), CHROME, Enum.Material.DiamondPlate)
-	for _, x in { -0.55, 0.55 } do
-		piece(
-			model,
-			"Exhaust",
-			Vector3.new(1.2, 0.3, 0.3),
-			CFrame.new(x, 1.5, 3.9) * CFrame.Angles(0, math.rad(90), 0),
-			CHROME,
-			Enum.Material.Metal,
-			Enum.PartType.Cylinder
-		)
-	end
-	piece(model, "Hull", Vector3.new(3.4, 1.2, 6.8), Vector3.new(0, 1.25, -0.4), color).Transparency = 1
-	wheels(model, 0.8, 1, 2.4, -2.6, 2)
-	model.WorldPivot = CFrame.identity
-	return model
 end
 
 -- A sedan: lower and upper body, a glass cabin with pillars and a roof, a raked windscreen and

@@ -7,11 +7,13 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
+local Perks = require(ServerScriptService.Common.Perks)
 local BoostService = require(script.Parent.BoostService)
 local HustleService = require(script.Parent.HustleService)
 local TwistService = require(script.Parent.TwistService)
@@ -100,7 +102,7 @@ function HeatService.setSpotted(player: Player, spotted: boolean)
 end
 
 -- Crimes add heat and restart the clock (a disguise from the convenience store halves it, the
--- Cool Head hustle lowers it, a Crackdown twist raises it). The debug command can pass a
+-- Cool Head hustle and the Low Profile upgrade lower it, a Crackdown twist raises it). The debug command can pass a
 -- negative amount to cool you down.
 function HeatService.add(player: Player, amount: number)
 	local state = stateOf(player)
@@ -109,6 +111,7 @@ function HeatService.add(player: Player, amount: number)
 			* BoostService.heatMultiplier(player)
 			* HustleService.heatGainMultiplier(player)
 			* TwistService.heatMultiplier()
+			* (1 - Perks.amount(player, "LowProfile"))
 		else amount
 	if scaled > 0 then
 		state.secondsLeft = Config.Heat.WantedSeconds

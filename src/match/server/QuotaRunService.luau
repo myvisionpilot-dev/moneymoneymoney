@@ -14,6 +14,7 @@ local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local EconomyService = require(script.Parent.EconomyService)
 local HustleService = require(script.Parent.HustleService)
 local Juice = require(script.Parent.Juice)
+local Loadout = require(script.Parent.Loadout)
 local Notifier = require(script.Parent.Notifier)
 local PathService = require(script.Parent.PathService)
 local PrizeMath = require(script.Parent.PrizeMath)
@@ -316,7 +317,7 @@ local function runLoop()
 	waitForPlayers()
 	RosterService.lock()
 	for _, member in RosterService.active() do
-		EconomyService.setCarried(member.player, Config.Match.StartingCash, "starting cash")
+		Loadout.startRun(member.player) -- starting cash, plus whatever the Cred shop gives them
 	end
 	RosterService.gatherAtBank()
 	setPhase("Intro", Timing.scaled(Config.Match.IntroSeconds))
@@ -341,6 +342,9 @@ local function runLoop()
 		local twists = TwistService.roll(quotaIndex)
 		setPhase("Quota", duration)
 		PathService.openQuota(quotaIndex)
+		for _, member in RosterService.active() do
+			Loadout.quotaStarted(member.player, quotaIndex)
+		end
 		PennyService.say(PennyService.Lines.quotaStart(quotaIndex, target, duration, RunState.isEndless))
 		for _, twist in twists do
 			PennyService.say(PennyService.Lines.twist(twist.title, twist.detail))
