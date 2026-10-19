@@ -15,6 +15,7 @@ require(Shared:WaitForChild("ChatTags")).start()
 require(script:WaitForChild("PromptController")).start()
 require(script:WaitForChild("NotifyController")).start()
 require(script:WaitForChild("HudController")).start()
+require(script:WaitForChild("RunBanner")).start() -- RUN!! while you're wanted
 require(script:WaitForChild("StoreButton")).start() -- the Shop, under the status panel
 require(script:WaitForChild("CashFx")).start()
 require(script:WaitForChild("StreakController")).start()

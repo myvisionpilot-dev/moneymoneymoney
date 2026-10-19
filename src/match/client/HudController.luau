@@ -20,6 +20,7 @@ local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ClientState = require(script.Parent.ClientState)
+local RunBanner = require(script.Parent.RunBanner)
 
 local COUNTDOWN_BEEPS = 10 -- seconds left in a quota when the beeps start
 local PANEL_WIDTH = 236
@@ -439,6 +440,7 @@ function HudController.start()
 		end
 		lastStars = stars
 		Music.setChase(stars >= 1 and snapshot.phase == "Quota")
+		RunBanner.set(stars >= 1 and snapshot.phase == "Quota")
 
 		local jailed = me.jailedUntil > Timing.now()
 		if jailed and not wasJailed then
