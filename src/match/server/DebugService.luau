@@ -2,19 +2,28 @@
 -- Debug chat commands for the owner (and anyone in a Studio test):
 --   /cash <amount> [player]   give carried cash (ignores bag size)
 --   /pay <amount>             get paid as if for a job (streak, XP, effects)
---   /zapfx [design]           a blaster shot's effects straight ahead of you (BlasterLooks ids)
+--   /crate [id] [rarity]      open a crate for free (LuckyCrate, GoldCrate, DiamondCrate; Epic...)
+--   /strength <points>        set your saved Strength (to see how hard your shove hits)
 --   /cred <amount>            add saved Cred to yourself (to test the lobby shop)
 --   /skip                     pass the current quota now
 --   /timer <seconds>          set time left in the current phase
 --   /start                    start the run without waiting for arrivals
 --   /heat <stars>             add heat to yourself (to test police)
+--   /bust                     get arrested on the spot (to test the jail lock)
+--   /rob                      rob the store counter you're standing at (to test the till)
+--   /gig [kind]               your phone rings with a gig now (Parcel, Cat, Photo, Litter)
+--   /doorjob <kind>           a door job from the nearest house (Chore, DogWalk, Letter, BreakIn...)
+--   /tutorial                 play the first-join tutorial now
 --   /tp <x> <y> <z>           teleport yourself (goes through MovementGuard)
 --   /drive [top speed]        a car right where you stand (default: race car speed)
 --   /twist <id|none>          swap this quota's twist (ids in Config.Twists)
 --   /hustle <id>              give yourself a hustle (ids in Config.Hustles)
+--   /boost <id>               start a 5-minute treat on yourself (Energy, Disguise, Candy...)
 --   /event <id>               start a town event now (CashDrop, HappyHour, FireSale, VipFare...)
+--   /pass <key|none>          pretend you own a game pass (Config.Store.Passes keys; Studio tests only)
 -- In Studio, ServerStorage.DebugHook:Invoke("cash", "5000") runs the same commands.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -24,23 +33,34 @@ local TextChatService = game:GetService("TextChatService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Crates = require(ReplicatedStorage.Shared.Crates)
 local Format = require(ReplicatedStorage.Shared.Format)
+local Types = require(ReplicatedStorage.Shared.Types)
 local Admin = require(ServerScriptService.Common.Admin)
 local Profiles = require(ServerScriptService.Common.Profiles)
-local BlasterService = require(script.Parent.BlasterService)
+local Purchases = require(ServerScriptService.Common.Purchases)
+local BoostService = require(script.Parent.BoostService)
+local CrateService = require(script.Parent.CrateService)
 local EconomyService = require(script.Parent.EconomyService)
 local EventService = require(script.Parent.EventService)
 local HeatService = require(script.Parent.HeatService)
 local HustleService = require(script.Parent.HustleService)
+local JailService = require(script.Parent.JailService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local PayNotice = require(script.Parent.PayNotice)
 local QuotaRunService = require(script.Parent.QuotaRunService)
+local DoorKnock = require(script.Parent.Paths.DoorKnock)
+local PhoneGigs = require(script.Parent.Paths.PhoneGigs)
+local StoreRobbery = require(script.Parent.Paths.StoreRobbery)
 local RosterService = require(script.Parent.RosterService)
+local Tutorial = require(script.Parent.Tutorial)
 local TwistService = require(script.Parent.TwistService)
 local VehicleService = require(script.Parent.VehicleService)
 
 type Handler = (player: Player, args: { string }) -> string
+
+local BOOST_IDS: { Types.BoostId } = { "Energy", "Disguise", "Candy", "Gloves", "Scanner" }
 
 local DebugService = {}
 
@@ -128,6 +148,42 @@ local handlers: { [string]: Handler } = {
 		return `Heat is now {string.format("%.1f", HeatService.get(player))}`
 	end,
 
+	bust = function(player: Player, _args: { string }): string
+		JailService.arrest(player, "a debug command")
+		return if JailService.isJailed(player) then "Busted" else "Can't arrest you right now"
+	end,
+
+	rob = function(player: Player, _args: { string }): string
+		for _, counter in CollectionService:GetTagged("ShopCounter") do
+			if counter:IsA("BasePart") and CharacterUtil.distanceTo(player, counter.Position) < 12 then
+				local endsAt, message = StoreRobbery.begin(player, counter, function() end)
+				return if endsAt then "Robbing the till" else message or "Can't rob it right now"
+			end
+		end
+		return "Stand at a shop counter first"
+	end,
+
+	gig = function(player: Player, args: { string }): string
+		return if PhoneGigs.ringNow(player, args[1])
+			then "Your phone's ringing"
+			else "No gig right now (on a job, or none near)"
+	end,
+
+	tutorial = function(player: Player, _args: { string }): string
+		Tutorial.begin(player)
+		return "Tutorial started (it shows once the quota's running)"
+	end,
+
+	doorjob = function(player: Player, args: { string }): string
+		local kind = args[1]
+		if not kind then
+			return "Usage: /doorjob <Chore|DogWalk|Letter|WalletSwipe|ShadyPackage|BreakIn>"
+		end
+		return if DoorKnock.startNear(player, kind)
+			then `Door job: {kind}`
+			else "Unknown kind, or you're already on a door job"
+	end,
+
 	tp = function(player: Player, args: { string }): string
 		local x, y, z = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
 		if not x or not y or not z then
@@ -149,16 +205,25 @@ local handlers: { [string]: Handler } = {
 		return if QuotaRunService.forceStart() then "Starting the run" else "The run has already started"
 	end,
 
-	zapfx = function(player: Player, args: { string }): string
-		local root = CharacterUtil.getRoot(player)
-		if not root then
-			return "No character"
+	strength = function(player: Player, args: { string }): string
+		local points = tonumber(args[1])
+		local data = Profiles.get(player)
+		if not points or not data then
+			return "Usage: /strength <points>"
 		end
-		local design = args[1] or "Zapper"
-		local from = (root.CFrame * CFrame.new(1.2, 1, -2)).Position
-		local to = (root.CFrame * CFrame.new(0, 0, -28)).Position
-		BlasterService.effect(from, to, design, Color3.fromRGB(90, 230, 255))
-		return `Fired a {design} shot ahead of you`
+		data.Strength = math.max(0, math.floor(points))
+		Purchases.publish(player)
+		return `Strength {data.Strength}`
+	end,
+
+	crate = function(player: Player, args: { string }): string
+		local kind = Crates.kind(args[1] or "LuckyCrate")
+		if not kind then
+			return "Unknown crate (LuckyCrate, GoldCrate, DiamondCrate)"
+		end
+		local tier = args[2]
+		CrateService.open(player, kind, if tier then tier :: Crates.Tier else nil)
+		return `Opened a {kind.id}`
 	end,
 
 	event = function(_player: Player, args: { string }): string
@@ -175,6 +240,34 @@ local handlers: { [string]: Handler } = {
 			return "Usage: /hustle <id> (ids in Config.Hustles)"
 		end
 		return if HustleService.grant(player, id) then `Hustle: {id}` else "Unknown or maxed hustle"
+	end,
+
+	boost = function(player: Player, args: { string }): string
+		for _, id in BOOST_IDS do
+			if args[1] and id:lower() == args[1]:lower() then
+				BoostService.give(player, id :: Types.BoostId)
+				return `Boost: {id}`
+			end
+		end
+		return "Usage: /boost <Energy|Disguise|Candy|Gloves|Scanner>"
+	end,
+
+	pass = function(player: Player, args: { string }): string
+		local key = args[1]
+		if key == nil or key == "none" then
+			for _, pass in Config.Store.Passes do
+				player:SetAttribute(`TestPass_{pass.key}`, nil)
+			end
+			return "Test passes cleared"
+		end
+		for _, pass in Config.Store.Passes do
+			if pass.key:lower() == key:lower() then
+				local on = player:GetAttribute(`TestPass_{pass.key}`) ~= true
+				player:SetAttribute(`TestPass_{pass.key}`, if on then true else nil)
+				return `{pass.name}: {if on then "on" else "off"} (Studio tests only)`
+			end
+		end
+		return "Unknown pass (see Config.Store.Passes)"
 	end,
 
 	twist = function(_player: Player, args: { string }): string
@@ -218,10 +311,11 @@ function DebugService.start()
 		local command = Instance.new("TextChatCommand")
 		command.Name = name
 		command.PrimaryAlias = `/{name}`
+		command.AutocompleteVisible = false -- players shouldn't see these in chat
 		command.Parent = folder
 		command.Triggered:Connect(function(source: TextSource, text: string)
 			local player = Players:GetPlayerByUserId(source.UserId)
-			if player then
+			if player and Admin.isAdmin(player) then
 				Notifier.send(player, run(player, name, splitArgs(text)), "Info")
 			end
 		end)

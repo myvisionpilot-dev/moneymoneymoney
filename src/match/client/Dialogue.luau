@@ -229,7 +229,7 @@ function Dialogue.open(spec: Spec): Handle
 		AutomaticSize = Enum.AutomaticSize.Y,
 		FontFace = UI.Fonts.Speech,
 		TextSize = 18,
-		Text = `{spec.name}: "{spec.line}"`,
+		Text = `"{spec.line}"`, -- no names on people
 		Visible = at == nil,
 	}, holder)
 

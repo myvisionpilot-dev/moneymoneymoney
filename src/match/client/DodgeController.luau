@@ -11,8 +11,16 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 
 local DODGE_ATTRIBUTE = "Dodging"
 
-type Pose = { [string]: CFrame } -- joint (Motor6D) name -> offset on top of its rest pose
-type Playing = { started: number, joints: { [string]: Motor6D }, rest: { [Motor6D]: CFrame } }
+type Pose = { [string]: CFrame } -- joint name -> offset on top of its rest pose
+-- Older rigs have Motor6D joints (posed through C0); newer ones AnimationConstraints (posed
+-- through Transform, on top of the walk, each frame before it's drawn).
+type Playing = {
+	started: number,
+	joints: { [string]: Motor6D },
+	rest: { [Motor6D]: CFrame },
+	constraints: { [string]: AnimationConstraint },
+	animator: Animator?,
+}
 
 local function turn(x: number, y: number, z: number, drop: number?): CFrame
 	return CFrame.new(0, -(drop or 0), 0) * CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
@@ -105,18 +113,34 @@ local function start(model: Model)
 	end
 	local joints: { [string]: Motor6D } = {}
 	local rest: { [Motor6D]: CFrame } = {}
+	local constraints: { [string]: AnimationConstraint } = {}
 	for _, joint in model:GetDescendants() do
 		if joint:IsA("Motor6D") then
 			joints[joint.Name] = joint
 			rest[joint] = joint.C0
+		elseif joint:IsA("AnimationConstraint") then
+			constraints[joint.Name] = joint
 		end
 	end
-	playing[model] = { started = os.clock(), joints = joints, rest = rest }
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	playing[model] = {
+		started = os.clock(),
+		joints = joints,
+		rest = rest,
+		constraints = constraints,
+		animator = humanoid and humanoid:FindFirstChildOfClass("Animator"),
+	}
 end
 
 local function stop(model: Model, current: Playing)
 	for joint, c0 in current.rest do
 		joint.C0 = c0
+	end
+	local animator = current.animator
+	if not animator or #animator:GetPlayingAnimationTracks() == 0 then
+		for _, joint in current.constraints do
+			joint.Transform = CFrame.identity
+		end
 	end
 	playing[model] = nil
 end
@@ -141,7 +165,7 @@ function DodgeController.start()
 		folder.ChildAdded:Connect(watch) -- including NPCs streaming back in
 	end)
 
-	RunService.RenderStepped:Connect(function()
+	RunService.PreSimulation:Connect(function()
 		local seconds = Config.Dodge.Seconds
 		for model, current in playing do
 			local share = (os.clock() - current.started) / seconds
@@ -153,6 +177,12 @@ function DodgeController.start()
 					if c0 then
 						joint.C0 = c0 * poseAt(name, share)
 					end
+				end
+				local animator = current.animator
+				local walking = animator ~= nil and #animator:GetPlayingAnimationTracks() > 0
+				for name, joint in current.constraints do
+					local base = if walking then joint.Transform else CFrame.identity
+					joint.Transform = base * poseAt(name, share)
 				end
 			end
 		end

@@ -3,7 +3,8 @@
 -- while a needle sweeps a bar; press while it's in the green, once a round, three rounds. Get
 -- them all and you lift their wallet (Pickpocket.MinPay-MaxPay at tier 1, big wallets rare) for
 -- a little heat. Miss one and they spot you: Heat.PickpocketFail. The server makes the rounds
--- and checks every press; the client only reports when it pressed.
+-- and checks every press; the client only reports when it pressed. With the 2x Luck pass the
+-- wallet is rolled twice and you get the fatter one.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,6 +15,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Passes = require(ServerScriptService.Common.Passes)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local BoostService = require(script.Parent.Parent.BoostService)
 local EconomyService = require(script.Parent.Parent.EconomyService)
@@ -66,14 +68,22 @@ local function hits(zone: Types.PickpocketZone, t: number): boolean
 end
 
 -- A tier-1 wallet between MinPay and MaxPay, skewed low so big wallets are rare.
-local function rollWallet(): number
+local function rollOnce(): number
 	local spread = settings.MaxPay - settings.MinPay
 	local amount = settings.MinPay + spread * rng:NextNumber() ^ settings.PayRarity
 	return math.floor(amount / 10 + 0.5) * 10
 end
 
-local function payout(_player: Player, _tier: number): number
-	return math.floor(rollWallet() * getContext().payMultiplier() + 0.5)
+local function rollWallet(player: Player): number
+	local wallet = rollOnce()
+	if Passes.has(player, "DoubleLuck") then
+		wallet = math.max(wallet, rollOnce())
+	end
+	return wallet
+end
+
+local function payout(player: Player, _tier: number): number
+	return math.floor(rollWallet(player) * getContext().payMultiplier() + 0.5)
 end
 
 local function setFrozen(pedestrian: Model, frozen: boolean)
@@ -104,7 +114,7 @@ end
 local function spotted(player: Player, current: Game, why: string)
 	finish(player, current)
 	HeatService.add(player, Config.Heat.PickpocketFail)
-	Notifier.send(player, `{current.pedestrian.Name} {why}`, "Bad")
+	Notifier.send(player, `They {why}`, "Bad")
 	local root = current.pedestrian:FindFirstChild("HumanoidRootPart")
 	if root then
 		Sounds.at("Whistle", root)
@@ -113,7 +123,7 @@ end
 
 local function succeed(player: Player, current: Game)
 	finish(player, current)
-	local base = rollWallet()
+	local base = rollWallet(player)
 	local pay = math.floor(base * getContext().payMultiplier() + 0.5)
 	HeatService.add(player, Config.Heat.Pickpocket)
 	local label = if base >= settings.FatWallet then "Fat wallet lifted" else "Wallet lifted"
@@ -160,7 +170,7 @@ local function begin(player: Player, pedestrian: Model, prompt: ProximityPrompt)
 	local current: Game = { pedestrian = pedestrian, prompt = prompt, zones = zones, startedAt = os.clock() }
 	games[player] = current
 	remotes.PickpocketGame:fireClient(player, {
-		target = pedestrian.Name,
+		target = "", -- no names on people
 		zones = zones,
 		roundSeconds = minigame.RoundSeconds,
 		pauseSeconds = minigame.PauseSeconds,
@@ -233,7 +243,7 @@ local function setupPedestrian(pedestrian: Model)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "PickpocketPrompt"
 	prompt.ActionText = "Pickpocket"
-	prompt.ObjectText = pedestrian.Name
+	prompt.ObjectText = "" -- no names on people
 	prompt.HoldDuration = settings.HoldSeconds
 	prompt.MaxActivationDistance = settings.RangeStuds
 	prompt.RequiresLineOfSight = false

@@ -3,8 +3,9 @@
 -- paid from the cash in your bag (never your deposits) and all for this run only:
 --   Clothes (the BAGS shop): a bigger bag.  Hardware (Handy Hank's): lockpicks.
 --   Convenience stores: five-minute boosts (the energy drink goes in your backpack: EnergyDrink).
---   Guns (Tony's Blasters): stun blasters, from quota Blasters.UnlockQuota.
--- (Speedy's Garage sells nothing: it runs the street races and the car flips.)
+--   Crates (Tony's): lucky crates (CrateService fills this shop with ShopService.register).
+-- (Speedy's Garage sells nothing: it runs the street races and the car flips.) Maps built before
+-- the crates came in still say Shop "Guns" on Tony's counter: that's the crate shop too.
 -- The shopkeeper's "Buy something" opens it (CounterService). The client only says which item;
 -- the server works out which shop you're standing at.
 
@@ -22,7 +23,6 @@ local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Perks = require(ServerScriptService.Common.Perks)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
-local BlasterService = require(script.Parent.BlasterService)
 local BoostService = require(script.Parent.BoostService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnergyDrink = require(script.Parent.EnergyDrink)
@@ -45,10 +45,13 @@ local SHOPS: { [Types.ShopId]: { title: string, note: string } } = {
 	Clothes = { title = "BAGS", note = "A bigger bag holds more cash between trips to the bank." },
 	Hardware = { title = "HANDY HANK'S", note = "A better lockpick makes break-ins quicker." },
 	Convenience = { title = "CONVENIENCE STORE", note = "Treats that last 5 minutes. Different ones stack." },
-	Guns = {
-		title = "TONY'S BLASTERS",
-		note = "Stun blasters: zap a cop to get away, zap a rival and grab the cash they drop.",
-	},
+	Crates = { title = "TONY'S CRATES", note = "Treats and upgrades inside. The odds are on every crate." },
+}
+
+-- A shop another module stocks (ShopService.register).
+export type Stock = {
+	items: (player: Player) -> { Types.ShopItem },
+	buy: (player: Player, id: string) -> (),
 }
 
 local BOOSTS: { { id: Types.BoostId, title: string, detail: string } } = {
@@ -63,11 +66,6 @@ local BOOSTS: { { id: Types.BoostId, title: string, detail: string } } = {
 	{ id = "Scanner", title = "Police Scanner", detail = "See every cop in town, even through walls." },
 }
 
-local BLASTERS: { { id: Types.BlasterId, title: string } } = {
-	{ id = "Zapper", title = "Zapper" },
-	{ id = "MegaZapper", title = "Mega Zapper" },
-}
-
 local remotes = Remotes.match()
 local buyLimiter = RateLimiter.new(Config.Security.RemotesPerSecond, 1)
 
@@ -76,6 +74,12 @@ local ShopService = {
 }
 
 local levels: { [Player]: Levels } = {}
+local stocks: { [Types.ShopId]: Stock } = {}
+
+-- Another module stocks this shop: what's on its shelves for a player, and buying one.
+function ShopService.register(shop: Types.ShopId, stock: Stock)
+	stocks[shop] = stock
+end
 
 local function levelsOf(player: Player): Levels
 	local current = levels[player]
@@ -125,6 +129,7 @@ local function price(player: Player, shop: Types.ShopId, base: number): number
 		* (1 - Perks.amount(player, "Bargain"))
 	return math.floor(base * multiplier / 10 + 0.5) * 10
 end
+ShopService.price = price
 
 local function upgradePrice(player: Player, id: Types.UpgradeId, level: number): number?
 	local base: number? = nil
@@ -193,23 +198,8 @@ local function stateFor(player: Player, shop: Types.ShopId): Types.ShopState
 				price = if carrying then nil else price(player, "Convenience", Config.Boosts[boost.id].price),
 			})
 		end
-	else
-		local have = BlasterService.owned(player)
-		for _, blaster in BLASTERS do
-			local stats = Config.Blasters[blaster.id]
-			local yours = have == blaster.id or (have == "MegaZapper" and blaster.id == "Zapper")
-			table.insert(items, {
-				id = blaster.id :: string,
-				kind = "Blaster",
-				title = blaster.title,
-				detail = `Range {stats.range} · reloads in {stats.cooldown}s · freezes cops for {stats.copStunSeconds}s`,
-				status = if have == blaster.id then "Yours" else nil,
-				price = if yours then nil else price(player, "Guns", stats.price),
-			})
-		end
-		if RunState.quotaIndex < Config.Blasters.UnlockQuota then
-			locked = `Tony's not selling yet. Come back at quota {Config.Blasters.UnlockQuota}.`
-		end
+	elseif stocks[shop] then
+		items = stocks[shop].items(player)
 	end
 	local off = math.floor((1 - TwistService.shopPriceMultiplier() * FireSale.multiplier(shop)) * 100 + 0.5)
 	local note = if off > 0 then `SALE: {off}% off everything! {SHOPS[shop].note}` else SHOPS[shop].note
@@ -218,11 +208,14 @@ end
 
 -- A counter's Shop attribute, if it names a real shop.
 local function asShop(value: unknown): Types.ShopId?
-	if value == "Convenience" or value == "Clothes" or value == "Hardware" or value == "Guns" then
+	if value == "Convenience" or value == "Clothes" or value == "Hardware" or value == "Crates" then
 		return value :: any
+	elseif value == "Guns" then
+		return "Crates"
 	end
 	return nil
 end
+ShopService.asShop = asShop
 
 -- The shop a counter belongs to (its Shop attribute), if any.
 function ShopService.shopOf(counter: Instance): Types.ShopId?
@@ -275,6 +268,7 @@ local function pay(player: Player, price: number, reason: string, label: string)
 	Juice.spent(player, price, label)
 	return true
 end
+ShopService.pay = pay
 
 local UPGRADE_LABELS: { [Types.UpgradeId]: string } = {
 	Bag = "Bigger bag purchased",
@@ -326,24 +320,6 @@ local function buyBoost(player: Player, id: Types.BoostId): boolean
 	return true
 end
 
-local function buyBlaster(player: Player, id: Types.BlasterId): boolean
-	if RunState.quotaIndex < Config.Blasters.UnlockQuota then
-		Notifier.send(player, `Tony's not selling yet. Come back at quota {Config.Blasters.UnlockQuota}.`, "Info")
-		return false
-	end
-	local have = BlasterService.owned(player)
-	if have == id or (have == "MegaZapper" and id == "Zapper") then
-		return false
-	end
-	local title = if id == "MegaZapper" then "Mega Zapper" else "Zapper"
-	if not pay(player, price(player, "Guns", Config.Blasters[id].price), `shop: {id:lower()}`, `{title} purchased`) then
-		return false
-	end
-	BlasterService.give(player, id)
-	Notifier.send(player, 'Tony: "Pleasure doing business." Press 1 (or tap it) to draw it.', "Info")
-	return true
-end
-
 local function onBuy(player: Player, payload: unknown)
 	if not buyLimiter:allow(player) or typeof(payload) ~= "string" or not canShop(player) then
 		return
@@ -363,12 +339,8 @@ local function onBuy(player: Player, payload: unknown)
 				buyBoost(player, boost.id)
 			end
 		end
-	elseif shop == "Guns" then
-		for _, blaster in BLASTERS do
-			if blaster.id == payload then
-				buyBlaster(player, blaster.id)
-			end
-		end
+	elseif stocks[shop] then
+		stocks[shop].buy(player, payload)
 	end
 	remotes.ShopOpen:fireClient(player, stateFor(player, found :: any))
 end

@@ -92,6 +92,85 @@ export type JobGuide = {
 	pay: number,
 }
 
+-- Something thrown or hopping through the air (a parcel, a letter, the dog's ball, a squirrel
+-- scampering off, a bill a resident hands you). The server puts the part at `to` once it lands;
+-- every client flies it there on the way: an arc `height` studs high, spinning if `spin`, with
+-- `hops` little bounces after (or hopping all the way, for a squirrel: `hopping`).
+export type Toss = {
+	id: number, -- also the part's TossId attribute (with streaming the part can arrive after this)
+	part: BasePart?,
+	startedAt: number, -- server time it set off
+	from: CFrame,
+	to: CFrame,
+	seconds: number,
+	height: number,
+	spin: number?, -- turns per second (end over end)
+	flat: boolean?, -- spins flat like a frisbee (a letter)
+	hops: number?, -- bounces after landing
+	hopping: boolean?, -- small hops the whole way instead of one arc
+}
+
+-- The first-join tutorial's current step (Config.Tutorial), as your screen shows it: a few
+-- words, a trail of arrows to `target` (or to `follow`, a person, while they're streamed in),
+-- and `cheer` popping up first when the step before was just done. `done`: it's finished.
+export type TutorialStep = {
+	index: number,
+	total: number,
+	text: string,
+	target: Vector3?,
+	route: { Vector3 }?, -- a walkable way there (round the buildings), when one was found
+	follow: Instance?,
+	cheer: string?,
+	done: boolean?,
+}
+
+-- Little moments on a job everyone nearby sees: a fragile parcel cracking or smashing, a dog
+-- biting, a ball caught, a mess scooped up.
+export type JobFxKind =
+	"Crack"
+	| "Smash"
+	| "Chomp"
+	| "Catch"
+	| "Sparkle"
+	| "Poof"
+	| "Splash"
+	| "Shove"
+	| "KnockOut"
+	| "Pow"
+export type JobFx = {
+	kind: JobFxKind,
+	at: Vector3,
+	from: Vector3?, -- a shove: where the shover stood
+	power: number?, -- a shove: the shover's Strength tier (1 = ordinary)
+	by: number?, -- a shove: the shover's UserId
+}
+
+-- The dog's straining after a squirrel (or a cat): tap to hold them back. `meter` runs from 0
+-- (back at heel) to 1 (they slip the leash); nil ends it.
+export type TugGame = {
+	critter: string, -- "SQUIRREL!", "CAT!"
+	meter: number,
+	endsAt: number, -- server time; by then whichever side the meter's on wins
+	tap: number, -- how much one tap pulls them back (for the client's own guess between updates)
+	pull: number, -- how fast they pull per second
+}
+
+-- A phone gig (Paths/PhoneGigs), as your phone shows it: ringing with an offer, on (the job
+-- guide shows the way), or over.
+export type GigKind = "Parcel" | "Cat" | "Photo" | "Litter"
+export type GigState = "Offer" | "Active" | "Done" | "Failed"
+export type GigView = {
+	id: number,
+	kind: GigKind,
+	title: string, -- "RUSH PARCEL"
+	detail: string, -- what to do
+	pay: number, -- before the speed bonus
+	state: GigState,
+	endsAt: number, -- server time: the phone stops ringing, or the clock runs out
+	bonus: number?, -- Done: the speed bonus that was paid on top
+}
+export type GigAnswer = { id: number, accept: boolean }
+
 export type DoorOfferOption = {
 	slot: number, -- 1 or 2
 	title: string,
@@ -130,12 +209,11 @@ export type TalkAnswer = { id: number, choice: number }
 
 export type UpgradeId = "Bag" | "Lockpick"
 export type BoostId = "Energy" | "Disguise" | "Candy" | "Gloves" | "Scanner"
-export type BlasterId = "Zapper" | "MegaZapper"
-export type ShopId = "Convenience" | "Clothes" | "Hardware" | "Guns"
-export type ShopItemKind = "Upgrade" | "Boost" | "Blaster"
+export type ShopId = "Convenience" | "Clothes" | "Hardware" | "Crates"
+export type ShopItemKind = "Upgrade" | "Boost" | "Crate"
 
 export type ShopItem = {
-	id: string, -- an UpgradeId, BoostId or BlasterId
+	id: string, -- an UpgradeId, BoostId or crate id (Config.Crates.Kinds)
 	kind: ShopItemKind,
 	title: string,
 	detail: string, -- what it does (upgrades: what you have -> what's next)
@@ -151,15 +229,19 @@ export type ShopState = {
 	locked: string?, -- set while the shop isn't open yet (the items still show)
 }
 
--- A blaster shot, for everyone's screen: the beam, and who (if anyone) got stunned.
-export type BlasterFx = {
-	from: Vector3,
-	to: Vector3,
-	hit: Model?,
-	stunSeconds: number,
-	color: Color3?, -- the shooter's zap colour (Cred shop); default cyan
-	design: string?, -- the blaster's look (shared/BlasterLooks): each has its own effects
-	muzzle: Vector3?, -- where the beam leaves the blaster (from is the head)
+-- What the Lucky Wheel gave you (lobby): Cred, or a cosmetic id.
+export type WheelResult = {
+	slice: number, -- Config.Wheel.Slices index
+	cred: number,
+	cosmetic: string?,
+}
+
+-- A crate you just opened at Tony's (already in your hands): the client shakes it open.
+export type CrateReveal = {
+	crate: string, -- its id (Config.Crates.Kinds)
+	prize: string, -- shared/Crates prize id
+	tier: string, -- the prize's rarity
+	swapped: boolean?, -- you already had it maxed, so it became a Treat Pack
 }
 
 export type RaceState = "Gathering" | "Countdown" | "Racing"
@@ -274,6 +356,29 @@ export type PickpocketGame = {
 	zones: { PickpocketZone },
 	roundSeconds: number,
 	pauseSeconds: number,
+}
+
+-- One pin of the jail cell's lock: a ring spins clockwise with a green arc on it, and you press
+-- when the green covers the arrow at the top. Degrees, clockwise from the top.
+export type LockPin = {
+	start: number, -- where the green arc starts before it spins
+	width: number,
+	speed: number, -- degrees a second
+}
+
+export type LockpickGame = {
+	pins: { LockPin },
+	pin: number, -- the pin you're on (the server's say: after a miss it's back to 1)
+	pauseSeconds: number, -- before each spin starts
+}
+
+export type LockpickPress = { pin: number, t: number } -- t: seconds into that pin's spin
+
+-- A store's till when you rob it, seen from above: grab the bills before time's up.
+export type RegisterSlot = { bills: number, value: number } -- how many bills, and what each is worth
+export type RegisterGame = {
+	slots: { RegisterSlot }, -- in the order client/RegisterController lays them out
+	endsAt: number, -- server time
 }
 
 -- Your saved profile, as the lobby shows it.

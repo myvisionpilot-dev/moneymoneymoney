@@ -87,11 +87,13 @@ function CashFx.payout(amount: number, pitch: number)
 		end)
 	end
 	if amount >= settings.HugePayout then
+		ScreenFx.boom()
 		ScreenFx.flash(UI.Colors.Gold, 0.4)
 		ScreenFx.shake(settings.ShakeStuds * 2.2, 0.6)
 		ScreenFx.rain(40)
 		ScreenFx.banner("BIG PAYDAY!", UI.Colors.Gold, nil, 1.2)
 	elseif amount >= settings.BigPayout then
+		ScreenFx.boom()
 		ScreenFx.flash(UI.Colors.Gold, 0.22)
 		ScreenFx.shake(settings.ShakeStuds, 0.35)
 	end

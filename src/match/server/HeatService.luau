@@ -2,7 +2,8 @@
 -- Heat: 0 to Police.MaxHeat per player; each whole number is a wanted star.
 -- Crimes add heat, and it all clears Heat.WantedSeconds after your last crime, however many
 -- stars you have (the chase music is that long). The clock runs faster hidden in a bush (and not
--- spotted by a cop, which PoliceService reports) and with the Ghost hustle.
+-- spotted by a cop, which PoliceService reports), with the Ghost hustle and with the Clean
+-- Record game pass.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -13,6 +14,7 @@ local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
+local Passes = require(ServerScriptService.Common.Passes)
 local Perks = require(ServerScriptService.Common.Perks)
 local BoostService = require(script.Parent.BoostService)
 local HustleService = require(script.Parent.HustleService)
@@ -150,6 +152,7 @@ local function tick(dt: number)
 		local hidden = hiding and not state.spotted
 		local speed = HustleService.heatDecayMultiplier(player)
 			* (if hidden then Config.Heat.HidingDecayMultiplier else 1)
+			* (if Passes.has(player, "CleanRecord") then Config.Store.CleanRecordSpeed else 1)
 		local heat = state.heat
 		local starsBefore = math.floor(heat)
 		if heat > 0 then

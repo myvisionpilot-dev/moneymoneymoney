@@ -1,7 +1,8 @@
 --!strict
--- Every shop's window (bags, hardware, garage, convenience stores, Tony's blasters), in the
--- store style: a checkered header with the cash in your bag, and a colourful card per item: a
--- little 3D model turning in front of spinning light rays, its name, price and a Buy button.
+-- Every shop's window (bags, hardware, convenience stores, Tony's crates): a store window
+-- with the shop's name (and a little picture of what it sells) over the top edge, the cash in
+-- your bag, and a store card per item: its name, a little 3D model turning in sunburst rays,
+-- what it does and its price on a button.
 -- Opened by "Buy" in the shopkeeper's conversation (CounterService). Paid from your bag;
 -- walking away from the counter closes it.
 
@@ -23,24 +24,30 @@ local ClientState = require(script.Parent.ClientState)
 
 local COUNTER_TAG = "ShopCounter"
 local CLOSE_SLACK = 6
-local CARD_SIZE = UDim2.fromOffset(154, 206)
-local ART_HEIGHT = 84
-local WINDOW_WIDTH = 520
+local CARD_SIZE = UDim2.fromOffset(140, 214)
+local CARD_GAP = 10
+local ART_TOP = 28
+local ART_HEIGHT = 86
+local MIN_WIDTH = 460 -- room for the longest shop name
+local CHROME_WIDTH = 40 -- the window's frame and the inset's padding
 
 local CARD_COLORS: { [string]: Color3 } = {
 	Bag = Color3.fromRGB(235, 70, 110),
-	Lockpick = Color3.fromRGB(245, 150, 40),
-	Energy = Color3.fromRGB(240, 70, 70),
-	Disguise = Color3.fromRGB(245, 190, 40),
-	Candy = Color3.fromRGB(245, 130, 50),
-	Gloves = Color3.fromRGB(150, 90, 240),
-	Scanner = Color3.fromRGB(60, 170, 120),
-	Zapper = Color3.fromRGB(40, 150, 230),
-	MegaZapper = Color3.fromRGB(220, 70, 180),
+	Lockpick = Color3.fromRGB(245, 150, 30),
+	Energy = Color3.fromRGB(70, 190, 50),
+	Disguise = Color3.fromRGB(240, 185, 20),
+	Candy = Color3.fromRGB(245, 120, 40),
+	Gloves = Color3.fromRGB(150, 85, 240),
+	Scanner = Color3.fromRGB(40, 170, 130),
+	LuckyCrate = Color3.fromRGB(215, 135, 55),
+	GoldCrate = Color3.fromRGB(235, 175, 25),
+	DiamondCrate = Color3.fromRGB(70, 185, 235),
 }
 
 local ShopController = {}
 
+-- A store card: the name on top, the item turning in sunburst rays, what it does, and its
+-- price on a button (green when you can afford it).
 local function card(
 	parent: Instance,
 	order: number,
@@ -49,77 +56,63 @@ local function card(
 	locked: boolean,
 	onBuy: () -> ()
 )
-	local _, frame =
-		UI.panel(CARD_COLORS[item.id] or UI.Colors.Info, { LayoutOrder = order }, parent, CARD_SIZE.Y.Offset)
+	local _, frame = UI.itemCard(
+		CARD_COLORS[item.id] or UI.Colors.Info,
+		{ LayoutOrder = order },
+		parent,
+		(ART_TOP + ART_HEIGHT / 2) / CARD_SIZE.Y.Offset
+	)
+	local title = UI.label({
+		Position = UDim2.fromOffset(4, 3),
+		Size = UDim2.new(1, -8, 0, 26),
+		FontFace = UI.Fonts.Title,
+		TextScaled = true,
+		Text = item.title,
+	}, frame)
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 22
+	limit.Parent = title
+	UI.textStroke(title, 2.8)
 
-	-- The picture: the item turning slowly in front of spinning light rays.
 	local art = UI.frame({
-		Position = UDim2.fromOffset(6, 6),
+		Position = UDim2.fromOffset(6, ART_TOP),
 		Size = UDim2.new(1, -12, 0, ART_HEIGHT),
 		BackgroundTransparency = 1,
 	}, frame)
-	UI.rays(art, 220, nil, 10)
 	ItemModels.viewport(item.id, { Size = UDim2.fromScale(1, 1), ZIndex = 2 }, art, true)
 	UI.label({
-		Position = UDim2.fromOffset(4, 2),
-		Size = UDim2.new(1, -8, 0, 16),
+		Position = UDim2.fromOffset(2, 0),
+		Size = UDim2.new(1, -4, 0, 16),
 		ZIndex = 3,
+		FontFace = UI.Fonts.Heading,
 		TextSize = 12,
 		TextColor3 = UI.Colors.Gold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Text = item.status or "",
 	}, art)
 
-	local title = UI.label({
-		Position = UDim2.fromOffset(4, ART_HEIGHT + 6),
-		Size = UDim2.new(1, -8, 0, 22),
-		FontFace = UI.Fonts.Title,
-		TextSize = 18,
-		TextWrapped = false,
-		TextScaled = false,
-		Text = item.title,
-	}, frame)
-	UI.textStroke(title, 2.5)
-
-	-- The price, centred: a coin and the number.
-	local price = item.price
-	local priceRow = UI.frame({
-		Position = UDim2.fromOffset(0, ART_HEIGHT + 28),
-		Size = UDim2.new(1, 0, 0, 22),
-		BackgroundTransparency = 1,
-	}, frame)
-	local rowLayout = UI.list(priceRow, Enum.FillDirection.Horizontal, 5)
-	rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	if price then
-		UI.iconCircle("$", UI.Colors.Gold, 18, { LayoutOrder = 1 }, priceRow)
-	end
 	UI.label({
-		LayoutOrder = 2,
-		Size = UDim2.fromOffset(0, 22),
-		AutomaticSize = Enum.AutomaticSize.X,
-		FontFace = UI.Fonts.Number,
-		TextSize = 18,
-		TextWrapped = false,
-		Text = if price then Format.number(price) else "",
-	}, priceRow)
-
-	UI.label({
-		Position = UDim2.fromOffset(6, ART_HEIGHT + 52),
-		Size = UDim2.new(1, -12, 0, 34),
-		TextSize = 11,
+		Position = UDim2.fromOffset(6, ART_TOP + ART_HEIGHT + 2),
+		Size = UDim2.new(1, -12, 0, 56),
+		TextSize = 13,
 		TextYAlignment = Enum.TextYAlignment.Top,
+		RichText = item.kind == "Crate", -- a crate's odds, each rarity in its colour
 		Text = item.detail,
 	}, frame)
 
+	local price = item.price
 	local canBuy = price ~= nil and not locked and carried >= price
 	local buy = UI.button({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -7),
-		Size = UDim2.new(1, -14, 0, 30),
+		Size = UDim2.new(1, -14, 0, 34),
 		BackgroundColor3 = if canBuy then UI.Colors.Money else UI.Colors.Grey,
-		TextSize = 19,
-		Text = if price then "Buy" elseif item.kind == "Upgrade" then "Maxed" else "Yours",
 	}, frame)
+	if price then
+		UI.price(buy, "$", Format.number(price))
+	else
+		UI.price(buy, nil, if item.kind == "Upgrade" then "MAXED" else "YOURS")
+	end
 	buy.Activated:Connect(function()
 		if price and not locked then
 			onBuy()
@@ -137,40 +130,43 @@ function ShopController.start()
 	local window = UI.window("", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.55),
-		Size = UDim2.fromOffset(WINDOW_WIDTH, 0),
+		Position = UDim2.fromScale(0.5, 0.6),
+		Size = UDim2.fromOffset(MIN_WIDTH, 0),
 	}, root, true)
 	local panel = window.panel
+	window.title.TextSize = 38
 	Cursor.registerPanel(panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
-	local header = window.title.Parent :: Frame
-	local bagPill = UI.pill("$", UI.Colors.Money, {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -48, 0.5, 0),
-		Size = UDim2.fromOffset(150, 32),
-	}, header)
-	window.title.Size = UDim2.new(1, -220, 1, 0)
-
-	local note = UI.label({
+	-- The note, with the cash in your bag on the right.
+	local top = UI.frame({
 		LayoutOrder = 1,
-		Size = UDim2.fromScale(1, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		TextSize = 14,
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundTransparency = 1,
 	}, window.body)
+	local note = UI.label({
+		Size = UDim2.new(1, -170, 1, 0),
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, top)
+	local bagPill = UI.pill("$", UI.Colors.Money, {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.fromOffset(160, 34),
+	}, top)
 	local lockedBanner = UI.card(UI.Colors.Danger, {
 		LayoutOrder = 2,
 		Size = UDim2.new(1, 0, 0, 34),
 		Visible = false,
 	}, window.body)
-	local lockedText = UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 15 }, lockedBanner)
+	local lockedText = UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 16 }, lockedBanner)
 	local cards = UI.frame({
 		LayoutOrder = 3,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 	}, window.body)
-	UI.grid(cards, CARD_SIZE, 10)
+	UI.grid(cards, CARD_SIZE, CARD_GAP)
 
 	-- What you just tried to buy, and how it looked before: if it's changed when the shop comes
 	-- back, the purchase went through and gets its moment.
@@ -198,9 +194,16 @@ function ShopController.start()
 		local me = ClientState.me()
 		local carried = if me then me.carried else 0
 		window.title.Text = state.title
+		window.icon:ClearAllChildren()
+		if state.items[1] then
+			ItemModels.viewport(state.items[1].id, { Size = UDim2.fromScale(1, 1) }, window.icon, true)
+		end
 		bagPill.Text = Format.number(carried)
 		note.Text = state.note
 		lockedBanner.Visible = state.locked ~= nil
+		-- One row of cards: the window is as wide as they need.
+		local across = #state.items * (CARD_SIZE.X.Offset + CARD_GAP) - CARD_GAP + CHROME_WIDTH
+		panel.Size = UDim2.fromOffset(math.max(MIN_WIDTH, across), 0)
 		lockedText.Text = state.locked or ""
 		for order, item in state.items do
 			card(cards, order, item, carried, state.locked ~= nil, function()

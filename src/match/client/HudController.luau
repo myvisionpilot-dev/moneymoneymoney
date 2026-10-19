@@ -1,8 +1,8 @@
 --!strict
--- Always-on HUD in the shop style (blue checkered panels): the quota (name, timer, progress bar
--- and the next-step hint) top centre; heat, health, the cash you're holding and your run level
--- (with its XP bar) top right, with small lines under them for what you've banked, your job,
--- boosts, bounty and hustles; a banner while you're in jail. Money rolls up instead of jumping,
+-- Always-on HUD (dark checkered panels): the quota (name, timer, progress bar and the next-step
+-- hint) top centre; heat, health, the cash you're holding and your run level (with its XP bar)
+-- top right, with small lines under them for what you've banked, your job and your bounty; a
+-- banner while you're in jail. Boosts and hustles have their own meters (BoostMeters). Money rolls up instead of jumping,
 -- and a full bag throbs red. It also plays the sting when you gain a star, the clang and red flash when you're
 -- busted, beeps for the last 10 seconds, and swaps in the chase music while you're wanted.
 
@@ -23,13 +23,6 @@ local ClientState = require(script.Parent.ClientState)
 
 local COUNTDOWN_BEEPS = 10 -- seconds left in a quota when the beeps start
 local PANEL_WIDTH = 236
-local BOOSTS: { { id: string, name: string } } = {
-	{ id = "Energy", name = "Energy" },
-	{ id = "Disguise", name = "Disguise" },
-	{ id = "Candy", name = "Candy" },
-	{ id = "Gloves", name = "Gloves" },
-	{ id = "Scanner", name = "Scanner" },
-}
 local RED = UI.Colors.Danger
 local GREEN = UI.Colors.Money
 local GOLD = UI.Colors.Gold
@@ -53,10 +46,12 @@ local bagBar: Frame? = nil
 local levelBar: Frame? = nil
 local quotaBarFrame: Frame? = nil
 local hudRoot: Frame? = nil
+local rightColumn: Frame? = nil -- the status panel, and under it the Shop button (StoreButton)
 local quotaFrame: Frame? = nil
 local statusLabel: TextLabel? = nil
 local phaseStatus = "" -- the quota panel's line for the current phase
 local hint: string? = nil -- GuideController's next step, shown instead during a quota
+local jailBannerHidden = false -- the cell's lock is on screen (LockpickController)
 
 local function showStatus()
 	local label = statusLabel
@@ -80,6 +75,11 @@ function HudController.setHint(text: string?)
 	showStatus()
 end
 
+-- The jail lock shows its own BUSTED and time left, so the banner steps aside meanwhile.
+function HudController.hideJailBanner(hidden: boolean)
+	jailBannerHidden = hidden
+end
+
 -- JobGuideController shows the active job here; nil hides the row.
 function HudController.setJobText(text: string?)
 	local label = jobLabel
@@ -99,6 +99,11 @@ end
 -- The HUD's screen and its quota panel (announcements slide out from under it).
 function HudController.quotaPanel(): (Frame?, Frame?)
 	return hudRoot, quotaFrame
+end
+
+-- The top-right column: things added here sit under the status panel, right-aligned.
+function HudController.rightColumn(): Frame?
+	return rightColumn
 end
 
 function HudController.popQuota()
@@ -218,14 +223,25 @@ function HudController.start()
 	}, quotaPanel)
 	statusLabel = status
 
-	-- Status panel (top right): heat, health, holding, then small lines.
-	local _, statusPanel = UI.panel(UI.Colors.Panel, {
-		Name = "Status",
+	-- Status panel (top right): heat, health, holding, then small lines. It heads a column, so
+	-- whatever goes under it (the Shop button) moves down as it grows.
+	local column = UI.frame({
+		Name = "Right",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -8, 0, 6),
 		Size = UDim2.fromOffset(PANEL_WIDTH, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-	}, root, 320)
+		BackgroundTransparency = 1,
+	}, root)
+	local columnLayout = UI.list(column, Enum.FillDirection.Vertical, 8)
+	columnLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	rightColumn = column
+	local _, statusPanel = UI.panel(UI.Colors.Panel, {
+		Name = "Status",
+		LayoutOrder = 1,
+		Size = UDim2.fromOffset(PANEL_WIDTH, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+	}, column)
 	UI.padding(statusPanel, 8)
 	local layout = UI.list(statusPanel, Enum.FillDirection.Vertical, 4)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -257,10 +273,6 @@ function HudController.start()
 	local job = line(7, UI.Colors.Text)
 	job.Visible = false
 	jobLabel = job
-	local boostsLabel = line(8)
-	boostsLabel.Visible = false
-	local hustlesLabel = line(9, Color3.fromRGB(225, 200, 255))
-	hustlesLabel.Visible = false
 
 	-- Jail banner while you're locked up: low on the screen, so the cell window stays clear
 	-- (above the money lines).
@@ -358,13 +370,14 @@ function HudController.start()
 		end
 
 		if snapshot.phase == "Quota" then
-			phaseStatus = "Deposit cash at the bank"
+			-- (Nothing in the tutorial: it says what to do itself.)
+			phaseStatus = if Players.LocalPlayer:GetAttribute("Tutorial") then "" else "Bank your cash"
 		elseif snapshot.phase == "Waiting" then
-			phaseStatus = "The run starts soon"
+			phaseStatus = "Starting soon"
 		elseif snapshot.phase == "Intro" then
-			phaseStatus = "Mr. Penny is about to name the price"
+			phaseStatus = "Get ready"
 		elseif snapshot.phase == "Intermission" then
-			phaseStatus = "Next quota starts soon"
+			phaseStatus = "Next quota soon"
 		elseif snapshot.phase == "Decision" then
 			phaseStatus = "Cash out or keep going?"
 		else
@@ -435,16 +448,6 @@ function HudController.start()
 		end
 		wasJailed = jailed
 
-		local hustles: { string } = {}
-		for _, hustle in Config.Hustles.List do
-			local stacks = me.hustles[hustle.id]
-			if stacks then
-				table.insert(hustles, if stacks > 1 then `{hustle.title} x{stacks}` else hustle.title)
-			end
-		end
-		hustlesLabel.Visible = #hustles > 0
-		hustlesLabel.Text = `Hustles: {table.concat(hustles, ", ")}`
-
 		bountyLabel.Visible = me.bounty > 0
 		bountyLabel.Text = `Bounty on you: {Format.money(me.bounty)}`
 	end
@@ -457,15 +460,6 @@ function HudController.start()
 	local lastBeep = -1
 	RunService.RenderStepped:Connect(function()
 		local me = ClientState.me()
-		local shown: { string } = {}
-		for _, boost in BOOSTS do
-			local endsAt = me and me.boosts[boost.id]
-			if endsAt and endsAt > Timing.now() then
-				table.insert(shown, `{boost.name} {Format.clock(endsAt - Timing.now())}`)
-			end
-		end
-		boostsLabel.Visible = #shown > 0
-		boostsLabel.Text = table.concat(shown, "  ·  ")
 		-- A full bag throbs red (and so does its FULL), so you head for the bank.
 		if full then
 			local beat = (math.sin(os.clock() * 8) + 1) / 2
@@ -482,7 +476,7 @@ function HudController.start()
 			elseif me.heat >= 1 then `WANTED  {Format.clock(clearsIn)}`
 			else `Cools off in {Format.clock(clearsIn)}`
 		local jailLeft = if me then me.jailedUntil - Timing.now() else 0
-		jailBanner.Visible = jailLeft > 0
+		jailBanner.Visible = jailLeft > 0 and not jailBannerHidden
 		if jailLeft > 0 then
 			jailText.Text = `BUSTED  ·  out in {Format.clock(jailLeft)}`
 		end

@@ -12,6 +12,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Signal = require(ReplicatedStorage.Shared.Signal)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -28,6 +29,7 @@ local PropModels = require(script.Parent.Parent.PropModels)
 local Residents = require(script.Parent.Parent.Residents)
 local ShopService = require(script.Parent.Parent.ShopService)
 local Stats = require(script.Parent.Parent.Stats)
+local Thanks = require(script.Parent.Parent.Thanks)
 
 local HOUSE_TAG = "House"
 local PARK_TAG = "ParkSpot"
@@ -42,7 +44,7 @@ type Job = DoorJobs.Job
 
 type Offer = {
 	house: House,
-	wildcard: DoorJobs.Kind, -- slot 2; slot 1 is always the chore
+	kinds: { DoorJobs.Kind }, -- by answer slot: the chore, then their wildcard
 	expiresAt: number,
 	resident: Model?,
 	closed: boolean,
@@ -57,7 +59,13 @@ local rng = Random.new()
 local houses: { House } = {}
 local offers: { [Player]: Offer } = {}
 local jobs: { [Player]: Job } = {}
+local forced: { [Player]: DoorJobs.Kind } = {} -- every door offers them just this (the tutorial)
 local context: MoneyPath.Context? = nil
+
+-- (player, kind) as a door job starts, pays out, or falls through.
+local started = Signal.new() :: Signal.Signal<Player, DoorJobs.Kind>
+local finished = Signal.new() :: Signal.Signal<Player, DoorJobs.Kind>
+local failed = Signal.new() :: Signal.Signal<Player, DoorJobs.Kind>
 
 local function getContext(): MoneyPath.Context
 	local current = context
@@ -140,7 +148,7 @@ kit = {
 	guide = function(job: Job)
 		if jobs[job.player] == job then
 			remotes.JobGuide:fireClient(job.player, {
-				title = DoorJobs.title(job.kind, job.house),
+				title = job.title or DoorJobs.title(job.kind, job.house),
 				markers = job.targets,
 				endsAt = job.endsAt,
 				pay = job.pay,
@@ -153,9 +161,22 @@ kit = {
 			return
 		end
 		clearJob(job)
-		PayNotice.earn(job.player, job.pay, message, `door job: {job.kind}`, DoorJobs.isLegal(job.kind))
+		local legal = DoorJobs.isLegal(job.kind)
+		PayNotice.earn(job.player, job.pay, message, `door job: {job.kind}`, legal)
 		if job.kind == "Chore" then
 			Stats.record(job.player, "Chore")
+		end
+		-- An honest job: the resident comes to the door, waves and hands over the cash.
+		if legal then
+			Thanks.atDoor(job.house.door, job.house.id, job.player, true)
+		end
+		finished:Fire(job.player, job.kind)
+	end,
+
+	close = function(job: Job)
+		if jobs[job.player] == job then
+			clearJob(job)
+			finished:Fire(job.player, job.kind)
 		end
 	end,
 
@@ -165,6 +186,7 @@ kit = {
 		end
 		clearJob(job)
 		Notifier.send(job.player, reason, "Bad")
+		failed:Fire(job.player, job.kind)
 	end,
 
 	addHeat = function(job: Job)
@@ -187,7 +209,7 @@ kit = {
 	): ProximityPrompt
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.ActionText = action
-		prompt.ObjectText = job.house.resident.name
+		prompt.ObjectText = "" -- no names on people
 		prompt.HoldDuration = holdSeconds
 		prompt.MaxActivationDistance = JOB_PROMPT_RANGE
 		prompt.RequiresLineOfSight = false
@@ -280,9 +302,13 @@ local function startJob(player: Player, house: House, kind: DoorJobs.Kind)
 		heat = heatFor(kind, house),
 		heatApplied = false,
 		travel = 0,
+		title = nil,
 	}
 	jobs[player] = job
 	DoorJobs.handler(kind).begin(job, kit)
+	if jobs[player] == job then
+		started:Fire(player, kind)
+	end
 end
 
 -- Offers -------------------------------------------------------------------------------
@@ -367,13 +393,18 @@ local function knock(player: Player, house: House): (boolean, string?)
 	Sounds.at("Knock", house.door)
 
 	local resident = house.resident
-	local options: { Types.DoorOfferOption } = {
-		optionFor(1, "Chore", house, "A bit of honest work."),
-		optionFor(2, resident.wildcard, house, resident.wildcardLine),
-	}
+	local only: DoorJobs.Kind? = forced[player]
+	local chore: DoorJobs.Kind = "Chore"
+	local kinds: { DoorJobs.Kind } = if only then { only } else { chore, resident.wildcard :: DoorJobs.Kind }
+	local options: { Types.DoorOfferOption } = if only
+		then { optionFor(1, only, house, resident.wildcardLine) }
+		else {
+			optionFor(1, chore, house, "A bit of honest work."),
+			optionFor(2, resident.wildcard, house, resident.wildcardLine),
+		}
 	local offer: Offer = {
 		house = house,
-		wildcard = resident.wildcard,
+		kinds = kinds,
 		expiresAt = now + settings.AnswerSeconds + settings.OfferSeconds,
 		resident = nil,
 		closed = false,
@@ -387,8 +418,10 @@ local function knock(player: Player, house: House): (boolean, string?)
 		Sounds.at("DoorOpen", house.door)
 		spawnResident(offer)
 		remotes.DoorOffer:fireClient(player, {
-			residentName = resident.name,
-			greeting = resident.greeting,
+			residentName = "", -- no names on people
+			greeting = if only
+				then Config.Tutorial.Greeting
+				else settings.Greetings[house.id % #settings.Greetings + 1],
 			options = options,
 			expiresAt = offer.expiresAt,
 			speakerAt = residentSpot(house) + Vector3.new(0, 3, 0),
@@ -406,15 +439,11 @@ local function onChoose(player: Player, payload: unknown)
 		return
 	end
 	if payload == 0 then
-		closeOffer(player, `{offer.house.resident.name}: "Suit yourself!"`)
+		closeOffer(player, `"Suit yourself!"`)
 		return
 	end
-	local kind: DoorJobs.Kind
-	if payload == 1 then
-		kind = "Chore"
-	elseif payload == 2 then
-		kind = offer.wildcard
-	else
+	local kind: DoorJobs.Kind? = offer.kinds[payload :: number]
+	if not kind then
 		return
 	end
 	if Timing.now() > offer.expiresAt then
@@ -477,7 +506,7 @@ local function setupHouse(instance: Instance)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "KnockPrompt"
 	prompt.ActionText = "Knock"
-	prompt.ObjectText = house.resident.name
+	prompt.ObjectText = "" -- no names on people
 	prompt.HoldDuration = KNOCK_HOLD_SECONDS
 	prompt.MaxActivationDistance = settings.KnockRangeStuds
 	prompt.RequiresLineOfSight = false
@@ -603,4 +632,70 @@ local DoorKnock: MoneyPath.MoneyPath = {
 	cancelAll = cancelAll,
 }
 
-return DoorKnock
+-- Debug: start a door job of this kind at the house nearest you, as if they'd offered it.
+local function startNear(player: Player, kind: string): boolean
+	if jobs[player] or not DoorJobs.exists(kind) then
+		return false
+	end
+	local best: House? = nil
+	local bestDistance = math.huge
+	for _, house in houses do
+		local distance = CharacterUtil.distanceTo(player, house.door.Position)
+		if distance < bestDistance then
+			best, bestDistance = house, distance
+		end
+	end
+	if not best then
+		return false
+	end
+	startJob(player, best, kind :: DoorJobs.Kind)
+	return true
+end
+
+-- The nearest door that would answer a knock right now.
+local function nearestFree(position: Vector3): Vector3?
+	local now = Timing.now()
+	local best: Vector3? = nil
+	local bestDistance = math.huge
+	for _, house in houses do
+		local distance = (house.door.Position - position).Magnitude
+		if house.restUntil <= now and distance < bestDistance then
+			best, bestDistance = house.door.Position, distance
+		end
+	end
+	return best
+end
+
+-- Whether the house with its door at `position` would answer a knock now.
+local function isFree(position: Vector3): boolean
+	for _, house in houses do
+		if (house.door.Position - position).Magnitude < 1 then
+			return house.restUntil <= Timing.now()
+		end
+	end
+	return false
+end
+
+-- Every door offers them just this job (nil: back to normal).
+local function only(player: Player, kind: DoorJobs.Kind?)
+	if kind then
+		forced[player] = kind
+	else
+		forced[player] = nil
+	end
+end
+
+Players.PlayerRemoving:Connect(function(player: Player)
+	forced[player] = nil
+end)
+
+return {
+	path = DoorKnock,
+	startNear = startNear,
+	nearestFree = nearestFree,
+	isFree = isFree,
+	only = only,
+	started = started,
+	finished = finished,
+	failed = failed,
+}

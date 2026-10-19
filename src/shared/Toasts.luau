@@ -67,7 +67,7 @@ function Toasts.show(text: string, kind: Types.NoticeKind)
 	local card, content = UI.panel(KIND_COLORS[kind], {
 		Size = UDim2.fromOffset(270, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-	}, toast, 120)
+	}, toast)
 	UI.padding(content, 9)
 	UI.label({
 		Size = UDim2.fromScale(1, 0),

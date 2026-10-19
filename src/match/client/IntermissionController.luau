@@ -2,9 +2,10 @@
 -- A paid quota. First the big moment on its own: fanfare, QUOTA 1 PAID!, confetti and money
 -- raining down. Then (once that banner's had its moment) who paid: a panel springs in over
 -- spinning gold rays, the rows dealt in one at a time with their amounts rolling up and the top
--- earner shining. It shows through the break, or until the hustle pick when the next quota
--- started straight away; the next quota itself is announced after the pick
--- (NextQuotaController), except before a cash-out choice, which the panel warns about.
+-- earner shining; the red X on its corner puts it away. It shows through the break, or until
+-- the hustle pick when the next quota started straight away; the next quota itself is
+-- announced after the pick (NextQuotaController), except before a cash-out choice, which the
+-- panel warns about.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +14,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ScreenFx = require(Shared:WaitForChild("ScreenFx"))
@@ -137,6 +139,22 @@ function IntermissionController.start()
 	UI.list(panel, Enum.FillDirection.Vertical, 6)
 	local spring = Instance.new("UIScale")
 	spring.Parent = holder
+	-- A red X on the top-right corner puts it away.
+	local close = UI.button({
+		Name = "Close",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -6, 0, 6),
+		Size = UDim2.fromOffset(44, 44),
+		BackgroundColor3 = UI.Colors.Danger,
+		TextSize = 30,
+		Text = "X",
+		ZIndex = 5,
+	}, holder)
+	UI.textStroke(close, 3)
+	Cursor.registerPanel(holder)
+	close.Activated:Connect(function()
+		holder.Visible = false
+	end)
 
 	local title = UI.label({
 		LayoutOrder = 1,
@@ -189,7 +207,7 @@ function IntermissionController.start()
 		end
 		-- The next quota is announced after the hustle pick; a cash-out choice gets a warning.
 		nextLabel.Visible = not result.rolledOver and result.quotaIndex >= Config.Match.CashOutAfterQuota
-		nextLabel.Text = `Up next: cash out, or face Quota {result.nextQuotaIndex} ({Format.money(result.nextTarget)})`
+		nextLabel.Text = `Next: quota {result.nextQuotaIndex} ({Format.money(result.nextTarget)})`
 		holder.Visible = true
 		rays.Visible = result.passed
 		spring.Scale = 0.4

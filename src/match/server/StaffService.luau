@@ -50,8 +50,8 @@ local STAFF: { [string]: Staff } = {
 			bottom = 382538503, -- Black Jeans with Sneakers
 		},
 		greetings = {
-			"Tony's Blasters. Stun only, nobody gets hurt. Whaddaya need?",
-			"Hey, it's my favourite customer. Looking for some zap?",
+			"Feeling lucky?",
+			"Crack open a crate!",
 		},
 	},
 	CornerClerk = {
@@ -65,8 +65,8 @@ local STAFF: { [string]: Staff } = {
 			bottom = 398634487, -- Beautiful You Jeans
 		},
 		greetings = {
-			"Welcome to the Corner Store! What'll it be?",
-			"Snacks, drinks, disguises. Don't ask about the disguises.",
+			"What'll it be?",
+			"Snacks? Disguises?",
 		},
 	},
 	MiniClerk = {
@@ -80,8 +80,8 @@ local STAFF: { [string]: Staff } = {
 			bottom = 382537569, -- Black Jeans
 		},
 		greetings = {
-			"Mini Mart, how can I help?",
-			"Hey! Energy drinks are fresh in. Well, fresh-ish.",
+			"How can I help?",
+			"Energy drinks are in!",
 		},
 	},
 	Hank = {
@@ -96,8 +96,8 @@ local STAFF: { [string]: Staff } = {
 			bottom = 144076760, -- Dark Green Jeans
 		},
 		greetings = {
-			"Howdy! Need a better lockpick? I don't ask why.",
-			"Handy Hank's. If it opens things, I sell it.",
+			"Need a lockpick?",
+			"Howdy! What's up?",
 		},
 	},
 	Bea = {
@@ -111,8 +111,8 @@ local STAFF: { [string]: Staff } = {
 			bottom = 398633812, -- Black Jeans with White Shoes
 		},
 		greetings = {
-			"Welcome to BAGS! Bigger bag, bigger hauls.",
-			"Looking for a bag? You came to the right place, obviously.",
+			"Need a bigger bag?",
+			"Bigger bag, bigger hauls!",
 		},
 	},
 	Speedy = {
@@ -127,8 +127,8 @@ local STAFF: { [string]: Staff } = {
 			bottom = 398635338, -- Ripped Skater Pants
 		},
 		greetings = {
-			"Speedy's Garage! Here for a race?",
-			"Fixer-uppers out back, races out front.",
+			"Here for a race?",
+			"Race or fix a car?",
 		},
 	},
 	-- At the job desks: they just stand there and look busy.

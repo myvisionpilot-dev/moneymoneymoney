@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
+local Studs = require(ReplicatedStorage.Shared.Studs)
 local PropModels = require(script.Parent.Parent.PropModels)
 local VehicleModels = require(script.Parent.Parent.VehicleModels)
 local CarDirt = require(script.Parent.CarDirt)
@@ -57,6 +58,7 @@ local function prop(name: string, size: Vector3, cframe: CFrame, color: Color3, 
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
+	Studs.dress(part)
 	part.Parent = workspace
 	return part
 end

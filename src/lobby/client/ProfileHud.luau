@@ -1,32 +1,62 @@
 --!strict
--- Lobby panel (top left): your Cred, streak and today's challenge with a progress bar.
+-- The lobby's corners:
+--   top left     your streak and today's challenge with a progress bar, and under them the
+--                lime glitter Shop button (a cart and "Shop")
+--   bottom left  your Cred: a big gold coin and the amount, with a + that opens the Shop too
+-- MenuBar wires both buttons to the Shop window.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
+local StoreKit = require(Shared:WaitForChild("StoreKit"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ProfileState = require(script.Parent.ProfileState)
 
+local WIDTH = 250
+
 local ProfileHud = {}
 
-function ProfileHud.start()
+export type Buttons = { shop: TextButton, plus: TextButton }
+
+function ProfileHud.start(): Buttons
 	local root = UI.root(UI.screen("ProfileHud", 2))
-	local panel = UI.frame({
-		Name = "Panel",
+	local column = UI.frame({
+		Name = "Column",
 		Position = UDim2.fromOffset(8, 6),
-		Size = UDim2.fromOffset(250, 0),
+		Size = UDim2.fromOffset(WIDTH, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+	}, root)
+	UI.list(column, Enum.FillDirection.Vertical, 10)
+	local holder, panel = UI.panel(UI.Colors.Panel, {
+		Name = "Panel",
+		LayoutOrder = 1,
+		Size = UDim2.fromOffset(WIDTH, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Visible = false,
-	}, root)
-	UI.corner(panel, 16)
-	UI.stroke(panel, 4)
-	UI.gradient(panel, 0.15)
+	}, column)
 	UI.padding(panel, 10)
 	UI.list(panel, Enum.FillDirection.Vertical, 6)
+	-- See-through like the windows: the bank shows behind it.
+	holder.BackgroundColor3 = StoreKit.Colors.Body
+	holder.BackgroundTransparency = StoreKit.BODY_TRANSPARENCY
+	for _, name in { "Checker", "Rim" } do
+		local child = holder:FindFirstChild(name)
+		if child then
+			child:Destroy()
+		end
+	end
 
-	local cred = UI.pill("C", UI.Colors.Gold, { LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 34) }, panel)
+	local shop = StoreKit.glitterIconButton("Shop", StoreKit.Images.Cart, StoreKit.Glitter.Lime, {
+		Name = "Shop",
+		LayoutOrder = 2,
+		Size = UDim2.fromOffset(200, 80),
+	}, column)
+	Cursor.registerPanel(shop)
+
 	local streak = UI.label({
 		LayoutOrder = 2,
 		Size = UDim2.fromScale(1, 0),
@@ -76,12 +106,49 @@ function ProfileHud.start()
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, daily)
 
+	-- Your Cred, bottom left: the coin with a little + on it, and the amount big in gold italics.
+	local credRow = UI.frame({
+		Name = "Cred",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 12, 1, -14),
+		Size = UDim2.fromOffset(0, 66),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundTransparency = 1,
+	}, root)
+	local coin = StoreKit.image(StoreKit.Images.CredCoin, {
+		Size = UDim2.fromOffset(62, 62),
+		Position = UDim2.fromOffset(0, 2),
+	}, credRow)
+	local plus = StoreKit.button({
+		Name = "Plus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(56, 52),
+		Size = UDim2.fromOffset(30, 30),
+		BackgroundColor3 = StoreKit.Colors.Gold,
+		TextSize = 26,
+		Text = "+",
+		ZIndex = 3,
+	}, credRow)
+	Cursor.registerPanel(plus)
+	local cred = StoreKit.label({
+		Position = UDim2.fromOffset(76, 4),
+		Size = UDim2.fromOffset(0, 58),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = StoreKit.Fonts.BlackItalic,
+		TextSize = 46,
+		TextColor3 = StoreKit.Colors.Gold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "",
+	}, credRow)
+	UI.textStroke(cred, 4)
+
 	local lastCred: number? = nil
 	local function render(view: Types.ProfileView)
-		panel.Visible = true
-		UI.roll(cred, view.cred, Format.cred, 0.8) -- rolls up (or down, after you spend it)
+		holder.Visible = true
+		UI.roll(cred, view.cred, Format.number, 0.8) -- rolls up (or down, after you spend it)
 		if lastCred and lastCred ~= view.cred then
-			UI.pop(cred, 0.3)
+			UI.pop(cred, 0.25)
+			UI.pop(coin, 0.25)
 		end
 		lastCred = view.cred
 		streak.Text = if view.streak > 0
@@ -100,6 +167,7 @@ function ProfileHud.start()
 	if ProfileState.view then
 		render(ProfileState.view)
 	end
+	return { shop = shop, plus = plus }
 end
 
 return ProfileHud

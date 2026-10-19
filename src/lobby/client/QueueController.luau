@@ -15,6 +15,7 @@ local Format = require(Shared:WaitForChild("Format"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Signal = require(Shared:WaitForChild("Signal"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
+local StoreKit = require(Shared:WaitForChild("StoreKit"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Toasts = require(Shared:WaitForChild("Toasts"))
 local Types = require(Shared:WaitForChild("Types"))
@@ -65,14 +66,15 @@ end
 function QueueController.start(root: Frame)
 	local remotes = Remotes.lobby()
 
-	local window = UI.window("HEADING TO TOWN", {
+	local window = StoreKit.window("Heading to town", {
 		Name = "Queue",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -ShopFrame.BAR_SPACE),
-		Size = UDim2.fromOffset(380, 0),
-	}, root)
+		Size = UDim2.fromOffset(400, 0),
+	}, root, false)
 	panel = window.panel
-	window.title.TextSize = 24
+	window.title.TextSize = 32
+	StoreKit.centreTitle(window)
 	Cursor.registerPanel(window.panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 6)
 

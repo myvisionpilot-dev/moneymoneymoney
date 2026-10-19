@@ -4,14 +4,13 @@
 --   Paint  the race cars you drive                      Glow   a neon light under them
 --   Trail  a streak behind you as you move (both places) Aura   sparkles, flames... round you (both places)
 --   Bag    a bag you carry in a run that swells as it fills
---   Blaster  a custom look for the blaster in your hand   Zap    the colour of your blaster's beam
 --   Burst  a shower of sparkles when you bank cash
 -- What trails, auras and bursts throw out (their particles) lives in shared/CosmeticFx.
 -- Prices come from Config.CredShop.Tiers by rarity.
 
 local Config = require(script.Parent.Config)
 
-export type Slot = "Paint" | "Glow" | "Trail" | "Aura" | "Bag" | "Blaster" | "Zap" | "Burst"
+export type Slot = "Paint" | "Glow" | "Trail" | "Aura" | "Bag" | "Burst"
 export type Tier = "Common" | "Rare" | "Epic" | "Legendary"
 
 export type Item = {
@@ -25,8 +24,8 @@ export type Item = {
 	material: Enum.Material?, -- paint
 	reflectance: number?, -- paint
 	neon: boolean?, -- paint: the trim glows
-	rainbow: boolean?, -- glow, zap, trail: every colour in turn
-	model: string?, -- bag: its shared/BagLooks design; blaster: its shared/BlasterLooks design
+	rainbow: boolean?, -- glow, trail: every colour in turn
+	model: string?, -- bag: its shared/BagLooks design
 }
 
 local Cosmetics = {}
@@ -37,8 +36,6 @@ Cosmetics.Slots = {
 	{ slot = "Trail" :: Slot, name = "Trails", text = "A streak behind you everywhere you go." },
 	{ slot = "Aura" :: Slot, name = "Auras", text = "Sparkles, flames and more round you, everywhere you go." },
 	{ slot = "Bag" :: Slot, name = "Bags", text = "Slung over your shoulder in a run. It swells as it fills." },
-	{ slot = "Blaster" :: Slot, name = "Blasters", text = "Your blaster's look, whichever one you buy from Tony." },
-	{ slot = "Zap" :: Slot, name = "Zap Colours", text = "Your blaster's beam." },
 	{ slot = "Burst" :: Slot, name = "Bank Bursts", text = "A shower of sparkles when you deposit." },
 }
 
@@ -388,62 +385,6 @@ Cosmetics.Items = {
 		color = rgb(240, 195, 60),
 		model = "GoldSack",
 	},
-	-- Blasters ---------------------------------------------------------------------------
-	{
-		id = "SquirtZapper",
-		slot = "Blaster",
-		name = "Squirt Zapper",
-		tier = "Common",
-		color = rgb(255, 140, 40),
-		model = "SquirtZapper",
-	},
-	{
-		id = "ToyBrick",
-		slot = "Blaster",
-		name = "Toy Brick",
-		tier = "Common",
-		color = rgb(220, 40, 45),
-		model = "ToyBrick",
-	},
-	{
-		id = "RetroRay",
-		slot = "Blaster",
-		name = "Retro Ray",
-		tier = "Rare",
-		color = rgb(220, 50, 50),
-		model = "RetroRay",
-	},
-	{
-		id = "HairDryer",
-		slot = "Blaster",
-		name = "Hair Dryer",
-		tier = "Rare",
-		color = rgb(250, 150, 200),
-		model = "HairDryer",
-	},
-	{
-		id = "NeonRipper",
-		slot = "Blaster",
-		name = "Neon Ripper",
-		tier = "Epic",
-		color = rgb(255, 40, 80),
-		model = "NeonRipper",
-	},
-	{
-		id = "GoldPlated",
-		slot = "Blaster",
-		name = "Gold Plated",
-		tier = "Legendary",
-		color = rgb(240, 196, 60),
-		model = "GoldPlated",
-	},
-	-- Zap colours ------------------------------------------------------------------------
-	{ id = "ZapLime", slot = "Zap", name = "Lime Zap", tier = "Common", color = rgb(150, 255, 60) },
-	{ id = "ZapPink", slot = "Zap", name = "Pink Zap", tier = "Common", color = rgb(255, 90, 210) },
-	{ id = "ZapOrange", slot = "Zap", name = "Orange Zap", tier = "Common", color = rgb(255, 150, 40) },
-	{ id = "ZapGold", slot = "Zap", name = "Gold Zap", tier = "Rare", color = rgb(255, 215, 60) },
-	{ id = "ZapPurple", slot = "Zap", name = "Purple Zap", tier = "Rare", color = rgb(170, 90, 255) },
-	{ id = "ZapRainbow", slot = "Zap", name = "Rainbow Zap", tier = "Epic", color = rgb(255, 120, 60), rainbow = true },
 	-- Bank bursts ------------------------------------------------------------------------
 	{
 		id = "BurstCoins",

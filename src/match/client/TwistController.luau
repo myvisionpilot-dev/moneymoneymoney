@@ -48,7 +48,7 @@ function TwistController.card(
 		LayoutOrder = order,
 		Size = UDim2.fromOffset(CARD_WIDTH, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-	}, parent, 160)
+	}, parent)
 	UI.padding(content, 8)
 	local layout = UI.list(content, Enum.FillDirection.Vertical, 2)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left

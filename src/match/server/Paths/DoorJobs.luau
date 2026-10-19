@@ -1,8 +1,11 @@
 --!strict
 -- The door jobs. DoorKnock runs the knock-and-offer flow; each handler here says what the job
--- is called and what the player has to do. Chores (mow, bins, car wash) live in Chores.
+-- is called and what the player has to do. Chores (mow, bins, car wash) live in Chores, the dog
+-- walk in DogWalk; letters are deliveries (Courier).
 
 local Chores = require(script.Parent.Chores)
+local Courier = require(script.Parent.Courier)
+local DogWalk = require(script.Parent.DogWalk)
 local DoorTypes = require(script.Parent.DoorTypes)
 
 export type Kind = DoorTypes.Kind
@@ -35,33 +38,13 @@ local handlers: { [Kind]: Handler } = {
 	DogWalk = {
 		legal = true,
 		title = function(_house: House): string
-			return "Walk the dog to the park"
+			return "Walk the dog"
 		end,
-		begin = function(job: Job, kit: Kit)
-			local park = kit.park()
-			if not park then
-				kit.fail(job, "The park is closed today.")
-				return
-			end
-			kit.carry(job, "Dog")
-			job.targets = { park }
-			job.travel = (park - job.house.door.Position).Magnitude * 2
-			kit.guide(job)
-		end,
-		tick = function(job: Job, kit: Kit)
-			if job.stage == 1 then
-				if kit.arrived(job, job.targets[1]) then
-					job.stage = 2
-					job.targets = { job.house.door.Position }
-					kit.notify(job, "Good dog! Now take them home.")
-					kit.guide(job)
-				end
-			else
-				arriveAndFinish(job, kit, "Dog walked to the park")
-			end
-		end,
+		begin = DogWalk.begin,
+		tick = DogWalk.tick,
 	},
 
+	-- A letter for another house: onto their doormat (walked up or thrown).
 	Letter = {
 		legal = true,
 		title = function(_house: House): string
@@ -73,13 +56,45 @@ local handlers: { [Kind]: Handler } = {
 				kit.fail(job, "Nobody to send it to.")
 				return
 			end
-			kit.carry(job, "Letter")
-			job.targets = { target }
 			job.travel = (target - job.house.door.Position).Magnitude
-			kit.guide(job)
-		end,
-		tick = function(job: Job, kit: Kit)
-			arriveAndFinish(job, kit, "Letter delivered next door")
+			local drop: Courier.Drop? = nil
+			local function guide()
+				if drop then
+					job.targets = { Courier.marker(drop) }
+					kit.guide(job)
+				end
+			end
+			drop = Courier.begin(job.player, {
+				kind = "Letter",
+				near = target,
+				onDelivered = function(how: Courier.How)
+					local delivered = drop
+					if not delivered then
+						return
+					end
+					if kit.tooFast(job) then
+						kit.fail(job, "Job voided: that was impossibly fast.")
+						return
+					end
+					Courier.reward(delivered, how, job.pay, "Letter delivered", "door job: Letter", nil)
+					kit.close(job)
+				end,
+				onBroken = function() end, -- letters don't break
+				onMoved = guide,
+			})
+			local started = drop
+			if not started then
+				kit.fail(job, "Your hands are full.")
+				return
+			end
+			table.insert(job.cleanup, function()
+				Courier.stop(started, false)
+			end)
+			guide()
+			kit.notify(job, "Take the letter to the marked house. Throw it onto the mat for a bonus!")
+			if Courier.hasGuard(started) then
+				kit.notify(job, "Beware of the dog at that house! Throw it from the path.")
+			end
 		end,
 	},
 
@@ -151,6 +166,15 @@ end
 
 function DoorJobs.isLegal(kind: Kind): boolean
 	return handlers[kind].legal
+end
+
+function DoorJobs.exists(kind: string): boolean
+	for known in handlers do
+		if known == kind then
+			return true
+		end
+	end
+	return false
 end
 
 return DoorJobs

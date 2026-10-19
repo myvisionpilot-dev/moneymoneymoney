@@ -1,8 +1,9 @@
 --!strict
--- The lobby's menu bar along the bottom of the screen: UPGRADES, a big PLAY in the middle and
--- CUSTOMISATION. PLAY asks how you want to play: SOLO goes straight to town; WITH OTHERS opens
+-- The lobby's menu bar along the bottom of the screen, in the store look (StoreKit): Upgrades, a
+-- big PLAY in the middle and Customise. PLAY asks how you want to play: SOLO goes straight to town; WITH OTHERS opens
 -- FIND A LOBBY (LobbyBrowser) to join a lobby or host one. While you wait in a lobby, PLAY turns
--- into LEAVE with its countdown.
+-- into LEAVE with its countdown. The Shop button (ProfileHud, top left) and the + by your Cred
+-- (bottom left) open the Shop, one window at a time like the rest.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,10 +12,11 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
-local ItemModels = require(Shared:WaitForChild("ItemModels"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
+local StoreKit = require(Shared:WaitForChild("StoreKit"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
+local ProfileHud = require(script.Parent.ProfileHud)
 local ProfileState = require(script.Parent.ProfileState)
 local QueueController = require(script.Parent.QueueController)
 local ShopFrame = require(script.Parent.ShopFrame)
@@ -26,34 +28,6 @@ local BOTTOM = 14
 
 local MenuBar = {}
 
--- A side button: a little 3D picture on the left, its name on the right.
-local function sideButton(order: number, text: string, color: Color3, picture: string, bar: Frame): TextButton
-	local button = UI.button({
-		Name = text,
-		LayoutOrder = order,
-		Size = UDim2.fromOffset(SIDE_SIZE.X, SIDE_SIZE.Y),
-		BackgroundColor3 = color,
-		Text = "",
-	}, bar)
-	ItemModels.viewport(picture, {
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 6, 0.5, 0),
-		Size = UDim2.fromOffset(60, 60),
-	}, button, true)
-	local label = UI.label({
-		Position = UDim2.fromOffset(66, 0),
-		Size = UDim2.new(1, -74, 1, 0),
-		FontFace = UI.Fonts.Button,
-		TextScaled = true,
-		Text = text,
-	}, button)
-	local limit = Instance.new("UITextSizeConstraint")
-	limit.MaxTextSize = 26
-	limit.Parent = label
-	UI.textStroke(label, 2.5)
-	return button
-end
-
 -- Upgrades and cosmetics bought, added up (so a new purchase can ring the till).
 local function boughtCount(view: Types.ProfileView): number
 	local total = #view.owned
@@ -63,7 +37,14 @@ local function boughtCount(view: Types.ProfileView): number
 	return total
 end
 
-function MenuBar.start(root: Frame, upgrades: UI.Window, customise: UI.Window, browser: UI.Window)
+function MenuBar.start(
+	root: Frame,
+	upgrades: UI.Window,
+	customise: UI.Window,
+	browser: UI.Window,
+	store: UI.Window,
+	shopButtons: ProfileHud.Buttons
+)
 	local bar = UI.frame({
 		Name = "MenuBar",
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -75,47 +56,48 @@ function MenuBar.start(root: Frame, upgrades: UI.Window, customise: UI.Window, b
 	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	Cursor.registerPanel(bar)
 
-	local upgradesButton = sideButton(1, "UPGRADES", UI.Colors.Info, "Speed", bar)
-	local play = UI.button({
+	-- All three are glitter buttons (the user's reference): Upgrades blue, PLAY green, Customise purple.
+	local upgradesButton = StoreKit.glitterIconButton("Upgrades", "Speed", StoreKit.Glitter.Blue, {
+		Name = "Upgrades",
+		LayoutOrder = 1,
+		Size = UDim2.fromOffset(SIDE_SIZE.X, SIDE_SIZE.Y),
+	}, bar)
+	local play = StoreKit.glitterButton(StoreKit.Glitter.Green, {
 		Name = "PLAY",
 		LayoutOrder = 2,
 		Size = UDim2.fromOffset(PLAY_SIZE.X, PLAY_SIZE.Y),
-		BackgroundColor3 = UI.Colors.Money,
-		Text = "",
 	}, bar)
 	-- PLAY stays put: no squish when you point at it or press it.
 	local squish = play:FindFirstChild("Squish")
 	if squish then
 		squish:Destroy()
 	end
-	local playText = UI.label({
+	local playText = StoreKit.glitterText(play, {
 		Size = UDim2.fromScale(1, 1),
-		FontFace = UI.Fonts.Heading,
-		TextSize = 44,
+		TextSize = 46,
 		Text = "PLAY",
-	}, play)
-	UI.textStroke(playText, 3.5)
-	local playNote = UI.label({
+	})
+	local playNote = StoreKit.glitterText(play, {
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -6),
+		Position = UDim2.new(0.5, 0, 1, -8),
 		Size = UDim2.new(1, -12, 0, 20),
-		FontFace = UI.Fonts.Number,
-		TextSize = 17,
+		TextSize = 18,
 		Text = "",
-	}, play)
-	local customiseButton = sideButton(3, "CUSTOMISATION", UI.Colors.Purple, "RaceCar", bar)
-	-- The side buttons catch the light now and then (PLAY stays still).
-	UI.shine(upgradesButton, 4, 12)
-	UI.shine(customiseButton, 4.7, 12)
+	})
+	local customiseButton = StoreKit.glitterIconButton("Customise", "RaceCar", StoreKit.Glitter.Purple, {
+		Name = "Customise",
+		LayoutOrder = 3,
+		Size = UDim2.fromOffset(SIDE_SIZE.X, SIDE_SIZE.Y),
+	}, bar)
 
 	-- How do you want to play? Pops up over PLAY.
-	local choice = UI.window("HOW DO YOU WANT TO PLAY?", {
+	local choice = StoreKit.window("How do you want to play?", {
 		Name = "PlayChoice",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -ShopFrame.BAR_SPACE),
-		Size = UDim2.fromOffset(480, 0),
-	}, root, true)
-	choice.title.TextSize = 22
+		Size = UDim2.fromOffset(520, 0),
+	}, root)
+	choice.title.TextSize = 26
 	Cursor.registerPanel(choice.panel)
 	UI.list(choice.body, Enum.FillDirection.Horizontal, 10)
 	local function option(order: number, title: string, note: string, color: Color3): TextButton
@@ -149,7 +131,7 @@ function MenuBar.start(root: Frame, upgrades: UI.Window, customise: UI.Window, b
 	UI.shine(group, 3.4, 12)
 
 	local function closeAll(except: GuiObject?)
-		for _, panel in { upgrades.panel, customise.panel, choice.panel, browser.panel } do
+		for _, panel in { upgrades.panel, customise.panel, choice.panel, browser.panel, store.panel } do
 			if panel ~= except then
 				panel.Visible = false
 			end
@@ -167,6 +149,11 @@ function MenuBar.start(root: Frame, upgrades: UI.Window, customise: UI.Window, b
 	customiseButton.Activated:Connect(function()
 		toggle(customise.panel)
 	end)
+	for _, button in { shopButtons.shop, shopButtons.plus } do
+		button.Activated:Connect(function()
+			toggle(store.panel)
+		end)
+	end
 	play.Activated:Connect(function()
 		local status = QueueController.status
 		if status and status.leaving then
@@ -187,28 +174,28 @@ function MenuBar.start(root: Frame, upgrades: UI.Window, customise: UI.Window, b
 	end)
 
 	-- The group panel hides while a shop window is open (PLAY still shows the countdown).
-	for _, panel in { upgrades.panel, customise.panel } do
+	for _, panel in { upgrades.panel, customise.panel, store.panel } do
 		panel:GetPropertyChangedSignal("Visible"):Connect(function()
-			QueueController.setHidden(upgrades.panel.Visible or customise.panel.Visible)
+			QueueController.setHidden(upgrades.panel.Visible or customise.panel.Visible or store.panel.Visible)
 		end)
 	end
 
 	local function renderPlay(status: Types.QueueStatus?)
 		if status and status.leaving then
-			play.BackgroundColor3 = UI.Colors.Gold
+			StoreKit.glitterPaint(play, StoreKit.Glitter.Gold)
 			playText.Text = "GOING..."
 			playText.TextSize = 30
 			playText.Position = UDim2.new()
 			playNote.Text = ""
 		elseif status then
-			play.BackgroundColor3 = UI.Colors.Danger
+			StoreKit.glitterPaint(play, StoreKit.Glitter.Red)
 			playText.Text = "LEAVE"
 			playText.TextSize = 36
 			playText.Position = UDim2.fromOffset(0, -10)
 		else
-			play.BackgroundColor3 = UI.Colors.Money
+			StoreKit.glitterPaint(play, StoreKit.Glitter.Green)
 			playText.Text = "PLAY"
-			playText.TextSize = 44
+			playText.TextSize = 46
 			playText.Position = UDim2.new()
 			playNote.Text = ""
 		end

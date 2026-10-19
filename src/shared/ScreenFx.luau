@@ -15,6 +15,7 @@ local BILL_GREEN = Color3.fromRGB(96, 200, 96)
 local BILL_DARK = Color3.fromRGB(34, 110, 50)
 local COIN_GOLD = Color3.fromRGB(255, 205, 50)
 local COIN_DARK = Color3.fromRGB(170, 115, 20)
+local BOOM_GAP = 0.4 -- seconds between booms
 
 local ScreenFx = {}
 
@@ -96,6 +97,17 @@ function ScreenFx.coin(): Frame
 		ZIndex = 6,
 	}, disc)
 	return disc
+end
+
+-- The BOOM (Sounds.Boom): a banner crashing in, a level-up, a big payday. Two at once would
+-- just be louder, so it plays at most once every BOOM_GAP seconds.
+local lastBoom = 0
+function ScreenFx.boom()
+	local now = os.clock()
+	if now - lastBoom >= BOOM_GAP then
+		lastBoom = now
+		Sounds.play("Boom")
+	end
 end
 
 -- The whole screen washes with `color`, fading out.
@@ -319,7 +331,7 @@ local function build(text: string, color: Color3, subtitle: string?, seconds: nu
 			:Create(holder, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Rotation = 0 })
 			:Play()
 		task.delay(0.16, function()
-			Sounds.play("Boom")
+			ScreenFx.boom()
 			ScreenFx.shake(1.1, 0.6)
 			ScreenFx.flash(Color3.new(1, 1, 1), 0.5)
 			ScreenFx.flash(color, 0.3)

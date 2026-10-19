@@ -41,12 +41,14 @@ export type Job = {
 	heat: number,
 	heatApplied: boolean,
 	travel: number, -- straight-line studs the job needs, for the speed check
+	title: string?, -- the job guide's title right now, if the handler changes it as you go
 }
 
 -- What DoorKnock lets a handler do.
 export type Kit = {
 	guide: (job: Job) -> (),
 	finish: (job: Job, message: string) -> (),
+	close: (job: Job) -> (), -- ends it quietly: the handler pays it itself (deliveries)
 	fail: (job: Job, reason: string) -> (),
 	addHeat: (job: Job) -> (),
 	notify: (job: Job, text: string) -> (),

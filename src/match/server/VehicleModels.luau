@@ -7,6 +7,10 @@
 -- Painted panels carry the Paint attribute (CarFlip's respray). Police cars are still welded
 -- under their (humanoid) cop and never collide.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Studs = require(ReplicatedStorage.Shared.Studs)
+
 local VehicleModels = {}
 
 local BLACK = Color3.fromRGB(25, 25, 30)
@@ -34,6 +38,7 @@ local function setup(
 	part.CanQuery = false
 	part.CanTouch = false
 	part.Massless = true
+	Studs.dress(part)
 	part.Parent = model
 end
 

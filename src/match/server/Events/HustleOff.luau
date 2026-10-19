@@ -54,18 +54,12 @@ local function refresh()
 	if not ctx then
 		return
 	end
-	local best, bestTotal = leader()
-	local lead = if best
-		then `Leader: {best.DisplayName}, {Format.money(bestTotal)}.`
-		else "Nobody's earned anything yet."
-	ctx.announce(`Earn the most from jobs to win {Format.money(prize())}! {lead}`, nil)
+	local best = leader()
+	local lead = if best then `Leader: {best.DisplayName}` else ""
+	ctx.announce(`Top earner wins {Format.money(prize())}! {lead}`, nil)
 	for _, player in Players:GetPlayers() do
 		if RosterService.isActive(player) then
-			ctx.announceTo(
-				player,
-				`Earn the most to win {Format.money(prize())}! You: {Format.money(totals[player] or 0)}. {lead}`,
-				nil
-			)
+			ctx.announceTo(player, `You: {Format.money(totals[player] or 0)}. {lead}`, nil)
 		end
 	end
 end

@@ -31,7 +31,7 @@ function HappyHour.start(ctx: TownEvent.Context)
 	active = true
 	local desk = ReplicatedStorage:GetAttribute(DESK_ATTRIBUTE)
 	ctx.announce(
-		`Mr. Penny's in a good mood: deposits count {math.floor(settings.Bonus * 100 + 0.5)}% extra toward the quota!`,
+		`Deposits count {math.floor(settings.Bonus * 100 + 0.5)}% extra!`,
 		if typeof(desk) == "Vector3" then desk else nil
 	)
 end

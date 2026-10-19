@@ -1,7 +1,8 @@
 --!strict
 -- Turns a run into saved progress. When your run ends (cash out, bust or failed quota) your
 -- prize goes into your Cred and is saved straight away, with your run count, badges and
--- leaderboard scores. During the run, Stats feed today's challenge and badges.
+-- leaderboard scores, and free spins for the lobby's Lucky Wheel (one per Wheel.QuotasPerSpin
+-- quotas cleared). During the run, Stats feed today's challenge and badges.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +13,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Badges = require(ServerScriptService.Common.Badges)
 local Daily = require(ServerScriptService.Common.Daily)
 local Leaderboards = require(ServerScriptService.Common.Leaderboards)
+local Passes = require(ServerScriptService.Common.Passes)
 local Perks = require(ServerScriptService.Common.Perks)
 local Profiles = require(ServerScriptService.Common.Profiles)
 local HeatService = require(script.Parent.HeatService)
@@ -31,6 +33,8 @@ local STAT_BADGES: { [string]: string } = {
 }
 
 local RewardService = {}
+
+local cleared: { [number]: number } = {} -- userId -> the highest quota they cleared this run
 
 local function award(player: Player, data: Profiles.Data, id: string)
 	local name = Badges.award(data, id)
@@ -63,6 +67,7 @@ local function onStat(player: Player, stat: string, amount: number)
 		award(player, data, badge)
 	end
 	if stat == "QuotaCleared" then
+		cleared[player.UserId] = math.max(cleared[player.UserId] or 0, amount)
 		data.HighestQuota = math.max(data.HighestQuota, amount)
 		if amount >= Config.Badges.GettingSeriousQuota then
 			award(player, data, "GettingSerious")
@@ -95,6 +100,12 @@ local function onRunEnded(userId: number, prize: number, failed: boolean)
 		Profiles.addCred(player, data, bonus, "Investor bonus")
 		Notifier.send(player, `Investor: +{Format.cred(bonus)} on top of your prize.`, "Good")
 	end
+	-- The 2x Cred game pass pays the prize again.
+	if prize > 0 and Passes.has(player, "DoubleCred") then
+		local extra = math.floor(prize * (Config.Store.DoubleCred - 1))
+		Profiles.addCred(player, data, extra, "2x Cred pass")
+		Notifier.send(player, `2x Cred: +{Format.cred(extra)} more.`, "Good")
+	end
 	award(player, data, "FirstRun")
 	if StealService.snakeUserId() == userId then
 		award(player, data, "Snake")
@@ -104,6 +115,16 @@ local function onRunEnded(userId: number, prize: number, failed: boolean)
 	end
 	if data.LifetimeCred >= Config.Badges.LoadedCred then
 		award(player, data, "Loaded")
+	end
+	-- Lucky Wheel spins for the quotas they cleared.
+	local wheel = Config.Wheel
+	local spins = math.min((cleared[userId] or 0) // wheel.QuotasPerSpin, wheel.MaxPerRun)
+	cleared[userId] = nil
+	local room = math.max(0, wheel.MaxSpins - data.Spins.Free)
+	spins = math.min(spins, room)
+	if spins > 0 then
+		data.Spins.Free += spins
+		Notifier.send(player, `+{spins} Lucky Wheel spin{if spins == 1 then "" else "s"}!`, "Good")
 	end
 	Leaderboards.submit(player, "Cred", data.LifetimeCred)
 	Leaderboards.submit(player, "Quota", data.HighestQuota)

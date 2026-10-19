@@ -22,6 +22,10 @@ export type Data = {
 	Badges: { [string]: number }, -- badge id -> os.time() when earned
 	Daily: { Day: number, Progress: number, Done: boolean },
 	Streak: { Count: number, LastDay: number },
+	Receipts: { string }, -- recent Robux purchase ids already paid (serverCommon/Purchases)
+	TutorialDone: boolean, -- played (or skipped, as an old hand) the first-join tutorial
+	Spins: { Free: number, LastDaily: number }, -- Lucky Wheel spins earned in runs; the UTC day of the last daily one
+	Strength: number, -- bought in the Shop (Config.Store.StrengthPacks): your shove hits harder
 }
 
 local TEMPLATE: Data = {
@@ -35,6 +39,10 @@ local TEMPLATE: Data = {
 	Badges = {},
 	Daily = { Day = 0, Progress = 0, Done = false },
 	Streak = { Count = 0, LastDay = 0 },
+	Receipts = {},
+	TutorialDone = false,
+	Spins = { Free = 0, LastDaily = 0 },
+	Strength = 0,
 }
 
 local Profiles = {
@@ -65,14 +73,15 @@ function Profiles.waitFor(player: Player, timeoutSeconds: number): Data?
 	return Profiles.get(player)
 end
 
--- Every Cred change goes through here and is logged. Earnings also count toward lifetime Cred.
-function Profiles.addCred(player: Player, data: Data, amount: number, reason: string)
+-- Every Cred change goes through here and is logged. Earnings also count toward lifetime Cred
+-- (Cred bought in the STORE doesn't: pass `bought`).
+function Profiles.addCred(player: Player, data: Data, amount: number, reason: string, bought: boolean?)
 	local whole = math.floor(amount)
 	if whole == 0 then
 		return
 	end
 	data.Cred = math.max(0, data.Cred + whole)
-	if whole > 0 then
+	if whole > 0 and not bought then
 		data.LifetimeCred += whole
 	end
 	print(`[Cred] {player.Name} {if whole > 0 then "+" else ""}{whole} ({reason}) -> {data.Cred}`)
@@ -118,11 +127,26 @@ local function load(player: Player)
 	end
 	profiles[player] = profile
 	local data = profile.Data :: Data
+	if data.Runs > 0 then
+		data.TutorialDone = true -- they played before there was a tutorial
+	end
 	-- Anything the Cred shop stopped selling goes back as Cred (once: it's gone after).
 	for id, price in Config.CredShop.Retired do
 		if (data.Perks[id] or 0) > 0 then
 			data.Perks[id] = nil
 			Profiles.addCred(player, data, price, `refund: {id} is no longer sold`)
+		end
+	end
+	local tiers = Config.CredShop.Tiers :: { [string]: number }
+	for id, tier in Config.CredShop.RetiredCosmetics do
+		if data.Owned[id] then
+			data.Owned[id] = nil
+			Profiles.addCred(player, data, tiers[tier] or 0, `refund: cosmetic {id} is no longer sold`)
+		end
+	end
+	for slot, id in table.clone(data.Equipped) do
+		if Config.CredShop.RetiredCosmetics[id] then
+			data.Equipped[slot] = nil
 		end
 	end
 	print(`[Profiles] {player.Name} loaded: {data.Cred} Cred, {data.Runs} runs`)

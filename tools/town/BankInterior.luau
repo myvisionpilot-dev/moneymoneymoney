@@ -27,7 +27,7 @@ local WOOD = Color3.fromRGB(92, 56, 34)
 local WOOD_LIGHT = Color3.fromRGB(122, 78, 48)
 local BRASS = Color3.fromRGB(214, 170, 72)
 local DAYLIGHT = Color3.fromRGB(176, 196, 214)
-local WARM = Color3.fromRGB(255, 214, 150)
+local LAMP = Color3.fromRGB(255, 247, 235) -- soft white (a warm yellow made the hall look yellow)
 local GOLD = Color3.fromRGB(240, 196, 60)
 
 local M = Enum.Material
@@ -42,7 +42,7 @@ local function pointLight(target, range, brightness)
 	local light = Instance.new("PointLight")
 	light.Range = range
 	light.Brightness = brightness
-	light.Color = WARM
+	light.Color = LAMP
 	light.Parent = target
 end
 
@@ -163,7 +163,7 @@ local function pilaster(folder, cf, x)
 	Kit.decor(wallBox(folder, "SconcePlate", cf, x, lampY, 0.8, 1.2, LINING + 0.6, 0.2, BRASS, M.Metal))
 	Kit.decor(wallBox(folder, "SconceArm", cf, x, lampY, 0.2, 0.2, LINING + 0.8, 0.8, BRASS, M.Metal))
 	local bulb = Kit.decor(
-		ball(folder, "SconceBulb", 0.7, (cf * CFrame.new(x, lampY + 0.45, -(LINING + 1.6))).Position, WARM, M.Neon)
+		ball(folder, "SconceBulb", 0.7, (cf * CFrame.new(x, lampY + 0.45, -(LINING + 1.6))).Position, LAMP, M.Neon)
 	)
 	pointLight(bulb, 14, 0.8)
 end
@@ -179,7 +179,7 @@ local function window(folder, cf, x)
 	light.Range = 18
 	light.Angle = 80
 	light.Brightness = 0.9
-	light.Color = Color3.fromRGB(255, 246, 228)
+	light.Color = Color3.fromRGB(248, 251, 255)
 	light.Parent = glass
 	for _, info in
 		{
@@ -235,7 +235,7 @@ local function ceiling(folder)
 		Kit.decor(Kit.cylinder(folder, "ChandelierRod", 3.5, 0.3, hub + Vector3.new(0, 2.75, 0), BRASS, M.Metal))
 		Kit.decor(Kit.cylinder(folder, "ChandelierCrown", 0.6, 2.2, hub + Vector3.new(0, 2.5, 0), BRASS, M.Metal))
 		local core = Kit.decor(ball(folder, "ChandelierHub", 1.8, hub, BRASS, M.Metal))
-		pointLight(core, 36, 1.3)
+		pointLight(core, 36, 1.5)
 		Kit.decor(ball(folder, "ChandelierDrop", 0.8, hub - Vector3.new(0, 1.4, 0), BRASS, M.Metal))
 		for index = 0, 7 do
 			local angle = index / 8 * math.pi * 2
@@ -253,7 +253,7 @@ local function ceiling(folder)
 			local tip = hub + out * 4
 			Kit.decor(Kit.cylinder(folder, "CandleCup", 0.4, 0.7, tip + Vector3.new(0, 0.2, 0), BRASS, M.Metal))
 			Kit.decor(Kit.cylinder(folder, "Candle", 0.8, 0.3, tip + Vector3.new(0, 0.8, 0), CREAM, M.SmoothPlastic))
-			Kit.decor(ball(folder, "Flame", 0.45, tip + Vector3.new(0, 1.35, 0), WARM, M.Neon))
+			Kit.decor(ball(folder, "Flame", 0.45, tip + Vector3.new(0, 1.35, 0), LAMP, M.Neon))
 		end
 	end
 end

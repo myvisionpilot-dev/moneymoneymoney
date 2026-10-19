@@ -1,8 +1,10 @@
 --!strict
 -- Town events (Events/*): during a quota, one at a time, never in the quota's first
--- Events.FirstAfterSeconds and with a random gap after each. Everyone sees a banner (TownEvent
--- remote; a new event drops a big ALERT on every screen); an event can give one player their
--- own banner, such as the VIP's driver. Events stop when the quota ends.
+-- Events.FirstAfterSeconds. They come while it's calm: once the crew has gone a random
+-- Events.CalmSeconds without most of them being wanted, the next one starts (so a chase holds
+-- them off). Everyone sees a banner (TownEvent remote; a new event drops a big ALERT on every
+-- screen); an event can give one player their own banner, such as the VIP's driver. Events
+-- stop, and loose cash is cleared away, when the quota ends.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,8 +13,12 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
+local LooseCash = require(script.Parent.Events.LooseCash)
+local HeatService = require(script.Parent.HeatService)
 local QuotaMath = require(script.Parent.QuotaMath)
+local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local TutorialState = require(script.Parent.TutorialState)
 local TownEvent = require(script.Parent.Events.TownEvent)
 
 local TICK_SECONDS = 0.25
@@ -31,7 +37,14 @@ local EVENTS: { TownEvent.TownEvent } = {
 	require(script.Parent.Events.ArmouredTruck),
 	require(script.Parent.Events.RivalCrew),
 	require(script.Parent.Events.HustleOff),
+	require(script.Parent.Events.MoneyRain),
+	require(script.Parent.Events.BankError),
+	require(script.Parent.Events.CashParade),
+	require(script.Parent.Events.MoneyTornado),
 }
+for _, boost in require(script.Parent.Events.PayBoosts) do
+	table.insert(EVENTS, boost)
+end
 
 local EventService = {}
 
@@ -39,8 +52,9 @@ local current: TownEvent.TownEvent? = nil
 local endsAt = 0
 local banner: Banner = { detail = "", marker = nil }
 local personal: { [Player]: Banner } = {}
-local nextAt: number? = nil -- when the next event may start
-local lastId: string? = nil
+local calmSince = 0 -- since when most of the crew hasn't been wanted (or the last event ended)
+local calmNeeded = 0 -- how long the next event waits for calm (a pick from Events.CalmSeconds)
+local recent: { string } = {} -- the last few events, which sit out
 local lastQuota = 0
 local running = 0 -- bumps every start, so a slow start() knows if it was already stopped
 
@@ -72,8 +86,10 @@ local function stop()
 	running += 1
 	table.clear(personal)
 	event.stop()
-	lastId = event.id
-	nextAt = Timing.now() + rng:NextNumber(settings.MinGapSeconds, settings.MaxGapSeconds)
+	table.insert(recent, 1, event.id)
+	recent[settings.NoRepeat + 1] = nil
+	calmSince = Timing.now() -- the wait for the next one starts now
+	calmNeeded = rng:NextNumber(settings.CalmSeconds[1], settings.CalmSeconds[2])
 	sendAll()
 end
 
@@ -116,23 +132,42 @@ end
 local function pick(): TownEvent.TownEvent?
 	local eligible: { TownEvent.TownEvent } = {}
 	for _, event in EVENTS do
-		if event.id ~= lastId and event.canStart() then
+		if not table.find(recent, event.id) and event.canStart() then
 			table.insert(eligible, event)
 		end
 	end
 	return if #eligible > 0 then eligible[rng:NextInteger(1, #eligible)] else nil
 end
 
+-- Most of the crew wanted (more than Events.WantedShare of them with a star)?
+local function crewWanted(): boolean
+	local members = RosterService.active()
+	local wanted = 0
+	for _, member in members do
+		if HeatService.get(member.player) >= 1 then
+			wanted += 1
+		end
+	end
+	return #members > 0 and wanted > #members * settings.WantedShare
+end
+
 local function tick()
 	if RunState.phase ~= "Quota" then
-		stop()
-		nextAt = nil
+		if current or lastQuota ~= 0 then
+			stop()
+			LooseCash.clear()
+			lastQuota = 0
+		end
 		return
 	end
 	local now = Timing.now()
 	if RunState.quotaIndex ~= lastQuota then
 		lastQuota = RunState.quotaIndex
-		nextAt = math.max(nextAt or 0, RunState.quotaStartedAt + settings.FirstAfterSeconds)
+		calmSince = now
+		calmNeeded = rng:NextNumber(settings.CalmSeconds[1], settings.CalmSeconds[2])
+	end
+	if crewWanted() then
+		calmSince = now -- a chase holds the next event off
 	end
 	local event = current
 	if event then
@@ -141,7 +176,11 @@ local function tick()
 		else
 			event.tick()
 		end
-	elseif nextAt and now >= nextAt then
+	elseif
+		not TutorialState.server
+		and now >= RunState.quotaStartedAt + settings.FirstAfterSeconds
+		and now - calmSince >= calmNeeded
+	then
 		local chosen = pick()
 		if chosen then
 			begin(chosen)
@@ -162,6 +201,7 @@ function EventService.force(id: string): boolean
 end
 
 function EventService.start()
+	LooseCash.start()
 	Players.PlayerRemoving:Connect(function(player: Player)
 		personal[player] = nil
 	end)

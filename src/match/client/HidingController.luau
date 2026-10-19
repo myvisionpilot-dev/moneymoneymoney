@@ -65,17 +65,17 @@ function HidingController.start()
 			return
 		end
 		if me.spotted then
-			hint.Text = "SPOTTED! A cop can see you!"
+			hint.Text = "SPOTTED!"
 			hint.TextColor3 = UI.Colors.Danger
 			if not wasSpotted then
 				Sounds.play("Whistle")
 				UI.pop(hint, 0.3)
 			end
 		elseif me.heat > 0 then
-			hint.Text = "Hidden! The police lost you."
+			hint.Text = "Hidden!"
 			hint.TextColor3 = UI.Colors.Money
 		else
-			hint.Text = "Hiding spot: lose the police here."
+			hint.Text = "Hide here"
 			hint.TextColor3 = UI.Colors.Text
 		end
 		wasSpotted = me.spotted

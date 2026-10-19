@@ -78,9 +78,9 @@ end
 
 local function bannerText(current: Truck): string
 	if current.pries == 0 then
-		return "A cash truck is driving round town. Pry its back doors open (it's a crime!)"
+		return "Cash truck! Pry its doors open!"
 	end
-	return `The truck's doors are {current.pries}/{settings.Pries} cracked. Keep prying!`
+	return `Doors {current.pries}/{settings.Pries}. Keep prying!`
 end
 
 local function crack(current: Truck)

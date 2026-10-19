@@ -14,6 +14,7 @@ local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local EventAlertController = require(script.Parent.EventAlertController)
 local HudController = require(script.Parent.HudController)
+local LockpickController = require(script.Parent.LockpickController)
 local NextQuotaController = require(script.Parent.NextQuotaController)
 
 local TYPE_SECONDS = 0.025 -- per letter
@@ -48,7 +49,7 @@ function AnnouncementController.start()
 		ClipsDescendants = true,
 		ZIndex = quota.ZIndex - 1,
 	}, root)
-	local drawer, content = UI.panel(UI.Colors.Panel, { Size = UDim2.fromOffset(width, MAX_HEIGHT) }, slot, MAX_HEIGHT)
+	local drawer, content = UI.panel(UI.Colors.Panel, { Size = UDim2.fromOffset(width, MAX_HEIGHT) }, slot)
 
 	local speaker = UI.label({
 		Position = UDim2.fromOffset(PADDING, TUCK + PADDING),
@@ -95,10 +96,10 @@ function AnnouncementController.start()
 
 	local function show(announcement: Types.Announcement)
 		-- An event ALERT has the spot under the quota panel; and after a quota's paid, Mr. Penny
-		-- waits until you've picked your hustle and seen the next quota. (A moment first, so the
-		-- news that a quota started has caught up with the line about it.)
+		-- waits until you've picked your hustle and seen the next quota, or picked the jail lock.
+		-- (A moment first, so the news that a quota started has caught up with the line about it.)
 		task.wait(0.3)
-		while EventAlertController.showing() or NextQuotaController.holding() do
+		while EventAlertController.showing() or NextQuotaController.holding() or LockpickController.showing() do
 			task.wait(0.2)
 		end
 		local line = announcement.text

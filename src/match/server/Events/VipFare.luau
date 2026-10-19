@@ -19,7 +19,12 @@ local TownEvent = require(script.Parent.TownEvent)
 
 local STOP_TAG = "TaxiStop"
 local FASTEST = 1.5 -- a trip faster than straight-line at this x taxi speed is voided
-local NAMES = { "Movie Star Max", "Pop Star Pia", "Billionaire Bree", "Chef Celeste", "Rapper Rocco" }
+local NAMES = { "the movie star", "the pop star", "the billionaire", "the famous chef", "the rapper" } -- no names on people
+
+-- "the pop star" -> "The pop star" (to start a sentence).
+local function capital(text: string): string
+	return text:sub(1, 1):upper() .. text:sub(2)
+end
 
 local settings = Config.Events.VipFare
 local taxi = Config.Paths.Taxi
@@ -56,7 +61,7 @@ local function pickUp(current: Ride, player: Player)
 		return
 	end
 	if not VehicleService.kind(player) then
-		Notifier.send(player, `{current.name} doesn't walk. Pull up in a car!`, "Info")
+		Notifier.send(player, `{capital(current.name)} doesn't walk. Pull up in a car!`, "Info")
 		return
 	end
 	current.rider = player
@@ -67,12 +72,8 @@ local function pickUp(current: Ride, player: Player)
 		current.prompt:Destroy()
 		current.prompt = nil
 	end
-	current.ctx.announce(`{player.DisplayName} picked up {current.name}.`, nil)
-	current.ctx.announceTo(
-		player,
-		`Drive {current.name} to the marked stop. Stay in your car!`,
-		current.dropoff.Position
-	)
+	current.ctx.announce(`{player.DisplayName} got the VIP!`, nil)
+	current.ctx.announceTo(player, "Drive to the marked stop!", current.dropoff.Position)
 end
 
 function VipFare.start(ctx: TownEvent.Context)
@@ -103,14 +104,14 @@ function VipFare.start(ctx: TownEvent.Context)
 	current.customer = JobKit.customer(standingAt(pickup), current.name)
 	current.prompt = JobKit.prompt(pickup, {
 		action = "Pick up the VIP",
-		object = current.name,
+		object = capital(current.name),
 		hold = 0.5,
 		range = taxi.StopRadiusStuds,
 	}, function(player: Player)
 		pickUp(current, player)
 	end)
 	local multiplier = settings.Multiplier
-	ctx.announce(`{current.name} needs a ride and pays {multiplier}x a taxi fare. Pull up in any car!`, pickup.Position)
+	ctx.announce(`VIP needs a ride! {multiplier}x pay!`, pickup.Position)
 end
 
 function VipFare.tick()
@@ -121,7 +122,7 @@ function VipFare.tick()
 	end
 	if not rider.Parent or JailService.isJailed(rider) or not VehicleService.kind(rider) then
 		if rider.Parent then
-			Notifier.send(rider, `{current.name} got out and called someone else.`, "Bad")
+			Notifier.send(rider, `{capital(current.name)} got out and called someone else.`, "Bad")
 		end
 		current.ctx.finish()
 		return
@@ -132,7 +133,7 @@ function VipFare.tick()
 	end
 	local trip = (current.dropoff.Position - current.pickup.Position).Magnitude
 	if Timing.now() - current.pickedUpAt < trip / (taxi.DriveSpeed * FASTEST) then
-		Notifier.send(rider, `{current.name} won't pay: that ride was impossibly fast.`, "Bad")
+		Notifier.send(rider, `{capital(current.name)} won't pay: that ride was impossibly fast.`, "Bad")
 	else
 		local fare = (taxi.BaseFare + taxi.PerStud * trip) * settings.Multiplier * current.ctx.tierMultiplier
 		PayNotice.earn(rider, math.floor(fare + 0.5), "VIP dropped off", "vip fare", true)

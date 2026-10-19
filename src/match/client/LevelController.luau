@@ -27,6 +27,7 @@ function LevelController.levelUp(level: number, cred: number)
 		subtitle = `MAX LEVEL  ·  {subtitle}`
 	end
 	Sounds.play("LevelUp")
+	ScreenFx.boom()
 	ScreenFx.flash(LEVEL_COLOR, 0.14)
 	ScreenFx.banner(`LEVEL {level}!`, if cred > 0 then UI.Colors.Gold else LEVEL_COLOR, subtitle, 2)
 	ScreenFx.stars(HudController.levelTarget(), 12, LEVEL_COLOR)

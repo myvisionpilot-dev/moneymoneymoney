@@ -88,6 +88,9 @@ local function onGuide(newGuide: Types.JobGuide?)
 		return
 	end
 	guide = newGuide
+	if player:GetAttribute("Tutorial") then
+		return -- the tutorial's arrows show the way instead
+	end
 	for index, position in newGuide.markers do
 		local point = Instance.new("Attachment")
 		point.Name = "JobTarget"

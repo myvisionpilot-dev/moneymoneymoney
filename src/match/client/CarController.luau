@@ -12,7 +12,6 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
-local Toasts = require(Shared:WaitForChild("Toasts"))
 local TouchButtons = require(Shared:WaitForChild("TouchButtons"))
 
 local HANDBRAKE_ACTION = "Handbrake"
@@ -57,7 +56,6 @@ local appliedGrip = settings.RearFriction
 local airborneFor = 0
 local tippedFor = 0
 local lastSpeed = 0 -- along the ground, last step (for DriftSlowdown)
-local flipHinted = false
 local driftButton: TouchButtons.TouchButton? = nil
 local flipButton: TouchButtons.TouchButton? = nil
 
@@ -282,10 +280,6 @@ local function step(car: Rig, dt: number)
 	if flipButton then
 		flipButton.button.Visible = canFlip
 	end
-	if canFlip and not flipHinted then
-		Toasts.show("Stuck? Press F (or tap FLIP) to put your car back on its wheels.", "Info")
-	end
-	flipHinted = canFlip
 end
 
 local function flip()
@@ -324,7 +318,7 @@ end
 
 local function begin(car: Rig)
 	rig = car
-	handbrake, steerAngle, airborneFor, tippedFor, flipHinted, lastSpeed = false, 0, 0, 0, false, 0
+	handbrake, steerAngle, airborneFor, tippedFor, lastSpeed = false, 0, 0, 0, 0
 	rearGrip, appliedGrip = settings.RearFriction, settings.RearFriction
 	local high = Enum.ContextActionPriority.High.Value
 	ContextActionService:BindActionAtPriority(

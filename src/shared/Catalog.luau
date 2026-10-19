@@ -88,7 +88,7 @@ Catalog.Upgrades = {
 		name = "Quick Hands",
 		picture = "Gloves",
 		effect = function(amount: number): string
-			return `Break-ins and robberies {percent(amount)} quicker`
+			return `Break-ins {percent(amount)} quicker, {percent(amount)} longer at a till`
 		end,
 	},
 	{
@@ -128,12 +128,6 @@ Catalog.Upgrades = {
 Catalog.Unlocks = {
 	{ id = "Toolbelt", name = "Toolbelt", picture = "Lockpick", text = "Start every run with a lockpick." },
 	{ id = "Thermos", name = "Thermos", picture = "Energy", text = "Start every run with an energy drink." },
-	{
-		id = "ZapperLicense",
-		name = "Zapper License",
-		picture = "Zapper",
-		text = "A free Zapper the moment blasters go on sale.",
-	},
 	{ id = "WideOptions", name = "Wide Options", picture = "Cards", text = "Pick each hustle from 4 instead of 3." },
 } :: { Unlock }
 

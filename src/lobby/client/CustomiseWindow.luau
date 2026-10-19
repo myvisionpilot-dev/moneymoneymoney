@@ -1,7 +1,8 @@
 --!strict
--- The CUSTOMISATION window (menu bar): every cosmetic Cred buys, a tab per slot (paint,
--- underglow, trails, auras, bags, blasters, zap colours, bank bursts). Tap a card to see it big on
--- the stage on the left, in light rays of its rarity: a race car turns there in your paint and
+-- The Customise window (menu bar), in the store look (StoreKit): every cosmetic Cred buys, a picture tab per slot (paint,
+-- underglow, trails, auras, bags, bank bursts). Each is a store card in
+-- its rarity's colour, sunburst rays behind its picture, with its price on a green button. Tap
+-- one to see it big on the stage on the left: a race car turns there in your paint and
 -- underglow, trying on whatever you picked. The stage's button buys it, wears it or takes it
 -- off; buying something new sets off a reveal. Epic and legendary cards catch the light.
 
@@ -15,6 +16,7 @@ local ItemModels = require(Shared:WaitForChild("ItemModels"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ScreenFx = require(Shared:WaitForChild("ScreenFx"))
 local Sounds = require(Shared:WaitForChild("Sounds"))
+local StoreKit = require(Shared:WaitForChild("StoreKit"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
 local ProfileState = require(script.Parent.ProfileState)
@@ -22,22 +24,21 @@ local ShopFrame = require(script.Parent.ShopFrame)
 
 local WINDOW_WIDTH = 900
 local STAGE_WIDTH = 240
-local CARD_SIZE = UDim2.fromOffset(110, 152)
+local CARD_SIZE = UDim2.fromOffset(112, 166) -- five across
 local CARD_GAP = 8
-local ART_HEIGHT = 92
+local ART_TOP = 22
+local ART_HEIGHT = 86
+local STAGE_ABOVE = 0 -- room over the stage (your Cred is on the title bar now)
 local STAGE_BELOW = 112 -- the name, caption and button under the stage
 local TURN_SPEED = 0.6 -- radians a second
-
-local TABS: { ShopFrame.Tab } = {}
-for _, info in Cosmetics.Slots do
-	table.insert(TABS, { key = info.slot :: string, text = info.name })
-end
 
 type Turning = { camera: Camera, center: Vector3, across: number, height: number, angle: number }
 
 local CustomiseWindow = {}
 
-local turning: { [ViewportFrame]: Turning } = setmetatable({}, { __mode = "k" }) :: any
+-- A plain table, emptied as views are destroyed: a weak-keyed one let Luau drop views that were
+-- still on screen, and their pictures stopped turning.
+local turning: { [ViewportFrame]: Turning } = {}
 
 -- Frames the model from a three-quarter angle in `view` (replacing what was there), turning.
 local function show(view: ViewportFrame, model: Model, zoom: number?)
@@ -51,6 +52,11 @@ local function show(view: ViewportFrame, model: Model, zoom: number?)
 	camera.CFrame = CFrame.lookAt(box.Position + direction, box.Position)
 	camera.Parent = view
 	view.CurrentCamera = camera
+	if not turning[view] then
+		view.Destroying:Once(function()
+			turning[view] = nil
+		end)
+	end
 	turning[view] = {
 		camera = camera,
 		center = box.Position,
@@ -152,8 +158,8 @@ local risers: { [Frame]: Riser } = setmetatable({}, { __mode = "k" }) :: any
 
 local function auraArt(art: GuiObject, item: Cosmetics.Item, scale: number)
 	UI.glow(item.color, {
-		Size = UDim2.fromOffset(120 * scale, 120 * scale),
-		ImageTransparency = 0.2,
+		Size = UDim2.fromOffset(150 * scale, 150 * scale),
+		ImageTransparency = 0,
 		ZIndex = 2,
 	}, art)
 	local body = UI.frame({
@@ -185,14 +191,6 @@ local function auraArt(art: GuiObject, item: Cosmetics.Item, scale: number)
 	end
 end
 
--- Light rays behind the stage in the rarity's colour.
-local RAY_COLORS: { [Cosmetics.Tier]: Color3 } = {
-	Common = Color3.new(1, 1, 1),
-	Rare = Color3.fromRGB(150, 255, 170),
-	Epic = Color3.fromRGB(220, 160, 255),
-	Legendary = Color3.fromRGB(255, 220, 110),
-}
-
 local function worn(view: Types.ProfileView, slot: Cosmetics.Slot): Cosmetics.Item?
 	local id = view.equipped[slot]
 	return if id then Cosmetics.get(id) else nil
@@ -216,11 +214,6 @@ local function picture(parent: GuiObject, item: Cosmetics.Item, scale: number, v
 		model = car(item, if view then worn(view, "Glow") else nil)
 	elseif item.slot == "Glow" then
 		model = car(if view then worn(view, "Paint") else nil, item)
-	elseif item.slot == "Zap" then
-		local blaster = if view then worn(view, "Blaster") else nil
-		model = ItemModels.model(if blaster and blaster.model then blaster.model else "Zapper", item)
-	elseif item.slot == "Blaster" then
-		model = ItemModels.model(item.model or "Zapper", if view then worn(view, "Zap") else nil)
 	else
 		model = ItemModels.model(item.model or "Sack")
 	end
@@ -231,6 +224,32 @@ local function picture(parent: GuiObject, item: Cosmetics.Item, scale: number, v
 	end
 end
 
+-- A tab per slot, its picture the slot's first item (short names, to fit under the tabs).
+local SHORT_NAMES: { [string]: string } = { Glow = "Glow", Burst = "Bursts" }
+
+local function slotTabs(): { ShopFrame.Tab }
+	local tabs: { ShopFrame.Tab } = {}
+	for _, info in Cosmetics.Slots do
+		local first: Cosmetics.Item? = nil
+		for _, item in Cosmetics.Items do
+			if item.slot == info.slot then
+				first = item
+				break
+			end
+		end
+		table.insert(tabs, {
+			key = info.slot :: string,
+			text = SHORT_NAMES[info.slot] or info.name,
+			draw = function(art: Frame)
+				if first then
+					picture(art, first, 0.42, nil)
+				end
+			end,
+		})
+	end
+	return tabs
+end
+
 function CustomiseWindow.start(root: Frame): UI.Window
 	local remotes = Remotes.lobby()
 	local currentSlot: Cosmetics.Slot = "Paint"
@@ -238,71 +257,73 @@ function CustomiseWindow.start(root: Frame): UI.Window
 	local toTop = true
 	local render: () -> ()
 
-	local shop = ShopFrame.new(root, "CUSTOMISATION", WINDOW_WIDTH, TABS, function(key: string)
+	local shop = ShopFrame.new(root, "Customise", WINDOW_WIDTH, slotTabs(), function(key: string)
 		currentSlot = key :: Cosmetics.Slot
 		toTop = true
 		render()
 	end)
 	local window = shop.window
+	window.title.TextSize = 34
 	local columns = UI.list(window.body, Enum.FillDirection.Horizontal, 12)
 	columns.VerticalAlignment = Enum.VerticalAlignment.Top
 
-	-- The stage: the picked item, big, with its name and the button.
+	-- The stage: your Cred, the picked item big on a card of its rarity, its name and the button.
 	local side = UI.frame({
 		LayoutOrder = 1,
 		Size = UDim2.fromOffset(STAGE_WIDTH, 300),
 		BackgroundTransparency = 1,
 	}, window.body)
 	local stage = UI.frame({
-		Size = UDim2.new(1, 0, 1, -STAGE_BELOW),
-		BackgroundColor3 = Color3.fromRGB(26, 42, 92),
+		Position = UDim2.fromOffset(0, STAGE_ABOVE),
+		Size = UDim2.new(1, 0, 1, -STAGE_BELOW - STAGE_ABOVE),
+		BackgroundColor3 = Cosmetics.TierColors["Common" :: Cosmetics.Tier],
 	}, side)
 	UI.corner(stage, 14)
-	UI.stroke(stage, 3)
-	local stageRays: Instance = UI.rays(stage, 420, nil, 14)
+	local stageBorder = UI.stroke(stage, 4)
+	UI.gradient(stage, 0.16)
+	local stageRays: CanvasGroup = UI.rays(stage, 520, nil, 14, Vector2.new(0.5, 0.55))
 	local stageArt = UI.frame({ Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 2 }, stage)
 	local stageTier = UI.label({
 		Position = UDim2.fromOffset(10, 6),
-		Size = UDim2.new(0.5, -10, 0, 18),
+		Size = UDim2.new(0.5, -10, 0, 20),
 		ZIndex = 3,
 		FontFace = UI.Fonts.Heading,
-		TextSize = 13,
-		TextColor3 = UI.Colors.Gold,
+		TextSize = 16,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, stage)
 	local stageWorn = UI.label({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -10, 0, 6),
-		Size = UDim2.new(0.5, -10, 0, 18),
+		Size = UDim2.new(0.5, -10, 0, 20),
 		ZIndex = 3,
 		FontFace = UI.Fonts.Heading,
-		TextSize = 13,
-		TextColor3 = UI.Colors.Money,
+		TextSize = 16,
+		TextColor3 = UI.Colors.Gold,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Text = "WEARING",
 	}, stage)
 	local itemName = UI.label({
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 0, 1, -82),
-		Size = UDim2.new(1, 0, 0, 28),
+		Position = UDim2.new(0, 0, 1, -80),
+		Size = UDim2.new(1, 0, 0, 30),
 		FontFace = UI.Fonts.Title,
 		TextScaled = true,
 	}, side)
 	local nameLimit = Instance.new("UITextSizeConstraint")
-	nameLimit.MaxTextSize = 26
+	nameLimit.MaxTextSize = 28
 	nameLimit.Parent = itemName
+	UI.textStroke(itemName, 3)
 	local caption = UI.label({
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 0, 1, -48),
 		Size = UDim2.new(1, 0, 0, 32),
-		TextSize = 13,
-		TextColor3 = UI.Colors.Muted,
+		TextSize = 14,
 	}, side)
-	local action = UI.button({
+	local action = StoreKit.button({
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.fromScale(0, 1),
-		Size = UDim2.new(1, 0, 0, 42),
-		TextSize = 20,
+		Size = UDim2.new(1, 0, 0, 44),
+		TextSize = 22,
 		Text = "",
 	}, side)
 	local onAction: () -> () = function() end
@@ -315,7 +336,7 @@ function CustomiseWindow.start(root: Frame): UI.Window
 	local layout = UI.grid(list, CARD_SIZE, CARD_GAP)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
-	local borders: { [string]: UIStroke } = {}
+	local borders: { [string]: { stroke: UIStroke, color: Color3 } } = {} -- each card's outline, and its own colour
 
 	local function pickedItem(view: Types.ProfileView): Cosmetics.Item?
 		local id = picked[currentSlot]
@@ -340,19 +361,22 @@ function CustomiseWindow.start(root: Frame): UI.Window
 		stageArt:ClearAllChildren()
 		for id, border in borders do
 			local selected = item ~= nil and item.id == id
-			border.Color = if selected then Color3.new(1, 1, 1) else UI.Colors.Ink
-			border.Thickness = if selected then 4 else 3
+			border.stroke.Color = if selected then Color3.new(1, 1, 1) else border.color
+			border.stroke.Thickness = if selected then 4.5 else 3.5
 		end
 		if not item then
 			return
 		end
+		-- The stage turns the rarity's colour, rays and all.
+		local color = Cosmetics.TierColors[item.tier]
+		stage.BackgroundColor3 = color
+		stageBorder.Color = UI.shade(color, 0.5)
 		stageRays:Destroy()
-		stageRays = UI.rays(stage, 420, RAY_COLORS[item.tier], 14)
+		stageRays = UI.rays(stage, 520, color:Lerp(Color3.new(1, 1, 1), 0.6), 14, Vector2.new(0.5, 0.55))
 		picture(stageArt, item, 2.2, view)
 		local owned = table.find(view.owned, item.id) ~= nil
 		local wearing = view.equipped[item.slot] == item.id
 		stageTier.Text = item.tier:upper()
-		stageTier.TextColor3 = Cosmetics.TierColors[item.tier]
 		stageWorn.Visible = wearing
 		itemName.Text = item.name
 		local slotText = ""
@@ -364,21 +388,17 @@ function CustomiseWindow.start(root: Frame): UI.Window
 		caption.Text = slotText
 		local id = item.id
 		if wearing then
-			action.Text = "TAKE OFF"
-			action.BackgroundColor3 = UI.Colors.PanelDark
+			ShopFrame.wordButton(action, "TAKE OFF", UI.Colors.PanelDark)
 			onAction = function()
 				remotes.EquipCosmetic:fire(id)
 			end
 		elseif owned then
-			action.Text = "WEAR"
-			action.BackgroundColor3 = UI.Colors.Money
+			ShopFrame.wordButton(action, "WEAR", UI.Colors.Money)
 			onAction = function()
 				remotes.EquipCosmetic:fire(id)
 			end
 		else
-			local text, color, affordable = ShopFrame.buyLook(view.cred, Cosmetics.price(item))
-			action.Text = `BUY  {text}`
-			action.BackgroundColor3 = color
+			local affordable = ShopFrame.priceButton(action, view.cred, Cosmetics.price(item))
 			onAction = function()
 				if affordable then
 					remotes.BuyCredItem:fire(id)
@@ -389,66 +409,74 @@ function CustomiseWindow.start(root: Frame): UI.Window
 		end
 	end
 
+	-- A store card: name on top, the picture in its rays, the price (or WEARING / OWNED) on a
+	-- button along the bottom. The whole card picks it for the stage.
 	local function card(order: number, item: Cosmetics.Item, view: Types.ProfileView)
 		local owned = table.find(view.owned, item.id) ~= nil
 		local wearing = view.equipped[item.slot] == item.id
-		local panel, frame =
-			UI.panel(Cosmetics.TierColors[item.tier], { LayoutOrder = order }, list, CARD_SIZE.Y.Offset)
+		local color = Cosmetics.TierColors[item.tier]
+		local panel, frame = StoreKit.card(
+			color,
+			{ LayoutOrder = order },
+			list,
+			Vector2.new(0.5, (ART_TOP + ART_HEIGHT / 2) / CARD_SIZE.Y.Offset),
+			260
+		)
 		local border = panel:FindFirstChild("Border")
 		if border and border:IsA("UIStroke") then
-			borders[item.id] = border
+			borders[item.id] = { stroke = border, color = border.Color }
 		end
-		local art = UI.frame({
-			Position = UDim2.fromOffset(6, 6),
-			Size = UDim2.new(1, -12, 0, ART_HEIGHT),
-			BackgroundTransparency = 1,
-		}, frame)
-		UI.rays(art, 170, RAY_COLORS[item.tier], 10)
-		picture(art, item, 0.85, nil)
-		-- The rarest cards catch the light now and then.
-		if item.tier == "Legendary" then
-			UI.shine(panel, 2.5 + math.random(), 12)
-		elseif item.tier == "Epic" then
-			UI.shine(panel, 5 + math.random() * 2, 12)
-		end
-		UI.label({
-			Position = UDim2.fromOffset(4, 2),
-			Size = UDim2.new(1, -8, 0, 14),
-			ZIndex = 3,
-			FontFace = UI.Fonts.Heading,
-			TextSize = 10,
-			TextColor3 = UI.Colors.Gold,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Text = item.tier:upper(),
-		}, art)
-		local name = UI.label({
-			Position = UDim2.fromOffset(4, ART_HEIGHT + 9),
-			Size = UDim2.new(1, -8, 0, 18),
-			FontFace = UI.Fonts.Heading,
+		local name = StoreKit.label({
+			Position = UDim2.fromOffset(4, 3),
+			Size = UDim2.new(1, -8, 0, 20),
 			TextScaled = true,
 			Text = item.name,
 		}, frame)
 		local limit = Instance.new("UITextSizeConstraint")
-		limit.MaxTextSize = 14
+		limit.MaxTextSize = 16
 		limit.Parent = name
-		UI.label({
-			Position = UDim2.fromOffset(4, ART_HEIGHT + 30),
-			Size = UDim2.new(1, -8, 0, 22),
-			FontFace = if owned then UI.Fonts.Heading else UI.Fonts.Number,
-			TextSize = if owned then 13 else 16,
-			TextColor3 = if wearing then UI.Colors.Gold elseif owned then UI.Colors.Muted else UI.Colors.Text,
-			Text = if wearing
-				then "WEARING"
-				elseif owned then "OWNED"
-				else `{Format.number(Cosmetics.price(item))} Cred`,
+		UI.textStroke(name, 2)
+		local art = UI.frame({
+			Position = UDim2.fromOffset(6, ART_TOP),
+			Size = UDim2.new(1, -12, 0, ART_HEIGHT),
+			BackgroundTransparency = 1,
 		}, frame)
+		picture(art, item, 0.85, nil)
+		-- The rarest cards catch the light now and then.
+		if item.tier == "Legendary" then
+			UI.shine(panel, 2.5 + math.random(), 14)
+		elseif item.tier == "Epic" then
+			UI.shine(panel, 5 + math.random() * 2, 14)
+		end
+		StoreKit.label({
+			Position = UDim2.fromOffset(4, ART_TOP + ART_HEIGHT - 2),
+			Size = UDim2.new(1, -8, 0, 14),
+			TextSize = 11,
+			TextColor3 = Color3.fromRGB(255, 245, 200),
+			Text = item.tier:upper(),
+		}, frame)
+		local price = StoreKit.button({
+			Name = "Price",
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -6),
+			Size = UDim2.new(1, -14, 0, 30),
+			Active = false,
+			AutoButtonColor = false,
+		}, frame)
+		if wearing then
+			ShopFrame.wordButton(price, "WEARING", UI.Colors.Gold)
+		elseif owned then
+			ShopFrame.wordButton(price, "OWNED", UI.Colors.PanelDark)
+		else
+			ShopFrame.priceButton(price, view.cred, Cosmetics.price(item))
+		end
 		-- The whole card is the button that puts it on the stage.
 		local hit = Instance.new("TextButton")
 		hit.Name = "Pick"
 		hit.Size = UDim2.fromScale(1, 1)
 		hit.BackgroundTransparency = 1
 		hit.Text = ""
-		hit.ZIndex = 5
+		hit.ZIndex = 6
 		hit.Parent = frame
 		hit.Activated:Connect(function()
 			picked[currentSlot] = item.id
@@ -465,9 +493,9 @@ function CustomiseWindow.start(root: Frame): UI.Window
 		if not view or not window.panel.Visible then
 			return
 		end
-		shop.cred.Text = Format.cred(view.cred)
+		shop.cred.Text = Format.number(view.cred)
 		ShopFrame.showTab(shop, currentSlot)
-		local height = shop.bodyHeight()
+		local height = shop.bodyHeight() + STAGE_ABOVE
 		side.Size = UDim2.fromOffset(STAGE_WIDTH, height)
 		list.Size = UDim2.new(1, -STAGE_WIDTH - 12, 0, height)
 		local scroll = if toTop then Vector2.zero else list.CanvasPosition

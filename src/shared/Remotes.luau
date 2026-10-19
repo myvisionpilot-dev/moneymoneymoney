@@ -28,6 +28,7 @@ export type LobbyRemotes = {
 	SetPartySize: ToServer<number>,
 	BuyCredItem: ToServer<string>, -- an upgrade (its next level), unlock or cosmetic id
 	EquipCosmetic: ToServer<string>, -- a cosmetic id you own: wear it, or take it off if worn
+	WheelResult: ToClient<Types.WheelResult>, -- your Lucky Wheel spin stopped: what you won
 }
 
 export type MatchRemotes = {
@@ -43,20 +44,31 @@ export type MatchRemotes = {
 	RaceUpdate: ToClient<Types.RaceUpdate?>,
 	Juice: ToClient<Types.JuiceEvent>,
 	PickpocketGame: ToClient<Types.PickpocketGame?>, -- nil ends it
-	BlasterFx: ToClient<Types.BlasterFx>, -- someone fired a blaster
+	CrateOpened: ToClient<Types.CrateReveal>, -- the crate you just bought at Tony's, and what was in it
 	Fx: ToClient<Types.FxEvent>, -- a payout, deposit, level-up or bust everyone nearby sees
 	HustleOffer: ToClient<Types.HustleOffer?>, -- pick one of these; nil closes the offer
 	TownEvent: ToClient<Types.TownEventView?>, -- nil: no event right now
 	Talk: ToClient<Types.Talk?>, -- someone talks to you; nil ends the conversation
+	LockpickGame: ToClient<Types.LockpickGame?>, -- your jail cell's lock; nil: you're out
+	RegisterGame: ToClient<Types.RegisterGame?>, -- the till you're robbing; nil: it's over
+	Gig: ToClient<Types.GigView?>, -- your phone: a gig offer, the one you're on, or how it went
+	Toss: ToClient<Types.Toss>, -- something flying through the air (everyone draws it)
+	JobFx: ToClient<Types.JobFx>, -- a crack, a smash, a chomp... (everyone nearby sees it)
+	TugGame: ToClient<Types.TugGame?>, -- the dog's pulling: tap to hold them back; nil ends it
+	Tutorial: ToClient<Types.TutorialStep?>, -- the first-join tutorial's step; nil: no tutorial
 	ClientReady: ToServer<nil>,
 	PickpocketPresses: ToServer<{ number }>, -- seconds into each round when you pressed
 	SubmitDecision: ToServer<Types.Decision>,
 	ChooseDoorOffer: ToServer<number>, -- 1 or 2, or 0 to walk away
 	BuyItem: ToServer<string>, -- an item id from the shop you're at
-	FireBlaster: ToServer<Vector3>, -- where you aimed
 	LeaveCar: ToServer<nil>, -- get out of the car you're driving (not a race car)
 	PickHustle: ToServer<string>, -- a hustle id from your current offer
 	TalkAnswer: ToServer<Types.TalkAnswer>, -- the answer you picked in a conversation
+	LockpickPress: ToServer<Types.LockpickPress>, -- you pressed on a pin of the jail lock
+	RegisterGrab: ToServer<number>, -- you grabbed a bill from this slot of the till
+	GigAnswer: ToServer<Types.GigAnswer>, -- you accepted (or ignored) the gig on your phone
+	Throw: ToServer<Vector3>, -- you threw what you're holding (a parcel, a letter, the ball) at this spot
+	TugTap: ToServer<nil>, -- one tap on the leash
 }
 
 local IS_SERVER = RunService:IsServer()
@@ -137,6 +149,7 @@ function Remotes.lobby(): LobbyRemotes
 		SetPartySize = toServer("SetPartySize"),
 		BuyCredItem = toServer("BuyCredItem"),
 		EquipCosmetic = toServer("EquipCosmetic"),
+		WheelResult = toClient("WheelResult"),
 	}
 	lobbyRemotes = remotes
 	return remotes
@@ -159,20 +172,31 @@ function Remotes.match(): MatchRemotes
 		RaceUpdate = toClient("RaceUpdate"),
 		Juice = toClient("Juice"),
 		PickpocketGame = toClient("PickpocketGame"),
-		BlasterFx = toClient("BlasterFx"),
+		CrateOpened = toClient("CrateOpened"),
 		Fx = toClient("Fx"),
 		HustleOffer = toClient("HustleOffer"),
 		TownEvent = toClient("TownEvent"),
 		Talk = toClient("Talk"),
+		LockpickGame = toClient("LockpickGame"),
+		RegisterGame = toClient("RegisterGame"),
+		Gig = toClient("Gig"),
+		Toss = toClient("Toss"),
+		JobFx = toClient("JobFx"),
+		TugGame = toClient("TugGame"),
+		Tutorial = toClient("Tutorial"),
 		ClientReady = toServer("ClientReady"),
 		PickpocketPresses = toServer("PickpocketPresses"),
 		SubmitDecision = toServer("SubmitDecision"),
 		ChooseDoorOffer = toServer("ChooseDoorOffer"),
 		BuyItem = toServer("BuyItem"),
-		FireBlaster = toServer("FireBlaster"),
 		LeaveCar = toServer("LeaveCar"),
 		PickHustle = toServer("PickHustle"),
 		TalkAnswer = toServer("TalkAnswer"),
+		LockpickPress = toServer("LockpickPress"),
+		RegisterGrab = toServer("RegisterGrab"),
+		GigAnswer = toServer("GigAnswer"),
+		Throw = toServer("Throw"),
+		TugTap = toServer("TugTap"),
 	}
 	matchRemotes = remotes
 	return remotes

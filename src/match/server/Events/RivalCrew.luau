@@ -1,49 +1,53 @@
 --!strict
--- Rival crew (from Events.RivalCrew.FromQuota): Count gang members with blasters go after the players carrying
--- the most cash. They walk up to StandOffStuds and shoot every ShotSeconds or so; HitChance of
--- their shots land, for Damage each. Nobody dies: knocked to zero, you sit down seeing stars,
--- back at full health, minus KnockoutTakePercent of your carried cash, and they leave you
--- alone for KnockoutGraceSeconds. Everyone without a blaster is lent a Zapper for the fight;
--- Hits zaps knock a rival out for a Reward. No shooting into or out of the bank, or at cars.
+-- Rival crew (from Events.RivalCrew.FromQuota): Count gang members go after the players carrying
+-- the most cash. Up close (ReachStuds) they take a swipe every SwipeSeconds or so; HitChance of
+-- them land, for Damage each. Nobody dies: knocked to zero, you sit down seeing stars, back at
+-- full health, minus KnockoutTakePercent of your carried cash, and they leave you alone for
+-- KnockoutGraceSeconds. Fight back with the Shove prompt on each one: a shove knocks them over,
+-- Hits shoves knock one out for a Reward. No fighting in the bank, or from a car.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
-local BlasterService = require(script.Parent.Parent.BlasterService)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
+local Strength = require(ReplicatedStorage.Shared.Strength)
 local EconomyService = require(script.Parent.Parent.EconomyService)
+local Gestures = require(script.Parent.Parent.Gestures)
 local JailService = require(script.Parent.Parent.JailService)
 local Juice = require(script.Parent.Parent.Juice)
-local Notifier = require(script.Parent.Parent.Notifier)
 local NpcChase = require(script.Parent.Parent.NpcChase)
 local NpcService = require(script.Parent.Parent.NpcService)
 local PayNotice = require(script.Parent.Parent.PayNotice)
 local RosterService = require(script.Parent.Parent.RosterService)
 local RunState = require(script.Parent.Parent.RunState)
 local SafeZone = require(script.Parent.Parent.SafeZone)
+local Shove = require(script.Parent.Parent.Shove)
+local Stun = require(script.Parent.Parent.Stun)
 local TownEvent = require(script.Parent.TownEvent)
 
-local VEHICLE_ATTRIBUTE = "VehicleSpeed" -- in a car
-local STUN_ATTRIBUTE = "Stunned" -- already down
 local HOODIE = Color3.fromRGB(110, 40, 140)
 local HOODIE_DARK = Color3.fromRGB(40, 30, 50)
+local WIND_UP = 0.3 -- seconds between the swing starting and it landing
 
 local settings = Config.Events.RivalCrew
+local remotes = Remotes.match()
 
 type Rival = {
 	chaser: NpcChase.Chaser,
 	target: Player?,
 	hits: number,
-	nextShotAt: number,
-	stunnedUntil: number,
+	nextSwipeAt: number,
+	downUntil: number,
+	out: boolean,
 }
 
 local rivals: { Rival } = {}
 local context: TownEvent.Context? = nil
 local generation = 0
 local restUntil: { [Player]: number } = {} -- knocked down: left alone until then
-local lent: { Player } = {}
 local rng = Random.new()
 
 local RivalCrew = {
@@ -52,24 +56,8 @@ local RivalCrew = {
 	seconds = settings.Seconds,
 }
 
-local function rivalFor(model: Model): Rival?
-	for _, rival in rivals do
-		if rival.chaser.model == model then
-			return rival
-		end
-	end
-	return nil
-end
-
-local function shootable(player: Player): boolean
-	local character = player.Character
-	return RosterService.isActive(player)
-		and not JailService.isJailed(player)
-		and character ~= nil
-		and CharacterUtil.getRoot(player) ~= nil
-		and character:GetAttribute(VEHICLE_ATTRIBUTE) == nil
-		and not character:GetAttribute(STUN_ATTRIBUTE)
-		and os.clock() >= (restUntil[player] or 0)
+local function targetable(player: Player): boolean
+	return Shove.canFight(player) and os.clock() >= (restUntil[player] or 0)
 end
 
 function RivalCrew.canStart(): boolean
@@ -85,7 +73,7 @@ function RivalCrew.canStart(): boolean
 end
 
 local function countText(): string
-	return `{#rivals} rival{if #rivals == 1 then "" else "s"} with blasters. Zap them twice to knock them out!`
+	return `{#rivals} rival{if #rivals == 1 then "" else "s"}! Shove them!`
 end
 
 local function remove(rival: Rival)
@@ -109,7 +97,7 @@ local function pickTarget(): Player?
 	local best: Player? = nil
 	local bestScore = -math.huge
 	for _, player in Players:GetPlayers() do
-		if shootable(player) then
+		if targetable(player) then
 			local chasers = 0
 			for _, rival in rivals do
 				if rival.target == player then
@@ -125,31 +113,34 @@ local function pickTarget(): Player?
 	return best
 end
 
--- A player zapped this rival.
-local function zapped(rival: Rival, shooter: Player, stunSeconds: number)
-	rival.hits += 1
-	rival.stunnedUntil = os.clock() + stunSeconds
-	NpcChase.hold(rival.chaser)
-	if rival.hits < settings.Hits then
+-- A player shoved this rival: down for a moment, or out cold on the last shove.
+local function shoved(rival: Rival, player: Player)
+	local root = CharacterUtil.getRoot(player)
+	if not root or rival.out then
 		return
 	end
+	rival.hits += 1
+	rival.target = player -- they come back for whoever shoved them
+	-- Strong enough, one shove does it.
+	local oneShove = Strength.of(player) >= Config.Shove.OneShoveAt
+	if rival.hits < settings.Hits and not oneShove then
+		local tier = Shove.power(player)
+		rival.downUntil = os.clock() + settings.ShoveStunSeconds * (1 + (tier - 1) * 0.25)
+		Shove.knockDown(rival.chaser.model, player, settings.ShoveStunSeconds, "Shove")
+		return
+	end
+	rival.out = true
+	Shove.knockDown(rival.chaser.model, player, 2, "KnockOut", true)
 	local ctx = context
 	local reward = math.floor(settings.Reward * (if ctx then ctx.tierMultiplier else 1) + 0.5)
-	PayNotice.earn(shooter, reward, "Rival knocked out", "knocked out a rival", true)
-	remove(rival)
-end
-
-BlasterService.addTarget({
-	isTarget = function(model: Model): boolean
-		return rivalFor(model) ~= nil
-	end,
-	hit = function(model: Model, shooter: Player, stunSeconds: number)
-		local rival = rivalFor(model)
-		if rival then
-			zapped(rival, shooter, stunSeconds)
+	PayNotice.earn(player, reward, "Rival knocked out", "knocked out a rival", true)
+	task.delay(1.6, function()
+		if rival.chaser.model.Parent then
+			remotes.JobFx:fireAll({ kind = "Poof", at = rival.chaser.root.Position })
+			remove(rival)
 		end
-	end,
-})
+	end)
+end
 
 -- Nobody dies: at zero they sit down seeing stars, back at full health, and lose some cash.
 local function hurt(target: Player)
@@ -164,46 +155,32 @@ local function hurt(target: Player)
 		return
 	end
 	humanoid.Health = humanoid.MaxHealth
-	BlasterService.stunPlayer(target)
+	Stun.player(target, settings.KnockdownSeconds)
 	restUntil[target] = os.clock() + settings.KnockoutGraceSeconds
 	local account = EconomyService.account(target)
 	local taken = EconomyService.removeCarried(target, account.carried * settings.KnockoutTakePercent, "rival crew")
-	Juice.lost(target, taken, "Knocked down by the rival crew")
-	Notifier.send(target, "The rival crew knocked you down! They'll leave you alone for a bit.", "Bad")
+	Juice.lost(target, taken, "Rivals took your cash")
 end
 
-local function headOf(model: Model): BasePart?
-	local head = model:FindFirstChild("Head")
-	return if head and head:IsA("BasePart") then head else nil
-end
-
--- Nothing in the way between the rival and their target.
-local function clearShot(rival: Rival, target: Model, to: Vector3, from: Vector3): boolean
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { rival.chaser.model }
-	local result = workspace:Raycast(from, to - from, params)
-	return result == nil or result.Instance:IsDescendantOf(target)
-end
-
-local function shoot(rival: Rival, target: Player, character: Model)
-	local rivalHead = headOf(rival.chaser.model)
-	local targetHead = headOf(character)
-	if not rivalHead or not targetHead then
-		return
-	end
-	local from = rivalHead.Position
-	if not clearShot(rival, character, targetHead.Position, from) then
-		return
-	end
-	rival.nextShotAt = os.clock() + settings.ShotSeconds + rng:NextNumber()
-	if rng:NextNumber() < settings.HitChance then
-		BlasterService.effect(from, targetHead.Position)
-		hurt(target)
-	else
-		local off = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.3, 1), rng:NextNumber(-1, 1))
-		BlasterService.effect(from, targetHead.Position + off.Unit * rng:NextNumber(3, 6))
-	end
+-- A swing at whoever's in reach: it lands a moment later if they're still there.
+local function swipe(rival: Rival, target: Player)
+	rival.nextSwipeAt = os.clock() + settings.SwipeSeconds + rng:NextNumber()
+	Gestures.play(rival.chaser.model, "Swipe")
+	Sounds.at("Swipe", rival.chaser.root)
+	task.delay(WIND_UP, function()
+		local root = CharacterUtil.getRoot(target)
+		if rival.out or not rival.chaser.model.Parent or os.clock() < rival.downUntil or not root then
+			return
+		end
+		local reach = (root.Position - rival.chaser.root.Position).Magnitude
+		if reach > settings.ReachStuds + 1.5 or not targetable(target) or SafeZone.contains(root.Position) then
+			return
+		end
+		if rng:NextNumber() < settings.HitChance then
+			remotes.JobFx:fireAll({ kind = "Pow", at = root.Position + Vector3.new(0, 1.5, 0) })
+			hurt(target)
+		end
+	end)
 end
 
 local function spawnRival(ctx: TownEvent.Context, near: Vector3, run: number)
@@ -219,16 +196,18 @@ local function spawnRival(ctx: TownEvent.Context, near: Vector3, run: number)
 			chaser.model:Destroy()
 			return
 		end
-		local blaster = BlasterService.prop("Zapper")
-		blaster.Parent = chaser.model
-		chaser.humanoid:EquipTool(blaster)
-		table.insert(rivals, {
+		local rival: Rival = {
 			chaser = chaser,
 			target = nil,
 			hits = 0,
-			nextShotAt = os.clock() + rng:NextNumber(1, 2),
-			stunnedUntil = 0,
-		})
+			nextSwipeAt = os.clock() + rng:NextNumber(1, 2),
+			downUntil = 0,
+			out = false,
+		}
+		Shove.prompt(chaser.root, function(player: Player)
+			shoved(rival, player)
+		end)
+		table.insert(rivals, rival)
 		ctx.announce(countText(), nil)
 	end)
 end
@@ -236,17 +215,7 @@ end
 function RivalCrew.start(ctx: TownEvent.Context)
 	context = ctx
 	local run = generation
-	for _, player in Players:GetPlayers() do
-		if RosterService.isActive(player) and BlasterService.lend(player) then
-			table.insert(lent, player)
-			Notifier.send(
-				player,
-				"The bank lent you a Zapper for this fight. Press 1 to draw it, click to zap.",
-				"Info"
-			)
-		end
-	end
-	ctx.announce("A rival crew with blasters is in town, after your cash. Zap them back!", nil)
+	ctx.announce("Rivals in town! Shove them!", nil)
 	for _ = 1, settings.Count do
 		local target = pickTarget()
 		local root = target and CharacterUtil.getRoot(target)
@@ -259,24 +228,22 @@ end
 function RivalCrew.tick()
 	local now = os.clock()
 	for _, rival in table.clone(rivals) do
-		if now < rival.stunnedUntil then
-			NpcChase.hold(rival.chaser)
+		if rival.out or now < rival.downUntil then
 			continue
 		end
 		local target = rival.target
-		if not target or not shootable(target) then
+		if not target or not targetable(target) then
 			target = pickTarget()
 			rival.target = target
 		end
-		local character = target and target.Character
 		local targetRoot = target and CharacterUtil.getRoot(target)
-		if not target or not character or not targetRoot then
+		if not target or not targetRoot then
 			NpcChase.hold(rival.chaser)
 			continue
 		end
 		local root = rival.chaser.root
 		local distance = (targetRoot.Position - root.Position).Magnitude
-		if distance > settings.StandOffStuds then
+		if distance > settings.ReachStuds * 0.7 then
 			NpcChase.step(rival.chaser, targetRoot.Position)
 		else
 			NpcChase.hold(rival.chaser)
@@ -284,8 +251,8 @@ function RivalCrew.tick()
 				CFrame.lookAt(root.Position, Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z))
 		end
 		local safe = SafeZone.contains(targetRoot.Position) or SafeZone.contains(root.Position)
-		if distance <= settings.ShootRangeStuds and now >= rival.nextShotAt and not safe then
-			shoot(rival, target, character)
+		if distance <= settings.ReachStuds and now >= rival.nextSwipeAt and not safe then
+			swipe(rival, target)
 		end
 	end
 end
@@ -294,13 +261,10 @@ function RivalCrew.stop()
 	generation += 1
 	context = nil
 	for _, rival in rivals do
+		rival.out = true
 		rival.chaser.model:Destroy()
 	end
 	table.clear(rivals)
-	for _, player in lent do
-		BlasterService.takeBack(player)
-	end
-	table.clear(lent)
 	table.clear(restUntil)
 end
 

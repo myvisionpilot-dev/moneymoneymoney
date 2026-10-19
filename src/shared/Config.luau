@@ -24,6 +24,43 @@ export type Hustle = {
 	detail: string,
 	max: number,
 	value: number,
+	picture: string, -- ItemModels id: its card and its meter at the bottom of the screen
+}
+
+-- A Cred pack in the STORE: a developer product (see Store below).
+export type CredPack = {
+	id: number, -- the developer product id from the Creator Dashboard (0: not made yet)
+	cred: number,
+	picture: string, -- a StoreKit.Images key (lobby/client/StoreKit)
+	tag: string?, -- a ribbon on the card ("BEST VALUE")
+}
+
+-- A game pass in the STORE (see Store below).
+export type Pass = {
+	key: string, -- what the game checks (Passes.has(player, key)); never change it once sold
+	id: number, -- the game pass id from the Creator Dashboard (0: not made yet)
+	name: string,
+	text: string,
+	picture: string, -- a StoreKit.Images key (lobby/client/StoreKit)
+	includes: { string }?, -- a pack: owning it counts as owning these too
+	featured: ("Gold" | "Rainbow")?, -- a pack shown at the top in these colours
+}
+
+-- A pack of Strength in the STORE (see Store below): bought with Robux, kept for good.
+export type StrengthPack = {
+	id: number, -- the developer product id from the Creator Dashboard (0: not made yet)
+	strength: number,
+	picture: string, -- an ItemModels id
+	tag: string?,
+}
+
+-- One slice of the lobby's Lucky Wheel (see Wheel below).
+export type WheelSlice = {
+	cred: number?, -- this much Cred...
+	cosmetic: string?, -- ...or a cosmetic of this rarity you don't own yet
+	weight: number,
+	color: Color3,
+	jackpot: boolean?,
 }
 
 return {
@@ -70,7 +107,20 @@ return {
 	Police = {
 		MaxHeat = 3,
 		CaughtLosePercent = 0.30, -- of carried cash
-		JailSeconds = 30,
+		JailSeconds = 30, -- the longest you're locked up: pick the cell's lock (Lockpick) to get out sooner
+		-- The cell's lock: a ring spins clockwise with a green arc; press when the green covers the
+		-- arrow at the top to set a pin. Set them all and you're out; a miss drops you to the first.
+		Lockpick = {
+			Pins = { -- degrees of green, and how fast it spins (degrees a second)
+				{ width = 72, speed = 120 }, -- 20% of the ring
+				{ width = 64, speed = 160 },
+				{ width = 56, speed = 200 },
+				{ width = 50, speed = 240 },
+			},
+			PauseSeconds = 0.5, -- before each spin starts
+			ToleranceDegrees = 8, -- a press this close to the green still counts
+			LatencySlack = 0.5, -- seconds of network lag allowed on each press
+		},
 		CopsPerStar = 1,
 		MaxCops = 6, -- across the whole town
 		OutlineColor = Color3.fromRGB(255, 40, 40), -- every cop (and police car) is outlined in this, seen through walls
@@ -100,20 +150,20 @@ return {
 			{
 				id = "RushHour",
 				title = "RUSH HOUR",
-				detail = "Taxi fares and deliveries pay double.",
+				detail = "Taxis and deliveries pay 2x.",
 				pay = { Taxi = 2, Delivery = 2 },
 			},
 			{
 				id = "Heatwave",
 				title = "HEATWAVE",
-				detail = "Burgers, hot dogs and car washes pay double. Cops are slow in the heat.",
+				detail = "Food and car washes pay 2x. Slow cops.",
 				pay = { BurgerBarn = 2, FoodStand = 2, CarWash = 2 },
 				copSpeed = 0.8,
 			},
 			{
 				id = "Crackdown",
 				title = "CRACKDOWN",
-				detail = "Crimes pay 1.5x, but there are more cops and heat builds faster.",
+				detail = "Crimes pay 1.5x. More cops.",
 				crimePay = 1.5,
 				heat = 1.5,
 				cops = 1.5,
@@ -121,7 +171,7 @@ return {
 			{
 				id = "Blackout",
 				title = "BLACKOUT",
-				detail = "Night falls. Break-ins and robberies are twice as quick, and cops lose you sooner.",
+				detail = "Night: quicker crimes, slower cops.",
 				crimeHold = 0.5,
 				spot = 0.6,
 				night = true,
@@ -129,19 +179,19 @@ return {
 			{
 				id = "Payday",
 				title = "PAYDAY",
-				detail = "Everyone just got paid: wallets are twice as fat.",
+				detail = "Wallets are 2x fatter.",
 				pay = { Pickpocket = 2, WalletSwipe = 2 },
 			},
 			{
 				id = "CarShow",
 				title = "CAR SHOW",
-				detail = "Flipped cars and the chop shop pay 1.75x.",
+				detail = "Car flips and chop shop pay 1.75x.",
 				pay = { CarFlip = 1.75, CarTheft = 1.75 },
 			},
 			{
 				id = "SaleDay",
 				title = "SALE DAY",
-				detail = "Every shop in town is 40% off.",
+				detail = "Shops are 40% off.",
 				shopPrice = 0.6,
 			},
 		} :: { Twist },
@@ -158,6 +208,7 @@ return {
 				detail = "Legal jobs pay 20% more.",
 				max = 3,
 				value = 0.2,
+				picture = "Briefcase",
 			},
 			{
 				id = "StickyFingers",
@@ -165,64 +216,115 @@ return {
 				detail = "Crimes pay 20% more.",
 				max = 3,
 				value = 0.2,
+				picture = "Mask",
 			},
-			{ id = "DeepPockets", title = "Deep Pockets", detail = "Your bag holds 50% more.", max = 2, value = 0.5 },
+			{
+				id = "DeepPockets",
+				title = "Deep Pockets",
+				detail = "Your bag holds 50% more.",
+				max = 2,
+				value = 0.5,
+				picture = "Bag",
+			},
 			{
 				id = "LuckyBreak",
 				title = "Lucky Break",
 				detail = "1 in 10 jobs pays double.",
 				max = 2,
 				value = 0.1,
+				picture = "Clover",
 			},
-			{ id = "Ghost", title = "Ghost", detail = "Your heat clears twice as fast.", max = 2, value = 1 },
-			{ id = "CoolHead", title = "Cool Head", detail = "Crimes give you 25% less heat.", max = 2, value = 0.25 },
+			{
+				id = "Ghost",
+				title = "Ghost",
+				detail = "Your heat clears twice as fast.",
+				max = 2,
+				value = 1,
+				picture = "Ghost",
+			},
+			{
+				id = "CoolHead",
+				title = "Cool Head",
+				detail = "Crimes give you 25% less heat.",
+				max = 2,
+				value = 0.25,
+				picture = "Disguise",
+			},
 			{
 				id = "SecondChance",
 				title = "Second Chance",
-				detail = "Keep your cash the first time you're busted each quota.",
+				detail = "Keep your cash on your first bust.",
 				max = 1,
 				value = 1,
+				picture = "Shield",
 			},
-			{ id = "EscapeArtist", title = "Escape Artist", detail = "Half the time in jail.", max = 1, value = 0.5 },
-			{ id = "Haggler", title = "Haggler", detail = "Shops charge you 25% less.", max = 2, value = 0.25 },
+			{
+				id = "EscapeArtist",
+				title = "Escape Artist",
+				detail = "Half the time in jail.",
+				max = 1,
+				value = 0.5,
+				picture = "Lockpick",
+			},
+			{
+				id = "Haggler",
+				title = "Haggler",
+				detail = "Shops charge you 25% less.",
+				max = 2,
+				value = 0.25,
+				picture = "Tag",
+			},
 			{
 				id = "Interest",
 				title = "Interest",
-				detail = "Your deposits count 5% extra toward the quota.",
+				detail = "Deposits count 5% extra.",
 				max = 3,
 				value = 0.05,
+				picture = "Coins",
 			},
-			{ id = "FleetFeet", title = "Fleet Feet", detail = "Walk and sprint 10% faster.", max = 2, value = 0.1 },
+			{
+				id = "FleetFeet",
+				title = "Fleet Feet",
+				detail = "Walk and sprint 10% faster.",
+				max = 2,
+				value = 0.1,
+				picture = "Speed",
+			},
 			{
 				id = "Safecracker",
 				title = "Safecracker",
 				detail = "Break-ins take half as long.",
 				max = 1,
 				value = 0.5,
+				picture = "MiniSafe",
 			},
 			{
 				id = "RepoRepellent",
 				title = "Repo Repellent",
-				detail = "Repo men leave you alone until your bag is 80% full.",
+				detail = "Repo men wait till your bag is 80% full.",
 				max = 1,
 				value = 0.8,
+				picture = "Spray",
 			},
 			{
 				id = "Allowance",
 				title = "Allowance",
-				detail = "Start every quota with 3% of the target in your bag.",
+				detail = "Start each quota with 3% of the target.",
 				max = 2,
 				value = 0.03,
+				picture = "Cash",
 			},
 		} :: { Hustle },
 	},
-	-- Town events: one at a time during a quota, never in its first FirstAfterSeconds, with a
-	-- random MinGapSeconds..MaxGapSeconds gap after each. Pay is at quota 1 and scales with the
-	-- quota like jobs (Economy.TierPayoutMultiplier).
+	-- Town events: one at a time during a quota, never in its first FirstAfterSeconds. They come
+	-- while things are calm: once the crew has gone a random CalmSeconds without most of them
+	-- being wanted (more than WantedShare of the crew with a star), the next one starts. Pay is
+	-- at quota 1 and scales with the quota like jobs (Economy.TierPayoutMultiplier).
 	Events = {
-		FirstAfterSeconds = 60,
-		MinGapSeconds = 120,
-		MaxGapSeconds = 180,
+		FirstAfterSeconds = 50,
+		CalmSeconds = { 15, 35 }, -- a random pick in this range before each event
+		WantedShare = 0.5,
+		NoRepeat = 3, -- an event sits out until this many others have had a turn
 		-- The ALERT that drops down from under the quota panel when an event starts, in the
 		-- event's colour (Sounds.EventAlert plays when it lands).
 		Alert = {
@@ -235,8 +337,26 @@ return {
 				ArmouredTruck = Color3.fromRGB(140, 15, 30),
 				RivalCrew = Color3.fromRGB(215, 30, 50),
 				HustleOff = Color3.fromRGB(30, 145, 230),
+				MoneyRain = Color3.fromRGB(70, 200, 90),
+				BankError = Color3.fromRGB(30, 120, 70),
+				CashParade = Color3.fromRGB(235, 80, 170),
+				MoneyTornado = Color3.fromRGB(110, 190, 40),
+				GoldenHour = Color3.fromRGB(245, 185, 20),
+				DoubleXp = Color3.fromRGB(150, 85, 240),
+				TipFrenzy = Color3.fromRGB(245, 125, 30),
 			} :: { [string]: Color3 },
 		},
+		-- Loose bills on the ground (money rain, the parade): walk over one to pocket it. What you
+		-- pick up is paid every PaySeconds as one money line (it doesn't add to your streak).
+		-- MaxGroundY: nothing lands on anything higher than this (roofs, trees); the streets are 0-1.
+		LooseCash = { GrabStuds = 5, LandSeconds = 1.2, LifeSeconds = 25, PaySeconds = 1.5, MaxGroundY = 2.5 },
+		MoneyRain = { Seconds = 30, RadiusStuds = 45, BillsPerSecond = 4, BillValue = 35 }, -- over one part of town
+		BankError = { Seconds = 75, Bags = 5, Pay = 1_200 }, -- per bag, first to grab each
+		CashParade = { Seconds = 80, Speed = 13, DropEverySeconds = 0.7, BillValue = 40 }, -- a float round the loop
+		MoneyTornado = { Seconds = 60, Speed = 9, RadiusStuds = 12, PayPerSecond = 70 }, -- stand in it
+		GoldenHour = { Seconds = 90, Multiplier = 2 }, -- every legal job pays this much more
+		DoubleXp = { Seconds = 120, Multiplier = 2 }, -- run levels fill this much faster
+		TipFrenzy = { Seconds = 90, TipShare = 0.75 }, -- customers tip this share of the pay on top
 		CashDrop = { Seconds = 60, Pay = 3_000, FallSeconds = 3, RangeStuds = 10 }, -- first to grab it
 		HappyHour = { Seconds = 90, Bonus = 0.25 }, -- deposits count this much extra toward the quota
 		FireSale = { Seconds = 90, Discount = 0.5 }, -- one shop
@@ -253,20 +373,22 @@ return {
 		},
 		-- 2+ players: whoever earns the most from jobs while it's on wins Prize.
 		HustleOff = { Seconds = 120, Prize = 5_000, MinPlayers = 2 },
-		-- A gang with blasters. Everyone without a blaster gets a Zapper for the fight.
+		-- A gang that goes after the richest players and swipes at them up close. Shove them back
+		-- (the Shove prompt on each one): Hits shoves knock one out for Reward.
 		RivalCrew = {
 			FromQuota = 3,
 			Seconds = 90,
 			Count = 3,
-			Speed = 24, -- they walk up to blaster range (a bit slower than you)
-			Hits = 2, -- zaps to knock one out...
+			Speed = 22, -- a bit slower than you, so you can get away
+			Hits = 2, -- shoves to knock one out...
 			Reward = 1_500, -- ...for this
-			ShootRangeStuds = 60,
-			StandOffStuds = 25, -- they stop this far away to shoot
-			ShotSeconds = 2.5, -- between shots, plus up to a second
-			HitChance = 0.3, -- not great aim
-			Damage = 13, -- per hit, from 100 health
-			KnockoutTakePercent = 0.15, -- of your carried cash, when they knock you down
+			ShoveStunSeconds = 2.5, -- a shoved rival is on the ground this long
+			ReachStuds = 6, -- they swipe from this close...
+			SwipeSeconds = 1.6, -- ...every this long, plus up to a second
+			HitChance = 0.5,
+			Damage = 20, -- per hit, from 100 health
+			KnockdownSeconds = 3, -- knocked to zero, you sit down this long...
+			KnockoutTakePercent = 0.15, -- ...and they take this share of your carried cash
 			KnockoutGraceSeconds = 10, -- then they leave you alone this long
 			MinSpawnStuds = 60,
 		},
@@ -324,7 +446,7 @@ return {
 	},
 	-- Repo men (from FromQuota) go after anyone carrying more than BagFraction of their bag. A
 	-- tag takes TakePercent of the cash they carry. Bank it, outrun them (they're slower than a
-	-- sprint) or zap them; they give up after ChaseSeconds.
+	-- sprint) or shove them over; they give up after ChaseSeconds.
 	Repo = {
 		FromQuota = 4,
 		BagFraction = 0.5,
@@ -336,6 +458,27 @@ return {
 		WarnSeconds = 4, -- the warning comes this long before he turns up
 		TagRangeStuds = 4,
 		MinSpawnStuds = 80,
+		ShoveStunSeconds = 3, -- shoved, he's on the ground this long
+	},
+	-- Shoving an NPC off you (the rival crew, repo men: server/Shove).
+	Shove = {
+		Studs = 10, -- you shove from this close
+		CooldownSeconds = 0.8, -- per player
+		Push = 42, -- studs a second they fly back...
+		Lift = 20, -- ...and up
+		-- Strength (Store.StrengthPacks) makes every shove hit harder: each point pushes
+		-- StrengthPush further, up to MaxPush times as far, and keeps them down longer. The tiers
+		-- (from `at` strength) make the hit bigger on screen, and from OneShoveAt a shove knocks a
+		-- rival out in one go.
+		StrengthPush = 0.002,
+		MaxPush = 3,
+		Tiers = {
+			{ at = 0, name = "SHOVE!" },
+			{ at = 25, name = "STRONG!" },
+			{ at = 150, name = "MIGHTY!" },
+			{ at = 600, name = "TITAN!" },
+		},
+		OneShoveAt = 150,
 	},
 	Heat = {
 		WantedSeconds = 32, -- your heat clears this long after your last crime, however many stars (the chase song's length)
@@ -348,8 +491,6 @@ return {
 		BreakIn = { 1, 1.5, 2, 2.5 }, -- by house tier (4 = mansion)
 		StoreRobbery = 2,
 		CarTheft = 1.5,
-		BlastPlayer = 1, -- stunning a teammate with a blaster
-		BlastCop = 0.5, -- stunning a cop
 	},
 	Economy = {
 		TierPayoutMultiplier = 2.2, -- each unlocked tier pays ~2.2x the previous
@@ -371,6 +512,27 @@ return {
 			CarWash = 2,
 			CarFlip = 2,
 			FoodStand = 3,
+			PhoneGigs = 1,
+		},
+		-- Phone gigs (Paths/PhoneGigs): while you're not wanted and not on another job, your phone
+		-- rings every GapSeconds with a quick job near you. Answer within AnswerSeconds; finish
+		-- before the clock runs out for the pay, plus up to SpeedBonus more the faster you are.
+		-- Distances are studs from you (or from the pickup, for the drop-off).
+		PhoneGigs = {
+			FirstAfterSeconds = 20, -- no calls this early in a quota
+			GapSeconds = { 40, 70 }, -- after a gig ends (or you let the phone ring out)
+			AnswerSeconds = 12,
+			SpeedBonus = 0.5,
+			Parcel = {
+				Pay = 1_800,
+				PickupStuds = { 30, 120 },
+				DropStuds = { 140, 300 },
+				BaseSeconds = 25,
+				PerStud = 0.12,
+			},
+			Cat = { Pay = 2_000, BushStuds = { 50, 180 }, Seconds = 90, SearchStuds = 12 }, -- the marker is this close to the bush
+			Photo = { Pay = 1_300, Studs = { 80, 420 }, BaseSeconds = 20, PerStud = 0.1 },
+			Litter = { Pay = 1_500, Pieces = 6, SpreadStuds = 18, Studs = { 40, 140 }, Seconds = 55 },
 		},
 		-- The legal jobs in town. All pay into your bag; every price and cost below is at
 		-- quota 1 and scales with the quota like other pay (TierPayoutMultiplier).
@@ -435,9 +597,44 @@ return {
 			BasePayout = 1_500, -- tier-1 pay per delivery
 			TimeLimitSeconds = 90,
 			MaxSpeedStudsPerSecond = 130, -- faster than this voids the job; keep above the fastest car
-			DropoffRadiusStuds = 8,
 			PromptRangeStuds = 10,
 			MinDropoffDistance = 60, -- skip drop-offs closer than this to the depot
+		},
+		-- Every delivery (depot packages, letters for residents, rush parcels from your phone)
+		-- goes on the house's doormat: carry it up, or throw it from up to ThrowStuds away (a bonus
+		-- for landing it right on the mat). Fragile parcels crack when you crash into something,
+		-- fall a long way or get zapped, and smash after Fragile.Hits cracks. Some houses keep a
+		-- guard dog on a chain: throw from outside its reach, or it chases you and you drop what
+		-- you're carrying. Deliveries one after another (each within ChainSeconds of the last)
+		-- build a chain that pays more.
+		Courier = {
+			ThrowStuds = 42,
+			MatStuds = 2.2, -- this close to the mat's middle counts as on it
+			PorchStuds = 6.5, -- this close counts as on the porch; farther is a miss
+			HandStuds = 4.5, -- walk this close to the mat holding it and you put it down
+			MatBonus = 0.3, -- extra share of the pay for landing it on the mat
+			ChainSeconds = 75,
+			ChainStep = 0.1, -- each delivery in a chain pays this much more...
+			ChainMax = 1.5, -- ...up to this
+			ThanksSeconds = 4, -- the resident comes to the door and waves for this long
+			Fragile = {
+				Chance = 0.3, -- of depot packages and rush parcels
+				Hits = 3,
+				PayBonus = 0.5, -- they pay this much more for the risk
+				BumpSpeed = 17, -- going at least this fast...
+				BumpKeep = 0.35, -- ...then stopping dead (to this share of it) against something is a crash
+				FallSpeed = 62, -- landing this fast (a big drop) counts too
+				CooldownSeconds = 0.8,
+			},
+			GuardDogs = {
+				Chance = 0.35, -- a delivery's house has a guard dog
+				StreetDogs = 6, -- and this many other houses keep one all quota
+				AggroStuds = 22, -- they come for a courier this close to the kennel...
+				ChainStuds = 30, -- ...but can't get farther than this from it
+				Speed = 31, -- faster than you walk, slower than a sprint
+				BiteStuds = 3.4,
+				CalmSeconds = 6, -- after a bite they trot back and settle down
+			},
 		},
 		Doors = {
 			HouseRestSeconds = 90, -- after a knock, that house won't answer for this long
@@ -449,6 +646,17 @@ return {
 			BaseBreakInHoldSeconds = 6, -- lockpick upgrades shorten this
 			MaxSpeedStudsPerSecond = 130, -- faster than this voids a travel job; keep above the fastest car
 			MinLetterDistance = 100,
+			-- What residents say when they open the door (short; one per house, by house number).
+			Greetings = {
+				"Hi! Need work?",
+				"Oh, hello!",
+				"Yes?",
+				"Hey there!",
+				"Need cash?",
+				"Perfect timing!",
+				"Yeah?",
+				"Hi, helper!",
+			},
 			HouseTierPayMultiplier = { 1, 1.3, 1.6, 2.2 }, -- tiers get richer away from the bank; 4 = mansion
 			-- Chores you actually do: mow every patch of long grass, wheel both bins to the kerb,
 			-- scrub every dirt spot off the car.
@@ -459,6 +667,40 @@ return {
 				ScrubHoldSeconds = 1.2,
 				DirtSpots = 5,
 				CleanupSeconds = 20, -- bins go back and the washed car drives off after this long
+			},
+			-- The dog walk: take the dog to the park, play fetch, bring them home. On the way they
+			-- spot squirrels and cats and pull: tap to hold them back, or they slip the leash and
+			-- you have to catch them. Scoop the poop for a tip; leave it and a neighbour docks
+			-- your pay. Tips are tier-1 amounts (they scale like pay).
+			DogWalk = {
+				TimeLimitSeconds = 210,
+				LeashStuds = 9, -- how far from your hand the dog can get on the leash
+				HeelSpeed = 27, -- trotting beside you (a touch faster than you walk)
+				CatchUpSpeed = 42, -- when you've got well ahead
+				ParkStuds = 45, -- this close to the park's middle counts as there
+				ParkHalfSize = { 110, 44 }, -- fetch throws land inside this box round the middle (x, z)
+				Fetches = 3,
+				ThrowStuds = 45,
+				FetchSpeed = 34,
+				ReturnSpeed = 26,
+				FetchTip = 120, -- per fetch, plus FetchTipPerStud for every stud it went
+				FetchTipPerStud = 4,
+				CatchMultiplier = 2, -- caught it before it landed
+				Distractions = { 2, 3 }, -- squirrels and cats over the whole walk
+				DistractionGapSeconds = { 6, 12 }, -- walking time before each
+				CatChance = 0.35, -- the rest are squirrels
+				Tug = { Start = 0.38, PullPerSecond = 0.28, PerTap = 0.075, Seconds = 6, MaxTapsPerSecond = 14 },
+				TugSlow = 0.2, -- your speed while you're holding them back
+				GoodDogTip = 150, -- for holding them back
+				BoltSpeed = 24, -- off the leash they dash off about as fast as you walk...
+				BoltTiredSpeed = 11, -- ...and tire down to this...
+				BoltSeconds = 30, -- ...over this long; still loose by then, they run home (the walk's off)
+				BoltDodgeSeconds = 3, -- get close and they dart aside, at most this often
+				CatchStuds = 5, -- close enough to grab the leash
+				PoopChance = 0.75,
+				ScoopTip = 200,
+				MessStuds = 26, -- walk this far from it without scooping and a neighbour sees
+				MessFine = 0.25, -- off the walk's pay
 			},
 			Pay = { -- tier-1 pay before house and quota multipliers
 				Chore = 900,
@@ -489,9 +731,16 @@ return {
 				LatencySlack = 0.5, -- seconds of network lag allowed on the whole game
 			},
 		},
+		-- Robbing a store opens its till, seen from above: click bills out of its slots before time's
+		-- up. Pay is split across the slots by SlotWeights (the big middle slots hold the big bills;
+		-- the client draws them in this order) and you get what you grabbed.
 		StoreRobbery = {
-			Pay = 4_000,
-			HoldSeconds = 8,
+			Pay = 4_000, -- if you grab every bill
+			GrabSeconds = 6,
+			SlotWeights = { 1, 1, 1, 2.2, 2.2, 0.5, 1.4, 1.2 }, -- left column x3, middle x2, coins, right x2
+			BillsPerSlot = { 2, 4 }, -- a random count in this range (the coin slot too)
+			MinGrabGap = 0.05, -- seconds: grabs faster than this are ignored
+			LatencySlack = 0.5, -- seconds: a grab this late still counts
 			CooldownSeconds = 120, -- per store
 			RangeStuds = 8,
 			AlarmSeconds = 15, -- the store alarm rings this long
@@ -551,16 +800,46 @@ return {
 		Gloves = { price = 1_000, breakIn = 0.5 }, -- break-ins take this much as long
 		Scanner = { price = 1_500 }, -- police radio: see every cop through walls
 	},
-	-- Tony's cartoon stun blasters (no damage, nobody gets hurt: a zap, stars and a sit-down).
-	Blasters = {
-		UnlockQuota = 2, -- Tony opens up at this quota
-		Zapper = { price = 6_000, range = 45, cooldown = 2.5, copStunSeconds = 3 },
-		MegaZapper = { price = 20_000, range = 75, cooldown = 1.5, copStunSeconds = 5 },
-		PlayerStunSeconds = 3, -- a blasted player sits down this long...
-		DropPercent = 0.2, -- ...and drops this share of their bag as a cash bundle anyone can grab
-		BundleSeconds = 30, -- an unclaimed bundle goes back to its owner after this long
-		HoldUpSpeed = 2, -- robbing a store with a blaster out is this much faster...
-		HoldUpPay = 1.5, -- ...and pays this much more
+	-- Tony's lucky crates, bought with the cash in your bag. Each crate rolls a rarity by its odds
+	-- (shown on the crate in the shop), then one prize of that rarity, all equally likely. Prizes
+	-- are treats and upgrades for this run, never cash. Names and pictures: shared/Crates.
+	Crates = {
+		Kinds = {
+			{ id = "LuckyCrate", price = 1_500, odds = { Common = 70, Rare = 25, Epic = 5, Legendary = 0 } },
+			{ id = "GoldCrate", price = 5_000, odds = { Common = 25, Rare = 45, Epic = 25, Legendary = 5 } },
+			{ id = "DiamondCrate", price = 15_000, odds = { Common = 0, Rare = 30, Epic = 50, Legendary = 20 } },
+		},
+		Prizes = {
+			Common = { "Candy", "Energy", "Gloves" },
+			Rare = { "Disguise", "Scanner", "SnackPack" },
+			Epic = { "BagUp", "LockpickUp", "TreatPack" },
+			Legendary = { "MaxBag", "Jackpot" },
+		},
+		RevealSeconds = 1.8, -- the crate shakes this long before it pops
+	},
+	-- The Lucky Wheel in the lobby's bank hall. Spins are free and never sold: one every day
+	-- (UTC), plus one for every QuotasPerSpin quotas cleared in a run (up to MaxPerRun), banked up
+	-- to MaxSpins. A slice's chance is its weight out of them all (on the board beside the wheel).
+	-- Slices go clockwise from the top: Cred, or a Rare cosmetic you don't own yet (its price in
+	-- Cred if you own them all).
+	Wheel = {
+		Position = Vector3.new(34, 0.5, 17.5), -- the middle of the stand's base, on the floor (between two columns)
+		Facing = Vector3.new(-1, 0, 0), -- the way the wheel looks (at the carpet)
+		QuotasPerSpin = 2,
+		MaxPerRun = 3,
+		MaxSpins = 10,
+		SpinSeconds = 6,
+		Turns = { 4, 6 }, -- whole turns before it settles
+		Slices = {
+			{ cred = 50, weight = 24, color = Color3.fromRGB(235, 60, 60) },
+			{ cred = 150, weight = 14, color = Color3.fromRGB(50, 130, 235) },
+			{ cred = 75, weight = 20, color = Color3.fromRGB(70, 195, 80) },
+			{ cred = 300, weight = 7, color = Color3.fromRGB(160, 80, 230) },
+			{ cred = 100, weight = 18, color = Color3.fromRGB(250, 145, 40) },
+			{ cosmetic = "Rare", weight = 6, color = Color3.fromRGB(40, 195, 200) },
+			{ cred = 200, weight = 9, color = Color3.fromRGB(245, 95, 175) },
+			{ cred = 1_000, weight = 2, color = Color3.fromRGB(255, 205, 45), jackpot = true },
+		} :: { WheelSlice },
 	},
 	-- Physics cars (race cars, stolen cars, taxis, flip cars): real wheels on springs, driven by
 	-- the driver's own computer (client/CarController). Top speeds are per car (Racing.CarSpeed,
@@ -714,6 +993,10 @@ return {
 			"Milestone",
 			"EventAlert",
 			"Boom",
+			"CashGrab",
+			"LockClick",
+			"LockOpen",
+			"LockRattle",
 		},
 		ChaseSiren = 0.35, -- a siren wails under the chase music (this much of Sounds.Siren's volume)
 	},
@@ -732,7 +1015,7 @@ return {
 		Whistle = { id = 9117260548, volume = 0.6 },
 		JailDoor = { id = 73078778903922, volume = 0.7 }, -- the user's pick: a cell door closing when you're arrested
 		Wanted = { id = 1846885714, volume = 0.4 },
-		Fail = { id = 125909120236588, volume = 0.45 },
+		Fail = { id = 1836360707, volume = 0.45 }, -- Fast Slide Down (APM): a cartoon slide whistle down (the violin sting it replaced was 5.7s)
 		Ding = { id = 135165335432475, volume = 0.5 }, -- the user's pick
 		Beep = { id = 9117060347, volume = 0.5 },
 		Horn = { id = 9114075424, volume = 0.35 },
@@ -740,7 +1023,6 @@ return {
 		Badge = { id = 134821092416328, volume = 0.45 }, -- Rewards Level Up - Next Tier: a hustle, a badge or the daily challenge
 		Rustle = { id = 9114519078, volume = 0.5 },
 		Swipe = { id = 9126283592, volume = 0.6 },
-		Zap = { id = 9114277757, volume = 0.5 }, -- Electric Zaps 12 (Pro Sound Effects)
 		Stun = { id = 9116421639, volume = 0.6 }, -- Magic Transformation 8: cartoon boinks
 		Sizzle = { id = 9114542867, volume = 0.35 }, -- Fry Or Sizzle 1 (Pro Sound Effects): the grill and fryer
 		CustomerBell = { id = 127488139302452, volume = 0.6 }, -- the same bell as StoreBell (the user's pick)
@@ -752,7 +1034,53 @@ return {
 		Milestone = { id = 139330213484352, volume = 0.45 }, -- a star chime: 25/50/75% of the quota
 		Whoosh = { id = 9120711836, volume = 0.35 }, -- Whoosh Fast Swish By 4 (Pro Sound Effects): banners
 		EventAlert = { id = 3165700530, volume = 0.8 }, -- the user's pick: a town event's ALERT lands
+		PhoneRing = { id = 9113750988, volume = 0.6 }, -- Cell Phone Ring (Pro Sound Effects): a gig offer
+		Meow = { id = 112910579737497, volume = 0.7 }, -- Meow 3: the lost cat, hiding in a bush
+		Shutter = { id = 120368356221552, volume = 0.7 }, -- Shutter: a gig's landmark photo
+		Wind = { id = 9120698415, volume = 0.5 }, -- Whoosh By Howling Wind (Pro Sound Effects): the money tornado
+		Boom = { id = 138533090376585, volume = 0.6 }, -- the user's pick: a banner crashing in, a level-up, a big payday
+		CashGrab = { id = 9113726249, volume = 0.6 }, -- Cash Counting Paper Money (Pro Sound Effects): a bill grabbed from a till
+		LockClick = { id = 9116321193, volume = 0.6 }, -- Locking Wrench 9 (Pro Sound Effects): a lock pin sets
+		LockOpen = { id = 9117185722, volume = 0.7 }, -- Padlock Open (Pro Sound Effects): you picked the cell's lock
+		LockRattle = { id = 9117907161, volume = 0.5 }, -- Prison Bars Rattle 8 (Pro Sound Effects): the pick slipped
+		Bark = { id = 134031986321691, volume = 0.6 }, -- "Doggy bark! SFX.": one short bark
+		BarkTwice = { id = 107220143885340, volume = 0.6 }, -- mixkit dog barking twice: a squirrel, a guard dog
+		Squeak = { id = 9125994570, volume = 0.5 }, -- Squeeze Toy Squeaky Rubber (Pro Sound Effects): the fetch ball
+		Thud = { id = 9113562807, volume = 0.6 }, -- Box Grab, dull impact (Pro Sound Effects): a parcel landing
+		Crack = { id = 133541517744065, volume = 0.6 }, -- glass crack: a fragile parcel cracks
+		Smash = { id = 17890312023, volume = 0.6 }, -- Glass Crack (the long one): a fragile parcel smashes
 	} :: { [string]: { id: number, volume: number } },
+	-- The blocky look: everything in town wears the "Studs" material (classic Roblox studs; maps
+	-- drawn by art/studs/make_studs.py). MaterialService holds one MaterialVariant per base
+	-- material (tools/studs.luau makes them); the near-white colour map lets each part's colour
+	-- show through. StudsPerTile: how many studs wide one stud is.
+	Studs = {
+		Variant = "Studs",
+		ColorMap = "rbxassetid://87846760858077",
+		NormalMap = "rbxassetid://107204280869366",
+		RoughnessMap = "rbxassetid://97245479315696",
+		StudsPerTile = 1,
+	},
+	-- The first-join tutorial: brand-new players go straight from the lobby into a solo run that
+	-- walks them through one of everything, with a trail of arrows to each spot, then back to the
+	-- lobby. Every line is five words at most; `cheer` pops up when the step before is done.
+	Tutorial = {
+		Steps = {
+			{ key = "Knock", text = "Knock on a door" },
+			{ key = "Deliver", text = "Deliver the package", cheer = "Nice!" },
+			{ key = "Hide", text = "Cops! Hide in a bush", cheer = "Delivered!" },
+			{ key = "Bag", text = "Now buy a bigger bag", cheer = "Safe!" },
+			{ key = "Pickpocket", text = "Now pickpocket someone", cheer = "Great!" },
+			{ key = "Bank", text = "Bank your cash", cheer = "Sneaky!" },
+		},
+		DoneText = "Tutorial done!",
+		DoneSubtitle = "Heading to the lobby",
+		DoneSeconds = 5, -- the banner stays up this long, then it's off to the lobby
+		Greeting = "Psst! Got a package.", -- the resident at the door
+		HideSeconds = 1.5, -- in the bush this long and the cops give up
+		ArrowSpacing = 3.2, -- studs between the arrows on the ground
+		ArrowCount = 28,
+	},
 	Profiles = {
 		StoreName = "Players_v1", -- the DataStore every profile lives in
 		StudioPrefix = "Studio_", -- Studio tests save to their own stores, never the live ones
@@ -803,13 +1131,135 @@ return {
 		Unlocks = {
 			Toolbelt = 1_500, -- every run starts with a level-1 lockpick
 			Thermos = 1_200, -- every run starts with an energy drink in your backpack
-			ZapperLicense = 3_500, -- a free Zapper the moment blasters go on sale
 			WideOptions = 3_000, -- pick hustles from one more choice
 		},
 		-- Things no longer sold, refunded at what they cost the first time a profile loads.
-		Retired = { PitPass = 2_500 } :: { [string]: number }, -- the kart unlock (karts were removed)
-		-- Cosmetics (paint, underglow, trails, bags, zaps, bursts) cost this much by rarity.
+		Retired = {
+			PitPass = 2_500, -- the kart unlock (karts were removed)
+			ZapperLicense = 3_500, -- a free Zapper (blasters were removed)
+		} :: { [string]: number },
+		-- Cosmetics no longer sold (the custom blasters and zap colours), refunded at their price
+		-- (Tiers, by rarity) the first time a profile loads.
+		RetiredCosmetics = {
+			SquirtZapper = "Common",
+			ToyBrick = "Common",
+			RetroRay = "Rare",
+			HairDryer = "Rare",
+			NeonRipper = "Epic",
+			GoldPlated = "Legendary",
+			ZapLime = "Common",
+			ZapPink = "Common",
+			ZapOrange = "Common",
+			ZapGold = "Rare",
+			ZapPurple = "Rare",
+			ZapRainbow = "Epic",
+		} :: { [string]: string },
+		-- Cosmetics (paint, underglow, trails, bags, bursts) cost this much by rarity.
 		Tiers = { Common = 300, Rare = 900, Epic = 2_500, Legendary = 6_000 },
+	},
+	-- The STORE (lobby, SHOP button under the daily challenge): Cred packs and game passes, for
+	-- Robux. Make each one in the Creator Dashboard (Cred packs are developer products, passes are
+	-- game passes), then put its id here: until then the card says SOON and can't be bought.
+	-- Prices are set on Roblox, and the store shows them from there.
+	Store = {
+		CredPacks = {
+			{ id = 0, cred = 100, picture = "Cred100" },
+			{ id = 0, cred = 500, picture = "Cred500" },
+			{ id = 0, cred = 1_000, picture = "Cred1000" },
+			{ id = 0, cred = 5_000, picture = "Cred5000" },
+			{ id = 0, cred = 25_000, picture = "Cred25000" },
+			{ id = 0, cred = 100_000, picture = "Cred100000", tag = "BEST VALUE" },
+		} :: { CredPack },
+		-- Strength for your shove (Shove above), in the Shop under the Cred: bought as many times as
+		-- you like, it all adds up. Make each in the Creator Dashboard (developer products) and put
+		-- its id here: until then the card says SOON.
+		StrengthPacks = {
+			{ id = 0, strength = 10, picture = "Glove" },
+			{ id = 0, strength = 25, picture = "Glove" },
+			{ id = 0, strength = 60, picture = "GlovePair" },
+			{ id = 0, strength = 150, picture = "GoldGlove" },
+			{ id = 0, strength = 400, picture = "GoldGlovePair" },
+			{ id = 0, strength = 1_000, picture = "DiamondGlove", tag = "BEST VALUE" },
+		} :: { StrengthPack },
+		-- `text` is the card's line: [brackets] show in bright green. Packs with `featured` sit at
+		-- the top in their own colours.
+		Passes = {
+			{
+				key = "BigBaller",
+				id = 0,
+				name = "Big Baller Pack",
+				text = "[x2] Cash, [x2] Luck, Mega Bag, Fat Stack and Tip Jar!",
+				picture = "PassBigBaller",
+				includes = { "DoubleCash", "DoubleLuck", "MegaBag", "FatStack", "TipJar" },
+				featured = "Gold",
+			},
+			{
+				key = "Rainbow",
+				id = 0,
+				name = "Rainbow Pack",
+				text = "[x2] Cred, Bail Money, Clean Record and [VIP]!",
+				picture = "PassRainbow",
+				includes = { "DoubleCred", "BailMoney", "CleanRecord", "VIP" },
+				featured = "Rainbow",
+			},
+			{
+				key = "DoubleCash",
+				id = 0,
+				name = "x2 Cash",
+				text = "Every payout pays [x2]!",
+				picture = "PassDoubleCash",
+			},
+			{
+				key = "DoubleLuck",
+				id = 0,
+				name = "x2 Luck",
+				text = "[x2] luck: fatter wallets when you pickpocket!",
+				picture = "PassDoubleLuck",
+			},
+			{ key = "MegaBag", id = 0, name = "Mega Bag", text = "Your bag holds [x2] cash!", picture = "PassMegaBag" },
+			{
+				key = "FatStack",
+				id = 0,
+				name = "Fat Stack",
+				text = "Start every run with [+$2,500]!",
+				picture = "PassFatStack",
+			},
+			{ key = "TipJar", id = 0, name = "Tip Jar", text = "Customers tip you [+25%]!", picture = "PassTipJar" },
+			{
+				key = "DoubleCred",
+				id = 0,
+				name = "x2 Cred",
+				text = "Earn [x2] Cred from every run!",
+				picture = "PassDoubleCred",
+			},
+			{
+				key = "BailMoney",
+				id = 0,
+				name = "Bail Money",
+				text = "Out of jail in [10s] with only [2] pins!",
+				picture = "PassBail",
+			},
+			{
+				key = "CleanRecord",
+				id = 0,
+				name = "Clean Record",
+				text = "Your heat clears [x2] faster!",
+				picture = "PassClean",
+			},
+			{ key = "VIP", id = 0, name = "VIP", text = "A gold [VIP] chat tag and [+50%] XP!", picture = "PassVip" },
+		} :: { Pass },
+		-- What the passes do.
+		DoubleCash = 2, -- pay multiplier
+		MegaBag = 2, -- bag size multiplier
+		FatStack = 2_500, -- extra starting cash
+		TipJarShare = 0.25, -- a tip on top of each tipping customer's pay
+		DoubleCred = 2, -- run prize multiplier
+		BailSeconds = 10, -- the longest jail lasts
+		BailPins = 2, -- pins on the jail lock (the first ones of Police.Lockpick.Pins)
+		CleanRecordSpeed = 2, -- how much faster heat clears
+		VipXp = 1.5, -- run XP multiplier
+		VipTagColor = "#FFD23C",
+		ReceiptsKept = 50, -- recent purchase ids remembered in the save, so none is paid twice
 	},
 	Badges = {
 		GettingSeriousQuota = 3,
@@ -829,7 +1279,9 @@ return {
 	Debug = {
 		Enabled = false,
 		TimerScale = 0.1, -- speeds up all run timers in debug
-		AdminUserIds = { 1913433940 } :: { number }, -- extra debug-command accounts (TinTinTerryy3)
+		-- Extra debug-command accounts: the owner's own account (so commands still work once the
+		-- game belongs to a group) and TinTinTerryy3.
+		AdminUserIds = { 1665200665, 1913433940 } :: { number },
 		StudioAutoStartSeconds = 10, -- Studio test starts this long after the first player joins
 	},
 }

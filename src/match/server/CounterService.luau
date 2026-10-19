@@ -1,7 +1,7 @@
 --!strict
 -- Shop counters. Walk up and press E: the shopkeeper behind it (StaffService) says hello, and
 -- you answer: buy something (opens the shop), rob the register (a crime from quota
--- Unlocks.StoreRobbery: stay put while it empties, StoreRobbery) or never mind. Counters are
+-- Unlocks.StoreRobbery: the till opens and you grab the cash, StoreRobbery) or never mind. Counters are
 -- map parts tagged ShopCounter, with Shop and Staff attributes.
 
 local CollectionService = game:GetService("CollectionService")
@@ -25,7 +25,8 @@ local PROMPT_RANGE = 8
 local RANGE_SLACK = 4
 
 local BUY, ROB = 1, 2
-local ROBBED_LINES = { "Whoa, okay! Take it, take it!", "Don't zap me! It's all yours!", "Okay, okay! Just stay calm!" }
+local ROBBED_LINES =
+	{ "Whoa, okay! Take it, take it!", "Don't hurt me! It's all yours!", "Okay, okay! Just stay calm!" }
 local AFTER_LINES = { "I'm calling the cops!", "Somebody call the police!" }
 local BYE_LINES = { "See you around!", "Come back any time!", "Have a good one!" }
 
@@ -43,14 +44,13 @@ local function pick(lines: { string }): string
 	return lines[rng:NextInteger(1, #lines)]
 end
 
--- Says a line to the player (with answers, or a progress bar, or neither).
+-- Says a line to the player (with answers, or none).
 local function say(
 	player: Player,
 	counter: BasePart,
 	staff: string,
 	line: string,
-	options: { Types.TalkOption },
-	progress: { label: string, endsAt: number }?
+	options: { Types.TalkOption }
 ): number
 	lastId += 1
 	local name = StaffService.info(staff)
@@ -60,7 +60,6 @@ local function say(
 		line = line,
 		speakerAt = StaffService.headAt(staff) or (counter.Position + Vector3.new(0, 5, 0)),
 		options = options,
-		progress = progress,
 	})
 	return lastId
 end
@@ -81,7 +80,7 @@ local function greet(player: Player, counter: BasePart)
 		{ text = "Buy something" },
 		{
 			text = "Rob the register",
-			detail = locked or `{Format.money(StoreRobbery.payFor(player))} · +{heat} heat`,
+			detail = locked or `Up to {Format.money(StoreRobbery.payFor(player))} · +{heat} heat`,
 			heat = true,
 			locked = locked ~= nil,
 		},
@@ -99,9 +98,9 @@ local function rob(player: Player, chat: Chat)
 			say(player, chat.counter, chat.staff, pick(AFTER_LINES), {})
 		else
 			remotes.Talk:fireClient(player, nil)
-			if why then
-				Notifier.send(player, why, "Bad")
-			end
+		end
+		if why then
+			Notifier.send(player, why, if ok then "Info" else "Bad")
 		end
 	end)
 	if not endsAt then
@@ -111,7 +110,7 @@ local function rob(player: Player, chat: Chat)
 		return
 	end
 	StaffService.handsUp(chat.staff, true)
-	say(player, chat.counter, chat.staff, pick(ROBBED_LINES), {}, { label = "Emptying the register", endsAt = endsAt })
+	say(player, chat.counter, chat.staff, pick(ROBBED_LINES), {}) -- the till opens on their screen
 end
 
 local function onAnswer(player: Player, payload: unknown)

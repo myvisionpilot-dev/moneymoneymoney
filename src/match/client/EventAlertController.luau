@@ -61,7 +61,7 @@ function EventAlertController.start()
 		ClipsDescendants = true,
 		ZIndex = quota.ZIndex - 1,
 	}, root)
-	local panel, content = UI.panel(DEFAULT_COLOR, { Size = UDim2.fromOffset(width, 160) }, slot, 260)
+	local panel, content = UI.panel(DEFAULT_COLOR, { Size = UDim2.fromOffset(width, 160) }, slot)
 	local border = panel:FindFirstChild("Border") :: UIStroke?
 	local rays: Instance = UI.rays(panel, 520, nil, 12)
 	local throb = Instance.new("UIScale")

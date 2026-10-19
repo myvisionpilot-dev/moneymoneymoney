@@ -2,7 +2,7 @@
 -- The cosmetics each player wears (both places), from their saved profile: Style.worn says
 -- what's in a slot, and the trail and aura go on their character here (shared/CosmeticFx), so
 -- everyone sees them. A trail's particles only stream while you're moving. The Match puts on
--- the rest (paint and underglow on race cars, the bag you carry, zap colours, bank bursts).
+-- the rest (paint and underglow on race cars, the bag you carry, bank bursts).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

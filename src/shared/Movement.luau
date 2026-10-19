@@ -3,8 +3,8 @@
 -- button to toggle it). While the server has you in a car (the VehicleSpeed attribute on your
 -- character) you're sitting in its seat, so there's no jumping (that would hop you out). An
 -- energy drink (the SpeedBoost attribute) and the speed shop's buff (SpeedBuff) multiply
--- on-foot speed, up to Movement.MaxSpeedMultiplier. The view widens a little while you're
--- going fast.
+-- on-foot speed, up to Movement.MaxSpeedMultiplier; a job can slow you down (JobSlow). The view
+-- widens a little while you're going fast.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -21,6 +21,7 @@ local SPRINT_ACTION = "Sprint"
 local VEHICLE_ATTRIBUTE = "VehicleSpeed"
 local BOOST_ATTRIBUTE = "SpeedBoost"
 local BUFF_ATTRIBUTE = "SpeedBuff"
+local SLOW_ATTRIBUTE = "JobSlow" -- a job holding you back (the dog's pulling on the leash)
 local MOVING = 0.1 -- MoveDirection length that counts as trying to move
 local DRIVING_FAST = 20 -- studs/s in a car that counts as going fast
 
@@ -52,7 +53,9 @@ local function apply()
 	local driving = vehicleSpeed(character) ~= nil
 	local onFoot = if sprinting then Config.Movement.SprintSpeed else Config.Movement.WalkSpeed
 	local boost = multiplier(character, BOOST_ATTRIBUTE) * multiplier(character, BUFF_ATTRIBUTE)
-	humanoid.WalkSpeed = onFoot * math.min(boost, Config.Movement.MaxSpeedMultiplier)
+	humanoid.WalkSpeed = onFoot
+		* math.min(boost, Config.Movement.MaxSpeedMultiplier)
+		* multiplier(character, SLOW_ATTRIBUTE)
 	-- No jumping in a car (it would hop you out of the seat).
 	humanoid.JumpHeight = if driving then 0 else StarterPlayer.CharacterJumpHeight
 	humanoid.JumpPower = if driving then 0 else StarterPlayer.CharacterJumpPower
@@ -84,6 +87,7 @@ local function onCharacter(character: Model)
 	character:GetAttributeChangedSignal(VEHICLE_ATTRIBUTE):Connect(apply)
 	character:GetAttributeChangedSignal(BOOST_ATTRIBUTE):Connect(apply)
 	character:GetAttributeChangedSignal(BUFF_ATTRIBUTE):Connect(apply)
+	character:GetAttributeChangedSignal(SLOW_ATTRIBUTE):Connect(apply)
 	apply()
 end
 

@@ -1,7 +1,8 @@
 --!strict
--- Arrests: lose Police.CaughtLosePercent of carried cash, heat cleared, Police.JailSeconds in the cell
--- (less of both with the Cred shop's Insurance and Good Lawyer).
--- Everyone is let out when the quota ends.
+-- Arrests: lose Police.CaughtLosePercent of carried cash, heat cleared, and into the cell. Pick
+-- its lock to get out (JailLock), or wait Police.JailSeconds (less of both with the Cred shop's
+-- Insurance and Good Lawyer, and the Bail Money pass caps the wait). Everyone is let out when
+-- the quota ends.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -11,15 +12,18 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
 local Timing = require(ReplicatedStorage.Shared.Timing)
+local Passes = require(ServerScriptService.Common.Passes)
 local Perks = require(ServerScriptService.Common.Perks)
 local EconomyService = require(script.Parent.EconomyService)
 local HeatService = require(script.Parent.HeatService)
 local HustleService = require(script.Parent.HustleService)
+local JailLock = require(script.Parent.JailLock)
 local Juice = require(script.Parent.Juice)
 local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
+local TutorialState = require(script.Parent.TutorialState)
 local WorldFx = require(script.Parent.WorldFx)
 
 local CELL_TAG = "JailCell"
@@ -62,6 +66,7 @@ local function release(player: Player, message: string)
 		return
 	end
 	jailed[player] = nil
+	JailLock.take(player)
 	local exit = taggedCFrame(EXIT_TAG)
 	if exit and player.Parent then
 		MovementGuard.teleport(player, CFrame.new(exit.Position + Vector3.new(0, 4, 0)))
@@ -71,7 +76,8 @@ local function release(player: Player, message: string)
 end
 
 function JailService.arrest(player: Player, byWhom: string)
-	if jailed[player] or not RosterService.isActive(player) then
+	-- (In the tutorial the cops chase you, but you can't be caught.)
+	if jailed[player] or not RosterService.isActive(player) or TutorialState.isIn(player) then
 		return
 	end
 	local account = EconomyService.account(player)
@@ -87,14 +93,20 @@ function JailService.arrest(player: Player, byWhom: string)
 	-- The Good Lawyer upgrade takes seconds off (down to a minimum).
 	local seconds = math.ceil(Config.Police.JailSeconds * HustleService.jailMultiplier(player))
 	seconds = math.max(seconds - Perks.amount(player, "Lawyer"), math.min(seconds, Config.CredShop.MinJailSeconds))
+	if Passes.has(player, "BailMoney") then
+		seconds = math.min(seconds, Config.Store.BailSeconds)
+	end
 	jailed[player] = Timing.now() + seconds
 	WorldFx.busted(player) -- where they got caught, before the cell
 	putInCell(player)
+	JailLock.give(player, function()
+		release(player, "You picked the lock! You're out.")
+	end)
 	JailService.arrested:Fire(player)
 	JailService.changed:Fire(player)
 	Juice.lost(player, lost, `Busted by {byWhom}`)
 	local kept = if free then " Second Chance: you kept your cash." else ""
-	Notifier.send(player, `Busted! You're in jail for {seconds}s.{kept}`, "Bad")
+	Notifier.send(player, `Busted! Pick the lock to get out, or wait {seconds}s.{kept}`, "Bad")
 	Notifier.others(player, `{player.DisplayName} got busted by {byWhom}!`, "Info")
 end
 

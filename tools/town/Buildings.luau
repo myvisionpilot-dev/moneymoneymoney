@@ -1455,18 +1455,33 @@ local function gunStore(parent, slot)
 		fg = Color3.fromRGB(80, 230, 255),
 		font = Enum.Font.Michroma,
 		awning = { Color3.fromRGB(25, 30, 45), Color3.fromRGB(60, 200, 240) },
-		sign = "TONY'S BLASTERS",
-		posters = { "STUN ONLY", "NO REFUNDS" },
+		sign = "TONY'S CRATES",
+		posters = { "LUCKY CRATES", "ODDS INSIDE" },
 		roofline = "crenel",
 		awningKind = "canopy",
 	})
-	shopCounter(model, cf, 16, 12, Color3.fromRGB(60, 60, 75), "Guns", "Tony")
-	-- A rack of blasters on the wall behind Tony.
+	shopCounter(model, cf, 16, 12, Color3.fromRGB(60, 60, 75), "Crates", "Tony")
+	-- Two shelves of crates on the wall behind Tony.
 	local back = DEPTH / 2 - 1.15
-	bit(model, cf, "Rack", Vector3.new(14, 4, 0.2), CFrame.new(0, 7.5, back), Color3.fromRGB(45, 45, 55))
-	for index, x in { -4.5, 0, 4.5 } do
-		local design = if index == 2 then "MegaZapper" else "Zapper"
-		Signatures.blaster(model, cf, CFrame.new(x, 7.6, back - 0.6) * CFrame.Angles(0, math.rad(90), 0), design)
+	local wood = Color3.fromRGB(120, 80, 50)
+	local rows = { { "LuckyCrate", "GoldCrate", "DiamondCrate" }, { "DiamondCrate", "LuckyCrate", "GoldCrate" } }
+	for row, designs in rows do
+		local y = 1.4 + row * 3.6
+		bit(model, cf, "Shelf", Vector3.new(15, 0.4, 2.8), CFrame.new(0, y, back - 1.2), wood)
+		-- A warm strip of light along its front edge.
+		bit(
+			model,
+			cf,
+			"ShelfLight",
+			Vector3.new(15, 0.16, 0.16),
+			CFrame.new(0, y - 0.25, back - 2.55),
+			Color3.fromRGB(255, 200, 90),
+			Enum.Material.Neon
+		)
+		for index, x in { -4.6, 0, 4.6 } do
+			local turn = CFrame.Angles(0, math.rad((2 - index) * 12), 0)
+			Signatures.crate(model, cf, CFrame.new(x, y + 1.4, back - 1.3) * turn, designs[index], 0.95)
+		end
 	end
 	for index, x in { -13, 13 } do
 		local case = Kit.quiet(
@@ -1483,10 +1498,9 @@ local function gunStore(parent, slot)
 			)
 		)
 		case.Transparency = 0.5
-		-- Blasters lying on their sides in the case.
-		for _, info in { { -2.5, "Zapper" }, { 2.5, "MegaZapper" } } do
-			Signatures.blaster(model, cf, CFrame.new(x, 3, info[1]) * CFrame.Angles(0, 0, math.rad(90)), info[2])
-		end
+		-- A crate on show in each case.
+		local design = if index == 1 then "GoldCrate" else "DiamondCrate"
+		Signatures.crate(model, cf, CFrame.new(x, 1.4, 0) * CFrame.Angles(0, math.rad(20), 0), design, 0.8)
 	end
 end
 

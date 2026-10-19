@@ -1,6 +1,6 @@
 --!strict
 -- Who may use debug commands: the game's owner, Config.Debug.AdminUserIds, or anyone in a Studio test.
--- If the game moves to a group, list the admins in Config.Debug.AdminUserIds.
+-- A group-owned game has no owner account here, so the admins are listed in Config.Debug.AdminUserIds.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")

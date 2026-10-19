@@ -7,7 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Types = require(ReplicatedStorage.Shared.Types)
-local RunState = require(script.Parent.Parent.RunState)
 local TownEvent = require(script.Parent.TownEvent)
 
 local COUNTER_TAG = "ShopCounter"
@@ -16,7 +15,7 @@ local NAMES: { [string]: string } = {
 	Clothes = "BAGS",
 	Hardware = "Handy Hank's",
 	Convenience = "The convenience stores",
-	Guns = "Tony's Blasters",
+	Crates = "Tony's Crates",
 }
 
 local settings = Config.Events.FireSale
@@ -42,8 +41,8 @@ function FireSale.start(ctx: TownEvent.Context)
 	local shops: { string } = {}
 	for _, counter in CollectionService:GetTagged(COUNTER_TAG) do
 		local shop = counter:GetAttribute("Shop")
-		local open = shop ~= "Guns" or RunState.quotaIndex >= Config.Blasters.UnlockQuota
-		if typeof(shop) == "string" and NAMES[shop] and open and counter:IsA("BasePart") and not counters[shop] then
+		shop = if shop == "Guns" then "Crates" else shop -- Tony's counter on older maps
+		if typeof(shop) == "string" and NAMES[shop] and counter:IsA("BasePart") and not counters[shop] then
 			counters[shop] = counter
 			table.insert(shops, shop)
 		end
@@ -55,7 +54,7 @@ function FireSale.start(ctx: TownEvent.Context)
 	local shop = shops[Random.new():NextInteger(1, #shops)]
 	onSale = shop
 	local off = math.floor(settings.Discount * 100 + 0.5)
-	ctx.announce(`{NAMES[shop]}: everything {off}% off. Go shopping!`, counters[shop].Position)
+	ctx.announce(`{NAMES[shop]}: {off}% off!`, counters[shop].Position)
 end
 
 function FireSale.tick() end

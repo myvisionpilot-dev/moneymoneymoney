@@ -193,7 +193,11 @@ function StreakController.start()
 				setLook(true)
 				countLabel.Text = "STREAK LOST"
 				nextLabel.Text = `It was {before} in a row`
-				Sounds.play("Fail", 0.8, 0.5)
+				-- Busted: the arrest has its own sounds, so this one stays quiet.
+				local me = ClientState.me()
+				if not (me and me.jailedUntil > Timing.now()) then
+					Sounds.play("Fail", 1, 0.5)
+				end
 				task.spawn(function()
 					for index = 1, 6 do
 						holder.Position = UDim2.new(0, 10 + (if index % 2 == 0 then 6 else -6), 0.5, 0)

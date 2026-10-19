@@ -2,7 +2,7 @@
 -- from tools/town/Buildings, leaving the roads, houses and outdoors alone. Run in the Match
 -- place (Edit mode) after scripts/sync-studio.ps1, e.g. with the MCP:
 --   require(game:GetObjects("rbxasset://mmm/tools.rbxm")[1].rebuild_buildings)
--- Its blasters come from ReplicatedStorage.Shared.BlasterLooks, so sync the code first.
+-- Tony's crates come from ReplicatedStorage.Shared.CrateLooks, so sync the code first.
 
 local Buildings = require(script.Parent:WaitForChild("town").Buildings)
 

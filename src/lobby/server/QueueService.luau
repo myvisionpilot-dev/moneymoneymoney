@@ -5,6 +5,8 @@
 --         size and can start early; it leaves when it's that big, or QueueWaitSeconds after it
 --         opened.
 --   Join  joins a lobby from the list (by its id).
+-- A brand-new player (no TutorialDone on their profile) is sent straight off alone to play the
+-- first-join tutorial.
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -17,11 +19,13 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Profiles = require(ServerScriptService.Common.Profiles)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local SafeTeleport = require(ServerScriptService.Common.SafeTeleport)
 
 local POLL_SECONDS = 0.25
 local TELEPORT_GRACE_SECONDS = 30 -- don't re-queue players whose teleport is in flight
+local TUTORIAL_DELAY_SECONDS = 1.5 -- a moment in the lobby first, so the teleport isn't a jolt
 
 type Group = {
 	id: string,
@@ -29,6 +33,7 @@ type Group = {
 	departsAt: number,
 	partySize: number,
 	launching: boolean,
+	tutorial: boolean, -- a brand-new player's first-join tutorial (Match server/Tutorial)
 }
 
 local QueueService = {}
@@ -114,7 +119,11 @@ local function launch(group: Group)
 				end
 				local options = Instance.new("TeleportOptions")
 				options.ReservedServerAccessCode = accessCode
-				options:SetTeleportData({ expected = userIds, partyId = HttpService:GenerateGUID(false) })
+				options:SetTeleportData({
+					expected = userIds,
+					partyId = HttpService:GenerateGUID(false),
+					tutorial = group.tutorial,
+				})
 				sent = SafeTeleport.teleport(Config.Places.MatchPlaceId, members, options)
 				if sent then
 					for _, player in members do
@@ -231,11 +240,30 @@ local function onPlay(player: Player, payload: unknown)
 			departsAt = now + Timing.scaled(Config.Match.QueueWaitSeconds),
 			partySize = if solo then 1 else Config.Match.MaxPlayers,
 			launching = false,
+			tutorial = false,
 		}
 		table.insert(groups, group)
 	end
 	updateGroup(group, now)
 	sendList()
+end
+
+-- A brand-new player goes straight to town, alone, for the tutorial.
+function QueueService.tutorial(player: Player)
+	if not player.Parent or groupOf(player) or (teleportingUntil[player] or 0) > os.clock() then
+		return
+	end
+	nextId += 1
+	local group: Group = {
+		id = tostring(nextId),
+		members = { player },
+		departsAt = Timing.now(),
+		partySize = 1,
+		launching = false,
+		tutorial = true,
+	}
+	table.insert(groups, group)
+	launch(group)
 end
 
 -- Only the host may change the size, and never below the players already in the group.
@@ -284,6 +312,17 @@ function QueueService.start()
 		lastStatus[player] = nil
 		teleportingUntil[player] = nil
 	end)
+	-- First time here: straight to the tutorial.
+	local function checkTutorial(player: Player)
+		local data = Profiles.get(player)
+		if data and not data.TutorialDone then
+			task.delay(TUTORIAL_DELAY_SECONDS, QueueService.tutorial, player)
+		end
+	end
+	Profiles.loaded:Connect(checkTutorial)
+	for _, player in Players:GetPlayers() do
+		checkTutorial(player)
+	end
 
 	task.spawn(function()
 		while true do

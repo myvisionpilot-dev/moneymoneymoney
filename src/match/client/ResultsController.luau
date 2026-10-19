@@ -105,9 +105,8 @@ function ResultsController.start()
 		Visible = true,
 	}, overlay)
 	local panel = window.panel
-	window.title.TextXAlignment = Enum.TextXAlignment.Center
-	window.title.Size = UDim2.fromScale(1, 1)
-	window.title.TextSize = 32
+	UI.centreTitle(window)
+	window.title.TextSize = 36
 	UI.list(window.body, Enum.FillDirection.Vertical, 6)
 
 	local subtitle = UI.label({
@@ -154,7 +153,7 @@ function ResultsController.start()
 		window.title.Text = if failed then "THE BANK WASN'T PAID" else "YOU CASHED OUT!"
 		panel.BackgroundColor3 = if failed then UI.Colors.Danger else UI.Colors.Money
 		subtitle.Text = if failed
-			then `Quotas cleared: {results.highestQuota}. A failed run keeps only part of your prize.`
+			then `Quotas cleared: {results.highestQuota}`
 			else `Quotas cleared: {results.highestQuota}`
 		-- Your Cred counts up from nothing, clinking as it goes.
 		local function credText(value: number): string

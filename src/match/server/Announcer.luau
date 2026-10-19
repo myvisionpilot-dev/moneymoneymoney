@@ -6,6 +6,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local TutorialState = require(script.Parent.TutorialState)
 
 local remotes = Remotes.match()
 
@@ -14,6 +15,9 @@ local Announcer = {
 }
 
 function Announcer.all(speaker: string, text: string)
+	if TutorialState.server then
+		return -- the tutorial keeps the words to a minimum
+	end
 	remotes.Announce:fireAll({ speaker = speaker, text = text })
 end
 

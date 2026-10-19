@@ -8,9 +8,9 @@ Kit.Colors = {
 	Road = Color3.fromRGB(62, 62, 68),
 	Path = Color3.fromRGB(196, 194, 188),
 	Plaza = Color3.fromRGB(214, 206, 188),
-	Grass = Color3.fromRGB(96, 170, 78),
-	DarkGrass = Color3.fromRGB(70, 140, 60),
-	Leaves = Color3.fromRGB(58, 138, 58),
+	Grass = Color3.fromRGB(104, 204, 46),
+	DarkGrass = Color3.fromRGB(80, 172, 40),
+	Leaves = Color3.fromRGB(62, 170, 44),
 	Trunk = Color3.fromRGB(110, 75, 45),
 	White = Color3.fromRGB(245, 245, 240),
 	Glass = Color3.fromRGB(170, 215, 250),
@@ -19,6 +19,14 @@ Kit.Colors = {
 	Brick = Color3.fromRGB(150, 90, 70),
 	Wood = Color3.fromRGB(150, 105, 70),
 }
+
+-- The blocky look: everything but glass and neon wears the Studs material (shared/Studs,
+-- MaterialVariants made by tools/studs.luau).
+local function studs(p)
+	if p.Material ~= Enum.Material.Glass and p.Material ~= Enum.Material.Neon then
+		p.MaterialVariant = "Studs"
+	end
+end
 
 -- A plain anchored part. `cframe` may be a Vector3 for an unrotated part.
 function Kit.part(parent, name, size, cframe, color, material)
@@ -31,6 +39,7 @@ function Kit.part(parent, name, size, cframe, color, material)
 	p.Material = material or Enum.Material.SmoothPlastic
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
+	studs(p)
 	p.Parent = parent
 	return p
 end
@@ -43,6 +52,7 @@ function Kit.wedge(parent, name, size, cframe, color, material)
 	p.CFrame = cframe
 	p.Color = color
 	p.Material = material or Enum.Material.SmoothPlastic
+	studs(p)
 	p.Parent = parent
 	return p
 end
@@ -224,13 +234,13 @@ function Kit.planter(parent, ground, rotation, seed)
 	end
 end
 
--- A leafy bush you can hide in: an invisible tagged hitbox plus leafy balls to walk through.
-local LEAVES = {
-	{ Vector3.new(0, 3.2, 0), 7, Color3.fromRGB(55, 135, 55) },
-	{ Vector3.new(2.8, 2.4, 1.2), 5.5, Color3.fromRGB(70, 150, 60) },
-	{ Vector3.new(-2.6, 2.2, 1.6), 5, Color3.fromRGB(50, 125, 50) },
-	{ Vector3.new(0.6, 2.4, -2.8), 5.5, Color3.fromRGB(65, 145, 65) },
-	{ Vector3.new(-1.2, 5, -0.6), 4.5, Color3.fromRGB(80, 160, 70) },
+-- A blocky bush you can hide in: an invisible tagged hitbox plus studded leaf blocks stacked
+-- like toy bricks (bright lime, a shade or two apart) that you walk through.
+local BUSH_BLOCKS = {
+	{ Vector3.new(0, 2, 0), Vector3.new(8, 4, 7), Color3.fromRGB(96, 200, 36) },
+	{ Vector3.new(1.4, 5, 0.6), Vector3.new(5.5, 2.4, 5), Color3.fromRGB(116, 214, 44) },
+	{ Vector3.new(-2.6, 1.6, 2.6), Vector3.new(4, 3.2, 3.6), Color3.fromRGB(82, 184, 32) },
+	{ Vector3.new(2.8, 1.4, -2.8), Vector3.new(3.6, 2.8, 3.2), Color3.fromRGB(106, 206, 40) },
 }
 function Kit.bush(parent, name, ground)
 	local bush = Kit.model(parent, name)
@@ -240,13 +250,8 @@ function Kit.bush(parent, name, ground)
 	hitbox.CanQuery = false
 	hitbox.CanTouch = false
 	CollectionService:AddTag(hitbox, "HidingSpot")
-	for index, leaf in LEAVES do
-		local ball =
-			Kit.part(bush, `Leaves{index}`, Vector3.one * leaf[2], ground + leaf[1], leaf[3], Enum.Material.LeafyGrass)
-		ball.Shape = Enum.PartType.Ball
-		ball.CanCollide = false
-		ball.CanQuery = false
-		ball.CanTouch = false
+	for index, block in BUSH_BLOCKS do
+		Kit.decor(Kit.part(bush, `Leaves{index}`, block[2], ground + block[1], block[3], Enum.Material.Plastic))
 	end
 	return bush
 end
@@ -280,22 +285,53 @@ function Kit.bed(parent, name, ground, diameter)
 	return ground + Vector3.new(0, 0.75, 0)
 end
 
+-- A blocky tree: a square studded trunk and a canopy of leaf cubes, a big one with smaller ones
+-- poking out of its sides and top (each a shade of bright green).
+local LEAF_GREENS = {
+	Color3.fromRGB(86, 196, 34),
+	Color3.fromRGB(104, 210, 42),
+	Color3.fromRGB(72, 180, 30),
+}
 function Kit.tree(parent, name, ground, height)
 	local h = height or 12
 	local tree = Kit.model(parent, name)
 	Kit.quiet(
-		Kit.cylinder(tree, "Trunk", h, 1.8, ground + Vector3.new(0, h / 2, 0), Kit.Colors.Trunk, Enum.Material.Wood)
+		Kit.part(
+			tree,
+			"Trunk",
+			Vector3.new(2, h, 2),
+			ground + Vector3.new(0, h / 2, 0),
+			Kit.Colors.Trunk,
+			Enum.Material.Wood
+		)
 	)
-	local canopy = Kit.part(
-		tree,
-		"Canopy",
-		Vector3.one * (h * 0.9),
-		ground + Vector3.new(0, h + h * 0.25, 0),
-		Kit.Colors.Leaves,
-		Enum.Material.Grass
-	)
-	canopy.Shape = Enum.PartType.Ball
-	Kit.quiet(canopy)
+	local size = h * 0.75
+	local middle = ground + Vector3.new(0, h + size * 0.3, 0)
+	local canopy =
+		Kit.quiet(Kit.part(tree, "Canopy", Vector3.one * size, middle, LEAF_GREENS[1], Enum.Material.Plastic))
+	canopy.CanCollide = false
+	local small = size * 0.55
+	local out = size / 2
+	local bits = {
+		Vector3.new(out, -size * 0.12, size * 0.1),
+		Vector3.new(-out, size * 0.05, -size * 0.15),
+		Vector3.new(size * 0.12, -size * 0.18, out),
+		Vector3.new(-size * 0.1, size * 0.08, -out),
+		Vector3.new(size * 0.1, out, -size * 0.05),
+	}
+	for index, offset in bits do
+		local cube = Kit.decor(
+			Kit.part(
+				tree,
+				"Canopy",
+				Vector3.one * small,
+				middle + offset,
+				LEAF_GREENS[index % 3 + 1],
+				Enum.Material.Plastic
+			)
+		)
+		cube.CastShadow = true
+	end
 	return tree
 end
 

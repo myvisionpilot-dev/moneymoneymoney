@@ -59,7 +59,7 @@ end
 
 local function payBank(hint: string): Step?
 	local desk = deskPosition()
-	return if desk then { hint = hint, marker = "PAY THE BANK", target = desk } else nil
+	return if desk then { hint = hint, marker = "BANK", target = desk } else nil
 end
 
 local function currentStep(): Step?
@@ -69,22 +69,25 @@ local function currentStep(): Step?
 	if not snapshot or not me or not character or snapshot.phase ~= "Quota" or me.status ~= "Active" then
 		return nil
 	end
+	if player:GetAttribute("Tutorial") then
+		return nil -- the tutorial shows the way
+	end
 	if hasJob or offerOpen or me.jailedUntil > Timing.now() then
 		return nil
 	end
 	local earned = me.carried > Config.Match.StartingCash
 	if me.deposited == 0 and not earned then
 		local door = nearestDoor(character:GetPivot().Position)
-		return if door then { hint = "Knock on a door to find work", marker = "KNOCK", target = door.Position } else nil
+		return if door then { hint = "Knock on a door", marker = "KNOCK", target = door.Position } else nil
 	end
 	if me.carried <= 0 then
 		return nil
 	elseif me.deposited == 0 then
-		return payBank("Take your cash to the bank")
+		return payBank("Bank your cash")
 	elseif me.carried >= me.bagCapacity then
-		return payBank("Bag full! Empty it at the bank")
+		return payBank("Bag full! Bank it")
 	elseif snapshot.phaseEndsAt - Timing.now() <= Config.Guide.HurrySeconds and snapshot.progress < snapshot.target then
-		return payBank("Pay the bank before time runs out!")
+		return payBank("Hurry! Bank your cash")
 	end
 	return nil
 end

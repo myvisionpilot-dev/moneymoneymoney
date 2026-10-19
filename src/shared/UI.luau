@@ -1,8 +1,13 @@
 --!strict
--- Helpers for building UI in code (client only), all in the shop style: colourful glossy panels
--- with a faint checkerboard (UI.panel, UI.window), bold outlined text, 3D buttons that click,
--- and spinning light rays behind things for sale (UI.rays). No emoji: icons are drawn
--- (UI.iconCircle) or are little 3D models (ItemModels).
+-- Helpers for building UI in code (client only), in one style: Fredoka One everywhere, white
+-- with a thick black outline, and a subtle checkerboard over panels and buttons.
+--   Store windows (UI.window): a bright blue frame round a pale inset, the title sticking up
+--   over the top edge with a little 3D picture and icon tabs beside it, a red X on the corner.
+--   Things for sale sit on bright cards (UI.itemCard) with sunburst rays behind them (UI.rays).
+--   HUD and pop-up panels (UI.panel with UI.Colors.Panel): dark see-through checkered boxes in
+--   a black outline; coloured panels get the checker in a darker shade of their colour.
+--   Buttons are chunky and checkered with a darker lip along the bottom, and squish and click.
+-- No emoji: icons are drawn (UI.iconCircle) or are little 3D models (ItemModels).
 -- Build inside UI.root(): sizes are designed for a ~500px-tall phone screen and scaled up on bigger ones.
 
 local Players = game:GetService("Players")
@@ -15,39 +20,61 @@ local Sounds = require(script.Parent.Sounds)
 
 local UI = {}
 
-local INK = Color3.fromRGB(22, 33, 62)
+local INK = Color3.fromRGB(16, 16, 22)
+local WHITE = Color3.new(1, 1, 1)
+local BLACK = Color3.new(0, 0, 0)
 
 UI.Colors = {
 	Ink = INK, -- every outline
 	Stroke = INK,
-	Panel = Color3.fromRGB(47, 155, 255), -- windows
-	PanelDark = Color3.fromRGB(29, 95, 184),
-	PanelLight = Color3.fromRGB(150, 205, 255), -- inner areas, rows, inactive buttons
-	Inner = Color3.fromRGB(207, 238, 255), -- the light inset behind cards
+	Panel = Color3.fromRGB(32, 32, 40), -- the dark see-through panels (HUD, pop-ups)
+	PanelDark = Color3.fromRGB(18, 18, 24), -- boxes inside them, quiet buttons
+	PanelLight = Color3.fromRGB(78, 80, 96),
+	Rim = Color3.fromRGB(74, 74, 88), -- the grey line just inside a dark panel's outline
+	Window = Color3.fromRGB(60, 168, 245), -- a store window's blue frame...
+	WindowInner = Color3.fromRGB(222, 242, 255), -- ...the pale inset inside it...
+	WindowEdge = Color3.fromRGB(28, 104, 190), -- ...and its edge
 	Text = Color3.fromRGB(255, 255, 255),
-	Muted = Color3.fromRGB(215, 232, 255),
-	Money = Color3.fromRGB(90, 210, 90),
+	Muted = Color3.fromRGB(205, 208, 222),
+	Money = Color3.fromRGB(120, 222, 48),
 	Gold = Color3.fromRGB(255, 216, 74),
-	Danger = Color3.fromRGB(255, 77, 94),
+	Danger = Color3.fromRGB(255, 70, 85),
 	Risk = Color3.fromRGB(255, 154, 61),
-	Info = Color3.fromRGB(95, 160, 245),
+	Info = Color3.fromRGB(70, 160, 245),
 	Pink = Color3.fromRGB(255, 92, 147),
 	Purple = Color3.fromRGB(168, 107, 255),
-	Grey = Color3.fromRGB(154, 165, 177),
-	Track = Color3.fromRGB(16, 40, 92), -- behind a bar's fill
+	Grey = Color3.fromRGB(150, 152, 165),
+	Track = Color3.fromRGB(12, 12, 16), -- behind a bar's fill
 	Speech = Color3.fromRGB(14, 14, 18), -- subtitle boxes (see-through)
 }
 
--- Different jobs get different type (set with FontFace, not Font).
-UI.Fonts = {
-	Title = Font.fromEnum(Enum.Font.LuckiestGuy), -- window titles, the quota, big banners
-	Button = Font.fromEnum(Enum.Font.LuckiestGuy),
-	Heading = Font.fromEnum(Enum.Font.GothamBlack), -- card and row names
-	Number = Font.fromEnum(Enum.Font.FredokaOne), -- timers, money, prices
-	Body = Font.fromName("BuilderSans", Enum.FontWeight.Bold), -- everything you read
-	Speech = Font.fromName("BuilderSans", Enum.FontWeight.ExtraBold), -- what people say
-	Serif = Font.fromName("Merriweather", Enum.FontWeight.Bold), -- Mr. Penny, the bank
+-- White-on-clear pictures, tinted with ImageColor3.
+UI.Images = {
+	Checker = "rbxassetid://91640003672861", -- two squares on the diagonal: tiled into a checkerboard
+	Sunburst = "rbxassetid://112844625988491", -- wedges of light from the middle, fading out
+	Glow = "rbxassetid://87755377966973", -- a soft round glow
 }
+
+-- Everything is in Fredoka One; the names say what each is for (set with FontFace, not Font).
+local FREDOKA = Font.fromEnum(Enum.Font.FredokaOne)
+UI.Fonts = {
+	Title = FREDOKA, -- window titles, the quota, big banners
+	Button = FREDOKA,
+	Heading = FREDOKA, -- card and row names
+	Number = FREDOKA, -- timers, money, prices
+	Body = FREDOKA, -- everything you read
+	Speech = FREDOKA, -- what people say
+	Serif = FREDOKA, -- Mr. Penny, the bank
+}
+
+-- A darker shade of a colour (card outlines in their own colour).
+function UI.shade(color: Color3, amount: number?): Color3
+	return color:Lerp(BLACK, amount or 0.5)
+end
+
+local function grey(value: number): Color3
+	return Color3.new(value, value, value)
+end
 
 export type Props = { [string]: any }
 
@@ -156,40 +183,52 @@ function UI.stroke(parent: Instance, thickness: number?, color: Color3?): UIStro
 	return stroke
 end
 
--- The dark outline round text (every label and button gets one; this makes it thicker).
+-- The black outline round text (every label and button gets one; this sets how thick). On a
+-- button it goes on the label that shows the button's text (see UI.button).
 function UI.textStroke(label: TextLabel | TextButton, thickness: number?)
-	local stroke = label:FindFirstChild("TextOutline")
+	local target: TextLabel | TextButton = label
+	local face = label:FindFirstChild("Face")
+	if label:IsA("TextButton") and face and face:IsA("TextLabel") then
+		target = face
+	end
+	local stroke = target:FindFirstChild("TextOutline")
 	if not stroke then
 		local created = Instance.new("UIStroke")
 		created.Name = "TextOutline"
 		created.Color = INK
 		created.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-		created.Parent = label
+		created.Parent = target
 		stroke = created
 	end
 	if stroke and stroke:IsA("UIStroke") then
-		stroke.Thickness = thickness or (if label.TextSize >= 24 then 2.5 elseif label.TextSize >= 16 then 1.8 else 1.2)
+		local size = target.TextSize
+		stroke.Thickness = thickness
+			or (
+				if size >= 36
+					then 3.5
+					elseif size >= 24 then 3
+					elseif size >= 18 then 2.4
+					elseif size >= 14 then 1.8
+					else 1.4
+			)
 	end
 end
 
--- Lighter at the top, darker at the bottom: the glossy 3D look.
+-- Lighter at the top, darker at the bottom.
 function UI.gradient(parent: Instance, darken: number?): UIGradient
 	local bottom = 1 - (darken or 0.22)
 	local gradient = Instance.new("UIGradient")
 	gradient.Rotation = 90
-	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(bottom, bottom, bottom))
+	gradient.Color = ColorSequence.new(WHITE, grey(bottom))
 	gradient.Parent = parent
 	return gradient
 end
 
--- Like UI.gradient, with a hard glossy edge across the middle: the candy-button look.
+-- Like UI.gradient, with a hard glossy edge across the middle: the candy look.
 function UI.gloss(parent: Instance, darken: number?): UIGradient
 	local bottom = 1 - (darken or 0.24)
 	local gradient = Instance.new("UIGradient")
 	gradient.Rotation = 90
-	local function grey(value: number): Color3
-		return Color3.new(value, value, value)
-	end
 	gradient.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, grey(1)),
 		ColorSequenceKeypoint.new(0.47, grey(0.97)),
@@ -200,55 +239,71 @@ function UI.gloss(parent: Instance, darken: number?): UIGradient
 	return gradient
 end
 
--- A soft glow (Roblox's own glow image) behind or over something: tint it with `color`.
+-- Bright at the top, a little darker lower down, then a darker lip along the bottom edge:
+-- a chunky button you could press in.
+function UI.lip(parent: Instance, darken: number?): UIGradient
+	local low = 1 - (darken or 0.38)
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, grey(1)),
+		ColorSequenceKeypoint.new(0.8, grey(0.87)),
+		ColorSequenceKeypoint.new(0.83, grey(low + 0.04)),
+		ColorSequenceKeypoint.new(1, grey(low)),
+	})
+	gradient.Parent = parent
+	return gradient
+end
+
+-- A soft round glow behind or over something: tint it with `color`.
 function UI.glow(color: Color3, props: Props?, parent: Instance?): ImageLabel
 	return place(Instance.new("ImageLabel"), {
 		Name = "Glow",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		BackgroundTransparency = 1,
-		Image = "rbxasset://textures/glow.png",
+		Image = UI.Images.Glow,
 		ImageColor3 = color,
 		ImageTransparency = 0.2,
 	}, props, parent)
 end
 
 -- A bright streak that sweeps across `target` now and then (every `every` seconds, or only when
--- you call the returned function). Clipped to its rounded corners.
+-- you call the returned function), in its rounded corners. It's a white sheet over the target
+-- that's see-through except for a slanted band of its gradient, slid from one side to the other
+-- (a moving child frame instead would stretch panels that size themselves to their content).
 function UI.shine(target: GuiObject, every: number?, radius: number?): () -> ()
-	local clip = Instance.new("CanvasGroup")
-	clip.Name = "Shine"
-	clip.Size = UDim2.fromScale(1, 1)
-	clip.BackgroundTransparency = 1
-	clip.ZIndex = 50
-	clip.Active = false
-	UI.corner(clip, radius or 12)
-	local streak = UI.frame({
-		Size = UDim2.fromScale(0.45, 1),
-		Position = UDim2.fromScale(-0.5, 0),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-	}, clip)
-	local fade = Instance.new("UIGradient")
-	fade.Rotation = 20
-	fade.Transparency = NumberSequence.new({
+	local sheet = UI.frame({
+		Name = "Shine",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = WHITE,
+		ZIndex = 50,
+		Active = false,
+	}, target)
+	UI.corner(sheet, radius or 12)
+	local band = Instance.new("UIGradient")
+	band.Rotation = 20
+	band.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.45, 0.62),
-		NumberSequenceKeypoint.new(0.55, 0.62),
+		NumberSequenceKeypoint.new(0.36, 1),
+		NumberSequenceKeypoint.new(0.47, 0.6),
+		NumberSequenceKeypoint.new(0.53, 0.6),
+		NumberSequenceKeypoint.new(0.64, 1),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	fade.Parent = streak
-	clip.Parent = target
+	band.Offset = Vector2.new(-1, 0) -- off the left edge: nothing shows
+	band.Parent = sheet
 	local function sweep()
-		streak.Position = UDim2.fromScale(-0.5, 0)
+		band.Offset = Vector2.new(-1, 0)
 		TweenService:Create(
-			streak,
+			band,
 			TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
-			{ Position = UDim2.fromScale(1.05, 0) }
+			{ Offset = Vector2.new(1, 0) }
 		):Play()
 	end
 	if every then
 		task.spawn(function()
-			while clip.Parent do
+			while sheet.Parent do
 				task.wait(every)
 				if target.Visible then
 					sweep()
@@ -262,11 +317,19 @@ end
 -- Numbers that roll to a new value instead of jumping (money, XP): `format` turns the number
 -- on its way into the label's text. The first call just sets it.
 type Roll = { from: number, to: number, startedAt: number, seconds: number, format: (number) -> string }
-local rolling: { [TextLabel]: Roll } = setmetatable({}, { __mode = "k" }) :: any
-local shown: { [TextLabel]: number } = setmetatable({}, { __mode = "k" }) :: any
+-- Plain tables, emptied as labels are destroyed (weak-keyed ones let Luau drop labels still on
+-- screen, so a number could stop rolling).
+local rolling: { [TextLabel]: Roll } = {}
+local shown: { [TextLabel]: number } = {}
 
 function UI.roll(label: TextLabel, value: number, format: (number) -> string, seconds: number?)
 	local current = shown[label]
+	if current == nil then
+		label.Destroying:Once(function()
+			rolling[label] = nil
+			shown[label] = nil
+		end)
+	end
 	if current == nil or current == value then
 		shown[label] = value
 		rolling[label] = nil
@@ -329,7 +392,47 @@ function UI.pop(target: GuiObject, amount: number?)
 	end
 end
 
--- A chunky 3D button: glossy, outlined, squishes when pressed and clicks.
+-- A button's text is drawn by a label inside it ("Face"), so it sits over the checkerboard: set
+-- Text, TextSize and the rest on the button as usual and the face copies them.
+local FACE_COPIES = {
+	"Text",
+	"TextSize",
+	"TextColor3",
+	"FontFace",
+	"TextScaled",
+	"TextWrapped",
+	"TextXAlignment",
+	"TextYAlignment",
+	"RichText",
+	"TextTruncate",
+	"LineHeight",
+}
+
+local function face(button: TextButton): TextLabel
+	local label = place(Instance.new("TextLabel"), {
+		Name = "Face",
+		Size = UDim2.fromScale(1, 0.92), -- a touch above the lip
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+	}, nil, button)
+	for _, key in FACE_COPIES do
+		(label :: any)[key] = (button :: any)[key]
+		button:GetPropertyChangedSignal(key :: any):Connect(function()
+			(label :: any)[key] = (button :: any)[key]
+		end)
+	end
+	button.TextTransparency = 1
+	-- A text size limit put on the button belongs on the face.
+	button.ChildAdded:Connect(function(child: Instance)
+		if child:IsA("UITextSizeConstraint") then
+			child.Parent = label
+		end
+	end)
+	return label
+end
+
+-- A chunky 3D button: checkered, outlined, a darker lip along the bottom and a glassy
+-- highlight across the top; it squishes when pressed and clicks.
 function UI.button(props: Props?, parent: Instance?): TextButton
 	local button = place(Instance.new("TextButton"), {
 		BorderSizePixel = 0,
@@ -339,11 +442,23 @@ function UI.button(props: Props?, parent: Instance?): TextButton
 		TextColor3 = UI.Colors.Text,
 		TextSize = 22,
 		TextWrapped = true,
-	}, props, parent)
+	}, props)
 	UI.corner(button, 12)
 	UI.stroke(button, 3)
+	UI.lip(button)
+	UI.checker(button, 10, 12, BLACK, 0.9)
+	local highlight = UI.frame({
+		Name = "Highlight",
+		Position = UDim2.fromOffset(5, 3),
+		Size = UDim2.new(1, -10, 0.36, 0),
+		BackgroundColor3 = WHITE,
+		BackgroundTransparency = 0.84,
+		ZIndex = 2,
+	}, button)
+	UI.corner(highlight, 8)
+	face(button)
 	UI.textStroke(button)
-	UI.gloss(button)
+	button.Parent = parent
 
 	local squish = Instance.new("UIScale")
 	squish.Name = "Squish"
@@ -369,67 +484,78 @@ function UI.button(props: Props?, parent: Instance?): TextButton
 	return button
 end
 
--- A colourful card (shop items, offers): bright, glossy, outlined.
+-- A colourful box (offers, notices): bright, outlined, lighter at the top. Fine with a layout
+-- inside (no checkerboard: that would be laid out too).
 function UI.card(color: Color3, props: Props?, parent: Instance?): Frame
 	local card = UI.frame(props, parent)
 	card.BackgroundColor3 = color
 	UI.corner(card, 14)
 	UI.stroke(card, 3)
-	UI.gloss(card, 0.2)
+	UI.gradient(card, 0.18)
 	return card
 end
 
-export type Window = {
-	panel: Frame, -- the whole window (toggle Visible on this)
-	title: TextLabel,
-	body: Frame, -- the light inset: put content here
-	close: TextButton?,
-}
-
--- A subtle checkerboard over a frame (window headers, shop cards), clipped to its rounded
--- corners. Only on frames without a layout (the pattern would be laid out like content).
-function UI.checker(parent: GuiObject, cell: number?, radius: number?, width: number?, height: number?): CanvasGroup
-	local size = cell or 22
-	local group = Instance.new("CanvasGroup")
-	group.Name = "Checker"
-	group.Size = UDim2.fromScale(1, 1)
-	group.BackgroundTransparency = 1
-	group.ZIndex = 0
-	group.GroupTransparency = 0.88
-	UI.corner(group, radius or 14)
-	-- Generous: screen scaling makes AbsoluteSize smaller or bigger than the frame's own size,
-	-- and before it's laid out there's only its offsets to go on.
-	local wide = width or math.max(parent.AbsoluteSize.X * 1.6, parent.Size.X.Offset, 240)
-	local tall = height or math.max(parent.AbsoluteSize.Y * 1.6, parent.Size.Y.Offset, 60)
-	local columns = math.ceil(wide / size) + 1
-	local rows = math.ceil(tall / size) + 1
-	for row = 0, rows - 1 do
-		for column = row % 2, columns - 1, 2 do
-			local tile = Instance.new("Frame")
-			tile.BorderSizePixel = 0
-			tile.BackgroundColor3 = Color3.new(1, 1, 1)
-			tile.Position = UDim2.fromOffset(column * size, row * size)
-			tile.Size = UDim2.fromOffset(size, size)
-			tile.Parent = group
-		end
-	end
-	group.Parent = parent
-	return group
+-- The checkerboard: one tiled picture over a frame, clipped to its rounded corners. White
+-- squares lighten (the dark panels), black ones shade (colours). Only on frames without a
+-- layout (the pattern would be laid out like content).
+function UI.checker(
+	parent: GuiObject,
+	cell: number?,
+	radius: number?,
+	color: Color3?,
+	transparency: number?
+): ImageLabel
+	local size = cell or 14
+	local tiles = place(Instance.new("ImageLabel"), {
+		Name = "Checker",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Image = UI.Images.Checker,
+		ImageColor3 = color or WHITE,
+		ImageTransparency = transparency or 0.955,
+		ScaleType = Enum.ScaleType.Tile,
+		TileSize = UDim2.fromOffset(size * 2, size * 2),
+		ResampleMode = Enum.ResamplerMode.Pixelated,
+		ZIndex = 1,
+		Active = false,
+	}, nil, parent)
+	UI.corner(tiles, radius or 12)
+	return tiles
 end
 
--- A coloured panel in the shop style: rounded, outlined, glossy, with the checkerboard over it.
+-- The thin grey line just inside a dark panel's black outline.
+local function rim(parent: GuiObject, radius: number)
+	local line = UI.frame({
+		Name = "Rim",
+		Position = UDim2.fromOffset(2, 2),
+		Size = UDim2.new(1, -4, 1, -4),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+	}, parent)
+	UI.corner(line, radius - 2)
+	UI.stroke(line, 2, UI.Colors.Rim)
+end
+
+-- A panel: UI.Colors.Panel (or PanelDark) makes the dark see-through checkered box with a grey
+-- rim inside its black outline; any other colour is bright, checkered a shade darker.
 -- Put content (and any layout) in the see-through `content` frame it returns, not the panel:
--- it fills the panel, or grows with it when the panel has AutomaticSize Y. `tall` is how far
--- down the checkerboard goes on a panel that grows (or one a grid sizes later).
-function UI.panel(color: Color3, props: Props?, parent: Instance?, tall: number?): (Frame, Frame)
-	local panel = UI.frame({ BackgroundColor3 = color })
+-- it fills the panel, or grows with it when the panel has AutomaticSize Y.
+function UI.panel(color: Color3, props: Props?, parent: Instance?): (Frame, Frame)
+	local dark = color == UI.Colors.Panel or color == UI.Colors.PanelDark
+	local panel = UI.frame({ BackgroundColor3 = color, BackgroundTransparency = if dark then 0.12 else 0 })
 	apply(panel, props)
 	UI.corner(panel, 12)
 	UI.stroke(panel, 3)
-	UI.gradient(panel, 0.2)
+	if dark then
+		rim(panel, 12)
+		UI.checker(panel, 14, 12)
+	else
+		UI.gradient(panel, 0.2)
+		UI.checker(panel, 14, 12, BLACK, 0.93)
+	end
+	-- A panel that grows (AutomaticSize Y) grows with its content (the checkerboard and rim are
+	-- scale-sized, so they just fill it).
 	local grows = panel.AutomaticSize == Enum.AutomaticSize.Y
-	-- Grid cells and scale sizes aren't known yet, so the pattern goes wide enough for most.
-	UI.checker(panel, 18, 12, math.max(panel.Size.X.Offset, 360), if grows then tall or 240 else tall)
 	local content = UI.frame({
 		Name = "Content",
 		Size = if grows then UDim2.fromScale(1, 0) else UDim2.fromScale(1, 1),
@@ -437,27 +563,14 @@ function UI.panel(color: Color3, props: Props?, parent: Instance?, tall: number?
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 	}, panel)
-	if grows then
-		-- The checkerboard's tiles would stretch an automatically sized panel, so it takes its
-		-- height from the content instead (AbsoluteSize is on screen, Size before scaling).
-		panel.AutomaticSize = Enum.AutomaticSize.None
-		local function fitContent()
-			local width = panel.Size.X.Offset
-			if width > 0 and panel.AbsoluteSize.X > 0 then
-				local height = content.AbsoluteSize.Y * width / panel.AbsoluteSize.X
-				panel.Size = UDim2.new(panel.Size.X, UDim.new(0, math.ceil(height)))
-			end
-		end
-		content:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitContent)
-		panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitContent)
-	end
 	panel.Parent = parent
 	return panel, content
 end
 
--- Light rays slowly spinning behind something (a shop item): soft beams through the centre and
--- a glow, clipped to `parent`'s rounded corners. `size` is how wide they spread (in pixels).
-local spinners: { [GuiObject]: number } = setmetatable({}, { __mode = "k" }) :: any
+-- Sunburst rays slowly turning behind something (a shop item), with a soft white glow in the
+-- middle, clipped to `parent`'s rounded corners. `size` is how wide they spread (in pixels),
+-- `centre` where the middle is (scale, 0..1; the centre of `parent` by default).
+local spinners: { [GuiObject]: number } = {} -- emptied as they're destroyed (see UI.roll)
 
 if RunService:IsClient() then
 	RunService.RenderStepped:Connect(function(dt: number)
@@ -469,77 +582,80 @@ if RunService:IsClient() then
 	end)
 end
 
-function UI.rays(parent: GuiObject, size: number, color: Color3?, radius: number?): CanvasGroup
-	local tint = color or Color3.new(1, 1, 1)
+function UI.rays(parent: GuiObject, size: number, color: Color3?, radius: number?, centre: Vector2?): CanvasGroup
+	local at = centre or Vector2.new(0.5, 0.5)
 	local clip = Instance.new("CanvasGroup")
 	clip.Name = "Rays"
 	clip.Size = UDim2.fromScale(1, 1)
 	clip.BackgroundTransparency = 1
 	clip.ZIndex = 1
 	UI.corner(clip, radius or 12)
-
-	-- The glow: soft circles, brightest in the middle.
-	for index, fraction in { 0.75, 0.5, 0.3 } do
-		local glow = UI.frame({
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(size * fraction, size * fraction),
-			BackgroundColor3 = tint,
-			BackgroundTransparency = 0.88 - index * 0.06,
-		}, clip)
-		UI.corner(glow, size)
-	end
-
-	-- The beams: each one runs right through the middle, so 8 make 16 rays.
-	local spinner = UI.frame({
+	local spinner = place(Instance.new("ImageLabel"), {
 		Name = "Spinner",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
+		Position = UDim2.fromScale(at.X, at.Y),
 		Size = UDim2.fromOffset(size, size),
 		BackgroundTransparency = 1,
-	}, clip)
-	local beams = 8
-	for index = 0, beams - 1 do
-		local wide = index % 2 == 0
-		local beam = UI.frame({
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(size, if wide then size * 0.13 else size * 0.06),
-			BackgroundColor3 = tint,
-			Rotation = index * 180 / beams,
-		}, spinner)
-		-- Bright in the middle, fading to nothing at both ends.
-		local fade = Instance.new("UIGradient")
-		fade.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.3, if wide then 0.72 else 0.8),
-			NumberSequenceKeypoint.new(0.5, if wide then 0.5 else 0.62),
-			NumberSequenceKeypoint.new(0.7, if wide then 0.72 else 0.8),
-			NumberSequenceKeypoint.new(1, 1),
-		})
-		fade.Parent = beam
-	end
-	spinners[spinner] = 25 -- degrees a second
+		Image = UI.Images.Sunburst,
+		ImageColor3 = color or WHITE,
+		ImageTransparency = 0.5,
+	}, nil, clip)
+	place(Instance.new("ImageLabel"), {
+		Name = "Glow",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(at.X, at.Y),
+		Size = UDim2.fromOffset(size * 0.42, size * 0.42),
+		BackgroundTransparency = 1,
+		Image = UI.Images.Glow,
+		ImageColor3 = WHITE,
+		ImageTransparency = 0.3,
+	}, nil, clip)
+	spinners[spinner] = 14 -- degrees a second
+	spinner.Destroying:Once(function()
+		spinners[spinner] = nil
+	end)
 	clip.Parent = parent
 	return clip
 end
 
--- A rounded bar with a coloured fill and outlined text over it (the HUD's bars).
+-- A store card for something you can have: bright, outlined in a darker shade of itself, with
+-- sunburst rays (a lighter shade) behind where its picture goes. Content goes in the frame it
+-- returns, over the rays. `raysY` is how far down the rays' middle sits (0..1).
+function UI.itemCard(color: Color3, props: Props?, parent: Instance?, raysY: number?): (Frame, Frame)
+	local card = UI.frame({ BackgroundColor3 = color })
+	apply(card, props)
+	UI.corner(card, 14)
+	UI.stroke(card, 3.5, UI.shade(color, 0.5))
+	UI.gradient(card, 0.16)
+	UI.rays(card, 460, color:Lerp(WHITE, 0.6), 14, Vector2.new(0.5, raysY or 0.4))
+	local content = UI.frame({
+		Name = "Content",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+	}, card)
+	card.Parent = parent
+	return card, content
+end
+
+-- A rounded bar with a coloured, checkered fill and outlined text over it (the HUD's bars).
 function UI.bar(color: Color3, props: Props?, parent: Instance?): (Frame, Frame, TextLabel)
 	local track = UI.frame({ BackgroundColor3 = UI.Colors.Track })
 	apply(track, props)
 	UI.corner(track, 8)
-	UI.stroke(track, 2)
-	local fill = UI.frame({ Size = UDim2.fromScale(0, 1), BackgroundColor3 = color }, track)
+	UI.stroke(track, 2.5)
+	local fill = UI.frame({ Name = "Fill", Size = UDim2.fromScale(0, 1), BackgroundColor3 = color }, track)
 	UI.corner(fill, 8)
-	UI.gloss(fill, 0.3)
+	UI.lip(fill, 0.34)
+	UI.checker(fill, 8, 8, BLACK, 0.9)
 	-- A glassy highlight along the top of the fill.
 	local shineStrip = UI.frame({
 		Name = "Highlight",
 		Position = UDim2.fromOffset(4, 2),
-		Size = UDim2.new(1, -8, 0.32, 0),
-		BackgroundColor3 = Color3.new(1, 1, 1),
+		Size = UDim2.new(1, -8, 0.3, 0),
+		BackgroundColor3 = WHITE,
 		BackgroundTransparency = 0.6,
+		ZIndex = 2,
 	}, fill)
 	UI.corner(shineStrip, 4)
 	local text = UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 13, ZIndex = 2, Text = "" }, track)
@@ -547,53 +663,96 @@ function UI.bar(color: Color3, props: Props?, parent: Instance?): (Frame, Frame,
 	return track, fill, text
 end
 
--- A window in the shop style: a blue panel with a checkered header strip (bold title and an
--- optional red X) over a darker blue area for the content. Size it with props (width +
--- AutomaticSize Y works well).
+export type Window = {
+	panel: Frame, -- the whole window (toggle Visible on this)
+	title: TextLabel,
+	header: Frame, -- the strip along the top edge: pin things to the title bar here
+	icon: Frame, -- left of the title: put a little 3D picture in it and it shows
+	tabs: Frame, -- right of the title: tab buttons go here, in a row
+	body: Frame, -- the pale inset: put content here
+	close: TextButton?,
+}
+
+local TITLE_ROOM = 28 -- the header's height inside the window (the title sticks up above it)
+
+-- A store window: a blue frame round a pale inset, the title in big outlined letters sticking
+-- up over the top edge (a little picture and tabs can sit beside it) and a red X on the
+-- top-right corner. Size it with props (width + AutomaticSize Y works well).
 function UI.window(title: string, props: Props?, parent: Instance?, closable: boolean?): Window
 	local panel = UI.frame({
-		BackgroundColor3 = UI.Colors.PanelDark,
+		BackgroundColor3 = UI.Colors.Window,
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Visible = false,
 	}, parent)
 	apply(panel, props)
-	UI.corner(panel, 16)
+	UI.corner(panel, 18)
 	UI.stroke(panel, 4)
-	UI.padding(panel, 8)
+	UI.gradient(panel, 0.22)
+	local padding = UI.padding(panel, 10)
+	padding.PaddingTop = UDim.new(0, 6)
 	UI.list(panel, Enum.FillDirection.Vertical, 8)
 
 	local header = UI.frame({
 		Name = "Header",
 		LayoutOrder = 1,
-		Size = UDim2.new(1, 0, 0, 44),
-		BackgroundColor3 = UI.Colors.Panel,
-		ClipsDescendants = true,
+		Size = UDim2.new(1, 0, 0, TITLE_ROOM),
+		BackgroundTransparency = 1,
+		ZIndex = 5,
 	}, panel)
-	UI.corner(header, 12)
-	UI.stroke(header, 3)
-	UI.checker(header, 22, 12, math.max(panel.Size.X.Offset, 480), 44)
+	-- The title row sticks up over the top edge: picture, title, tabs.
+	local row = UI.frame({
+		Name = "Row",
+		Position = UDim2.fromOffset(-4, -40),
+		Size = UDim2.new(1, if closable then -54 else 4, 0, 64),
+		BackgroundTransparency = 1,
+	}, header)
+	local rowLayout = UI.list(row, Enum.FillDirection.Horizontal, 8)
+	rowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	local icon = UI.frame({
+		Name = "Icon",
+		LayoutOrder = 1,
+		Size = UDim2.fromOffset(62, 62),
+		Rotation = -8,
+		BackgroundTransparency = 1,
+		Visible = false,
+	}, row)
+	icon.ChildAdded:Connect(function()
+		icon.Visible = true
+	end)
 	local titleLabel = UI.label({
 		Name = "Title",
-		Position = UDim2.fromOffset(12, 0),
-		Size = UDim2.new(1, -64, 1, 0),
+		LayoutOrder = 2,
+		Size = UDim2.fromOffset(0, 56),
+		AutomaticSize = Enum.AutomaticSize.X,
 		FontFace = UI.Fonts.Title,
-		TextSize = 28,
-		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 42,
+		TextWrapped = false,
 		Text = title,
-	}, header)
-	UI.textStroke(titleLabel, 3)
+	}, row)
+	UI.textStroke(titleLabel, 4)
+	local tabs = UI.frame({
+		Name = "Tabs",
+		LayoutOrder = 3,
+		Size = UDim2.fromOffset(0, 62),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundTransparency = 1,
+	}, row)
+	local tabLayout = UI.list(tabs, Enum.FillDirection.Horizontal, 8)
+	tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	local close: TextButton? = nil
 	if closable then
 		local button = UI.button({
 			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -6, 0.5, 0),
-			Size = UDim2.fromOffset(34, 34),
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, 18, 0, -30),
+			Size = UDim2.fromOffset(50, 50),
 			BackgroundColor3 = UI.Colors.Danger,
-			TextSize = 20,
+			TextSize = 34,
 			Text = "X",
 		}, header)
+		UI.textStroke(button, 3)
 		button.Activated:Connect(function()
 			panel.Visible = false
 		end)
@@ -605,10 +764,11 @@ function UI.window(title: string, props: Props?, parent: Instance?, closable: bo
 		LayoutOrder = 2,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = UI.Colors.Panel,
+		BackgroundColor3 = UI.Colors.WindowInner,
 	}, panel)
 	UI.corner(body, 12)
-	UI.stroke(body, 3)
+	UI.stroke(body, 3, UI.Colors.WindowEdge)
+	UI.gradient(body, 0.1)
 	UI.padding(body, 10)
 
 	-- It springs open (from small, overshooting a little) with a whoosh.
@@ -624,7 +784,63 @@ function UI.window(title: string, props: Props?, parent: Instance?, closable: bo
 			Sounds.play("Open")
 		end
 	end)
-	return { panel = panel, title = titleLabel, body = body, close = close }
+	return {
+		panel = panel,
+		title = titleLabel,
+		header = header,
+		icon = icon,
+		tabs = tabs,
+		body = body,
+		close = close,
+	}
+end
+
+-- Puts a window's title in the middle of its top edge (windows without a picture or tabs).
+function UI.centreTitle(window: Window)
+	local row = window.title.Parent
+	local layout = row and row:FindFirstChildOfClass("UIListLayout")
+	if row and row:IsA("Frame") and layout then
+		row.Size = UDim2.new(1, 8, 0, 64)
+		layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	end
+end
+
+-- Puts a price on a button: a coin with `glyph` on it and the amount beside it, together in
+-- the middle (glyph nil: just the text). Replaces whatever price was there.
+function UI.price(button: TextButton, glyph: string?, text: string, coinColor: Color3?)
+	local old = button:FindFirstChild("Price")
+	if old then
+		old:Destroy()
+	end
+	button.Text = ""
+	local row = UI.frame({
+		Name = "Price",
+		Size = UDim2.fromScale(1, 0.92),
+		BackgroundTransparency = 1,
+		ZIndex = 4,
+	}, button)
+	local layout = UI.list(row, Enum.FillDirection.Horizontal, 5)
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	local height = button.Size.Y.Offset
+	local textSize = math.clamp(math.floor(height * 0.56), 14, 26)
+	if glyph then
+		UI.iconCircle(glyph, coinColor or UI.Colors.Gold, math.floor(textSize * 1.05), {
+			LayoutOrder = 1,
+			ZIndex = 4,
+		}, row)
+	end
+	local amount = UI.label({
+		Name = "Amount",
+		LayoutOrder = 2,
+		Size = UDim2.fromOffset(0, textSize + 4),
+		AutomaticSize = Enum.AutomaticSize.X,
+		FontFace = UI.Fonts.Number,
+		TextSize = textSize,
+		TextWrapped = false,
+		Text = text,
+		ZIndex = 4,
+	}, row)
+	UI.textStroke(amount, if textSize >= 20 then 2.6 else 2)
 end
 
 -- Plain text with no outline (subtitles, glyphs in icon circles).
@@ -644,37 +860,49 @@ function UI.iconCircle(glyph: string, color: Color3, size: number, props: Props?
 	local circle = UI.frame({ Size = UDim2.fromOffset(size, size), BackgroundColor3 = color }, parent)
 	apply(circle, props)
 	UI.corner(circle, size)
-	UI.stroke(circle, 2)
-	UI.plain({
+	UI.stroke(circle, if size >= 24 then 2.5 else 2)
+	UI.gradient(circle, 0.25)
+	local text = UI.plain({
 		Size = UDim2.fromScale(1, 1),
 		FontFace = UI.Fonts.Heading,
-		TextSize = math.floor(size * 0.62),
+		TextSize = math.floor(size * 0.66),
 		TextColor3 = UI.Colors.Text,
 		Text = glyph,
+		ZIndex = circle.ZIndex,
 	}, circle)
+	UI.textStroke(text, if size >= 24 then 1.8 else 1.3)
 	return circle
 end
 
--- A rounded pill with a coin glyph and an amount (money, Cred).
+-- A dark checkered box with a coin glyph and an amount in colour (money, Cred).
 function UI.pill(glyph: string, color: Color3, props: Props?, parent: Instance?): TextLabel
 	local pill = UI.frame({
 		Size = UDim2.fromOffset(150, 34),
-		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundColor3 = UI.Colors.Panel,
+		BackgroundTransparency = 0.1,
 	}, parent)
 	apply(pill, props)
-	UI.corner(pill, 17)
+	UI.corner(pill, 10)
 	UI.stroke(pill, 3)
-	UI.iconCircle(glyph, UI.Colors.Gold, 24, { Position = UDim2.fromOffset(5, 5) }, pill)
-	return UI.label({
+	UI.checker(pill, 10, 10)
+	UI.iconCircle(glyph, UI.Colors.Gold, 26, {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 4, 0.5, 0),
+		ZIndex = 2,
+	}, pill)
+	local amount = UI.label({
 		Name = "Amount",
 		FontFace = UI.Fonts.Number,
 		Position = UDim2.fromOffset(36, 0),
 		Size = UDim2.new(1, -42, 1, 0),
-		TextSize = 19,
+		TextSize = 21,
 		TextColor3 = color,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Text = "",
+		ZIndex = 2,
 	}, pill)
+	UI.textStroke(amount, 2.6)
+	return amount
 end
 
 function UI.padding(parent: Instance, pixels: number): UIPadding

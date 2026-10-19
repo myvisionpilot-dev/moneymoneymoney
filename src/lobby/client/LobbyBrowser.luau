@@ -9,6 +9,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cursor = require(Shared:WaitForChild("Cursor"))
 local Format = require(Shared:WaitForChild("Format"))
+local StoreKit = require(Shared:WaitForChild("StoreKit"))
 local Timing = require(Shared:WaitForChild("Timing"))
 local Types = require(Shared:WaitForChild("Types"))
 local UI = require(Shared:WaitForChild("UI"))
@@ -25,13 +26,13 @@ type Row = { listing: Types.GroupListing, detail: TextLabel }
 local LobbyBrowser = {}
 
 function LobbyBrowser.start(root: Frame): UI.Window
-	local window = UI.window("FIND A LOBBY", {
+	local window = StoreKit.window("Find a lobby", {
 		Name = "LobbyBrowser",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -ShopFrame.BAR_SPACE),
 		Size = UDim2.fromOffset(WIDTH, 0),
-	}, root, true)
-	window.title.TextSize = 24
+	}, root)
+	window.title.TextSize = 34
 	Cursor.registerPanel(window.panel)
 	UI.list(window.body, Enum.FillDirection.Vertical, 8)
 
@@ -72,7 +73,7 @@ function LobbyBrowser.start(root: Frame): UI.Window
 			Name = `Lobby{listing.id}`,
 			LayoutOrder = order,
 			Size = UDim2.fromOffset(ROW_WIDTH, ROW_HEIGHT),
-		}, list, ROW_HEIGHT)
+		}, list)
 		UI.label({
 			Position = UDim2.fromOffset(12, 6),
 			Size = UDim2.new(1, -140, 0, 24),

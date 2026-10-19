@@ -56,7 +56,7 @@ function DoorController.start()
 	RunService.RenderStepped:Connect(function()
 		local current, open = offer, handle
 		if current and open then
-			open.setFooter(`The door closes in {Format.clock(current.expiresAt - Timing.now())}`)
+			open.setFooter(Format.clock(current.expiresAt - Timing.now()))
 		end
 	end)
 end

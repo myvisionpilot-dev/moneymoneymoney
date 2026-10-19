@@ -10,6 +10,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Studs = require(ReplicatedStorage.Shared.Studs)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local NpcService = require(script.Parent.Parent.NpcService)
 local PayNotice = require(script.Parent.Parent.PayNotice)
@@ -117,6 +118,7 @@ function JobKit.prop(
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
+	Studs.dress(part)
 	part.Parent = parent
 	return part
 end

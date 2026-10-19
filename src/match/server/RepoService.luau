@@ -3,8 +3,8 @@
 -- Repo.BagFraction of their bag (Repo Repellent raises it). A warning first, then one turns up
 -- at a patrol point at least Repo.MinSpawnStuds away and chases on foot (slower than a
 -- sprint). A tag takes Repo.TakePercent of the cash you carry (not inside the bank). He gives
--- up once you bank or spend it, after Repo.ChaseSeconds, or when the quota ends. A blaster
--- freezes him like a cop. No weapons.
+-- up once you bank or spend it, after Repo.ChaseSeconds, or when the quota ends. Shove him (his
+-- Shove prompt) and he's on the ground for Repo.ShoveStunSeconds. No weapons.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,6 +22,7 @@ local Notifier = require(script.Parent.Notifier)
 local RosterService = require(script.Parent.RosterService)
 local RunState = require(script.Parent.RunState)
 local SafeZone = require(script.Parent.SafeZone)
+local Shove = require(script.Parent.Shove)
 
 local TICK_SECONDS = 0.1
 local CHECK_SECONDS = 1
@@ -32,7 +33,7 @@ type Repo = {
 	chaser: NpcChase.Chaser,
 	target: Player,
 	givesUpAt: number, -- os.clock()
-	stunnedUntil: number,
+	stunnedUntil: number, -- shoved over: on the ground until then
 }
 
 local settings = Config.Repo
@@ -97,12 +98,20 @@ local function spawnRepo(target: Player)
 			chaser.model:Destroy()
 			return
 		end
-		table.insert(repos, {
+		local repo: Repo = {
 			chaser = chaser,
 			target = target,
 			givesUpAt = os.clock() + settings.ChaseSeconds,
 			stunnedUntil = 0,
-		})
+		}
+		table.insert(repos, repo)
+		Shove.prompt(chaser.root, function(player: Player)
+			if table.find(repos, repo) then
+				local tier = Shove.power(player)
+				repo.stunnedUntil = os.clock() + settings.ShoveStunSeconds * (1 + (tier - 1) * 0.25)
+				Shove.knockDown(chaser.model, player, settings.ShoveStunSeconds, "Shove")
+			end
+		end)
 	end)
 end
 
@@ -162,7 +171,7 @@ local function check()
 				warnedAt[player] = now
 				Notifier.send(
 					player,
-					"A repo man is coming for the cash in your bag! Bank it, outrun him or zap him.",
+					"A repo man is coming for the cash in your bag! Bank it, outrun him or shove him.",
 					"Bad"
 				)
 				Juice.sound(player, "Wanted")
@@ -182,16 +191,6 @@ function RepoService.isRepo(model: Model): boolean
 		end
 	end
 	return false
-end
-
--- Zapped by a blaster: he stands still until then.
-function RepoService.stun(model: Model, seconds: number)
-	for _, repo in repos do
-		if repo.chaser.model == model then
-			repo.stunnedUntil = os.clock() + seconds
-			NpcChase.hold(repo.chaser)
-		end
-	end
 end
 
 function RepoService.start()

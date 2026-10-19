@@ -11,7 +11,9 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Signal = require(ReplicatedStorage.Shared.Signal)
+local Passes = require(ServerScriptService.Common.Passes)
 local Profiles = require(ServerScriptService.Common.Profiles)
+local EventBoosts = require(script.Parent.EventBoosts)
 local Juice = require(script.Parent.Juice)
 local WorldFx = require(script.Parent.WorldFx)
 
@@ -75,12 +77,16 @@ local function reached(player: Player, level: number)
 end
 
 -- After a payout of `amount` (what they earned, whether or not it all fit in the bag).
-function LevelService.earned(player: Player, amount: number)
+-- `perPayout` false leaves out the flat XP every payout gives (loose cash comes in many bits).
+-- DOUBLE XP (EventBoosts) multiplies it all, and so does the VIP game pass.
+function LevelService.earned(player: Player, amount: number, perPayout: boolean?)
 	local state = stateOf(player)
 	if state.level >= settings.MaxLevel then
 		return
 	end
-	state.xp += settings.XpPerPayout + math.floor(amount / settings.XpPerDollars)
+	local flat = if perPayout == false then 0 else settings.XpPerPayout
+	local vip = if Passes.has(player, "VIP") then Config.Store.VipXp else 1
+	state.xp += math.floor((flat + amount / settings.XpPerDollars) * EventBoosts.xp * vip)
 	while state.level < settings.MaxLevel and state.xp >= LevelService.needed(state.level) do
 		state.xp -= LevelService.needed(state.level)
 		state.level += 1

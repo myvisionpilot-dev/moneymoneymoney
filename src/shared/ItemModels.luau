@@ -1,22 +1,25 @@
 --!strict
 -- Little 3D models of things you can buy (a bag, a padlock, a race car, an energy drink...), built
 -- from parts and shown in a ViewportFrame: the shops' item pictures. They can turn slowly on the
--- spot, like on a turntable, and wear a cosmetic (a race car in its paint or underglow, a blaster
--- in its zap colour). The bags come from shared/BagLooks, and the server builds the bag you
+-- spot, like on a turntable, and wear a cosmetic (a race car in its paint or underglow). Tony's
+-- crates are here too. The bags come from shared/BagLooks, and the server builds the bag you
 -- wear in a run from these too.
 
 local RunService = game:GetService("RunService")
 
 local BagLooks = require(script.Parent.BagLooks)
-local BlasterLooks = require(script.Parent.BlasterLooks)
 local Cosmetics = require(script.Parent.Cosmetics)
+local CrateLooks = require(script.Parent.CrateLooks)
 
 local SPIN_SPEED = 0.7 -- radians a second
 
 local ItemModels = {}
 
 type Turntable = { camera: Camera, center: Vector3, across: number, height: number, angle: number }
-local turning: { [ViewportFrame]: Turntable } = setmetatable({}, { __mode = "k" }) :: any
+-- A plain table, emptied as views are destroyed. (A weak-keyed one lost views at random:
+-- Luau can collect an Instance key while the Instance itself is still on screen, and the
+-- picture stopped turning.)
+local turning: { [ViewportFrame]: Turntable } = {}
 
 if RunService:IsClient() then
 	RunService.RenderStepped:Connect(function(dt: number)
@@ -31,8 +34,8 @@ if RunService:IsClient() then
 	end)
 end
 
--- role: "body" or "trim" (repainted by a paint), "glow" (recoloured by a zap).
-type Piece = BlasterLooks.Piece
+-- role: "body" or "trim" (repainted by a paint), "glow" (neon).
+type Piece = BagLooks.Piece
 
 local BLACK = Color3.fromRGB(28, 28, 32)
 local STEEL = Color3.fromRGB(170, 175, 185)
@@ -413,6 +416,174 @@ local MORE: { [string]: { Piece } } = {
 			shape = Enum.PartType.Cylinder,
 		},
 	},
+	Clover = { -- a four-leaf clover: a lucky break
+		{
+			size = Vector3.new(0.12, 2, 0.12),
+			at = CFrame.new(0.15, -0.6, 0) * CFrame.Angles(0, 0, -0.25),
+			color = Color3.fromRGB(50, 140, 50),
+		},
+		{
+			size = Vector3.new(0.2, 1.1, 1.1),
+			at = CFrame.new(0, 1.45, 0) * CFrame.Angles(0, math.rad(90), 0),
+			color = Color3.fromRGB(70, 190, 60),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.2, 1.1, 1.1),
+			at = CFrame.new(0.5, 0.95, 0.02) * CFrame.Angles(0, math.rad(90), 0),
+			color = Color3.fromRGB(60, 175, 50),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.2, 1.1, 1.1),
+			at = CFrame.new(0, 0.45, 0) * CFrame.Angles(0, math.rad(90), 0),
+			color = Color3.fromRGB(70, 190, 60),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.2, 1.1, 1.1),
+			at = CFrame.new(-0.5, 0.95, 0.02) * CFrame.Angles(0, math.rad(90), 0),
+			color = Color3.fromRGB(60, 175, 50),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.24, 0.3, 0.3),
+			at = CFrame.new(0, 0.95, -0.02) * CFrame.Angles(0, math.rad(90), 0),
+			color = Color3.fromRGB(35, 120, 35),
+			shape = Enum.PartType.Cylinder,
+		},
+	},
+	Ghost = { -- a little ghost: heat clears fast
+		{
+			size = Vector3.new(1.7, 1.7, 1.7),
+			at = CFrame.new(0, 0.6, 0),
+			color = Color3.fromRGB(245, 245, 255),
+			shape = Enum.PartType.Ball,
+			transparency = 0.1,
+		},
+		{
+			size = Vector3.new(1.3, 1.7, 1.7),
+			at = CFrame.new(0, -0.15, 0) * UP,
+			color = Color3.fromRGB(245, 245, 255),
+			shape = Enum.PartType.Cylinder,
+			transparency = 0.1,
+		},
+		{ size = Vector3.new(0.3, 0.45, 0.1), at = CFrame.new(-0.35, 0.8, -0.8), color = BLACK },
+		{ size = Vector3.new(0.3, 0.45, 0.1), at = CFrame.new(0.35, 0.8, -0.8), color = BLACK },
+		{
+			size = Vector3.new(0.35, 0.35, 0.35),
+			at = CFrame.new(0, 0.3, -0.78),
+			color = BLACK,
+			shape = Enum.PartType.Ball,
+		},
+	},
+	Spray = { -- a can of repo repellent
+		{
+			size = Vector3.new(2, 1, 1),
+			at = UP,
+			color = Color3.fromRGB(240, 200, 40),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.7, 1.04, 1.04),
+			at = CFrame.new(0, 0.2, 0) * UP,
+			color = Color3.fromRGB(40, 40, 45),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.4, 0.9, 0.9),
+			at = CFrame.new(0, 1.2, 0) * UP,
+			color = Color3.fromRGB(225, 50, 50),
+			shape = Enum.PartType.Cylinder,
+		},
+		{ size = Vector3.new(0.25, 0.2, 0.35), at = CFrame.new(0, 1.45, -0.3), color = Color3.fromRGB(225, 50, 50) },
+	},
+	Parcel = { -- a taped cardboard box: a rush parcel gig
+		{
+			size = Vector3.new(1.8, 1.4, 1.8),
+			at = CFrame.identity,
+			color = Color3.fromRGB(176, 128, 72),
+			material = Enum.Material.Cardboard,
+		},
+		{ size = Vector3.new(0.4, 1.44, 1.84), at = CFrame.identity, color = Color3.fromRGB(215, 185, 125) },
+		{ size = Vector3.new(0.7, 0.05, 0.5), at = CFrame.new(0.45, 0.72, -0.45), color = Color3.new(1, 1, 1) },
+	},
+	Cat = { -- an orange cat sitting up: a lost cat gig
+		{
+			size = Vector3.new(1.1, 1.3, 1.2),
+			at = CFrame.new(0, 0, 0.2),
+			color = Color3.fromRGB(235, 140, 50),
+			material = Enum.Material.Fabric,
+		},
+		{
+			size = Vector3.new(1, 0.9, 0.9),
+			at = CFrame.new(0, 1.05, -0.05),
+			color = Color3.fromRGB(235, 140, 50),
+			material = Enum.Material.Fabric,
+		},
+		{
+			size = Vector3.new(0.12, 0.4, 0.3),
+			at = CFrame.new(-0.3, 1.65, -0.05),
+			color = Color3.fromRGB(235, 140, 50),
+			shape = Enum.PartType.Wedge,
+		},
+		{
+			size = Vector3.new(0.12, 0.4, 0.3),
+			at = CFrame.new(0.3, 1.65, -0.05),
+			color = Color3.fromRGB(235, 140, 50),
+			shape = Enum.PartType.Wedge,
+		},
+		{
+			size = Vector3.new(0.16, 0.22, 0.06),
+			at = CFrame.new(-0.22, 1.15, -0.5),
+			color = Color3.fromRGB(60, 170, 70),
+		},
+		{
+			size = Vector3.new(0.16, 0.22, 0.06),
+			at = CFrame.new(0.22, 1.15, -0.5),
+			color = Color3.fromRGB(60, 170, 70),
+		},
+		{ size = Vector3.new(0.5, 0.3, 0.1), at = CFrame.new(0, 0.85, -0.52), color = Color3.fromRGB(250, 235, 215) },
+		{
+			size = Vector3.new(0.22, 0.22, 1.3),
+			at = CFrame.new(0.45, -0.4, 0.9) * CFrame.Angles(0, -0.5, 0),
+			color = Color3.fromRGB(195, 95, 30),
+		},
+	},
+	Camera = { -- a chunky camera: a photo gig
+		{ size = Vector3.new(2, 1.2, 0.8), at = CFrame.identity, color = Color3.fromRGB(45, 45, 52) },
+		{
+			size = Vector3.new(0.5, 0.9, 0.9),
+			at = CFrame.new(0, 0, -0.6) * CFrame.Angles(0, math.rad(90), 0),
+			color = Color3.fromRGB(30, 30, 34),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.1, 0.6, 0.6),
+			at = CFrame.new(0, 0, -0.86) * CFrame.Angles(0, math.rad(90), 0),
+			color = Color3.fromRGB(90, 150, 230),
+			material = Enum.Material.Glass,
+			shape = Enum.PartType.Cylinder,
+		},
+		{ size = Vector3.new(0.5, 0.25, 0.5), at = CFrame.new(-0.55, 0.7, 0), color = Color3.fromRGB(45, 45, 52) },
+		{ size = Vector3.new(0.3, 0.15, 0.3), at = CFrame.new(0.6, 0.66, 0), color = Color3.fromRGB(220, 60, 60) },
+	},
+	Trash = { -- a bin bag and a can: a clean-up gig
+		{
+			size = Vector3.new(1.6, 1.6, 1.6),
+			at = CFrame.identity,
+			color = Color3.fromRGB(40, 40, 46),
+			shape = Enum.PartType.Ball,
+		},
+		{ size = Vector3.new(0.5, 0.5, 0.3), at = CFrame.new(0, 0.85, 0), color = Color3.fromRGB(240, 200, 40) },
+		{
+			size = Vector3.new(0.9, 0.5, 0.5),
+			at = CFrame.new(1.1, -0.55, -0.3) * CFrame.Angles(0, 0.6, 0),
+			color = Color3.fromRGB(215, 40, 45),
+			material = Enum.Material.Metal,
+			shape = Enum.PartType.Cylinder,
+		},
+	},
 	Cards = { -- four cards fanned out: more choices
 		{
 			size = Vector3.new(1.2, 1.8, 0.05),
@@ -435,25 +606,187 @@ local MORE: { [string]: { Piece } } = {
 			color = Color3.fromRGB(170, 100, 240),
 		},
 	},
+	-- The STORE's game passes.
+	Crown = { -- a gold crown with gems: VIP
+		{
+			size = Vector3.new(0.7, 2.2, 2.2),
+			at = UP,
+			color = GOLD,
+			material = Enum.Material.Metal,
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.72, 1.7, 1.7),
+			at = UP * CFrame.new(0.02, 0, 0),
+			color = Color3.fromRGB(150, 30, 45),
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.4, 0.8, 0.4),
+			at = CFrame.new(0, 0.7, -1.02),
+			color = GOLD,
+			material = Enum.Material.Metal,
+		},
+		{
+			size = Vector3.new(0.4, 0.8, 0.4),
+			at = CFrame.new(0.9, 0.7, 0.5) * CFrame.Angles(0, -1, 0),
+			color = GOLD,
+			material = Enum.Material.Metal,
+		},
+		{
+			size = Vector3.new(0.4, 0.8, 0.4),
+			at = CFrame.new(-0.9, 0.7, 0.5) * CFrame.Angles(0, 1, 0),
+			color = GOLD,
+			material = Enum.Material.Metal,
+		},
+		{
+			size = Vector3.new(0.3, 0.3, 0.3),
+			at = CFrame.new(0, 0, -1.12),
+			color = Color3.fromRGB(70, 140, 235),
+			material = Enum.Material.Neon,
+			shape = Enum.PartType.Ball,
+		},
+		{
+			size = Vector3.new(0.3, 0.3, 0.3),
+			at = CFrame.new(0, 1.15, -1.02),
+			color = Color3.fromRGB(230, 60, 80),
+			material = Enum.Material.Neon,
+			shape = Enum.PartType.Ball,
+		},
+	},
+	TipJar = { -- a glass jar full of bills and coins
+		{
+			size = Vector3.new(2, 1.5, 1.5),
+			at = UP,
+			color = Color3.fromRGB(200, 230, 245),
+			material = Enum.Material.Glass,
+			transparency = 0.45,
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.3, 1.6, 1.6),
+			at = CFrame.new(0, 1.05, 0) * UP,
+			color = WOOD,
+			shape = Enum.PartType.Cylinder,
+		},
+		{ size = Vector3.new(1, 0.1, 0.5), at = CFrame.new(0, -0.3, 0) * CFrame.Angles(0.4, 0.3, 0.2), color = GREEN },
+		{
+			size = Vector3.new(1, 0.1, 0.5),
+			at = CFrame.new(0.1, 0.1, 0.1) * CFrame.Angles(-0.3, 1.2, 0.5),
+			color = GREEN,
+		},
+		{
+			size = Vector3.new(0.12, 0.5, 0.5),
+			at = CFrame.new(-0.25, -0.65, 0.2) * UP,
+			color = GOLD,
+			material = Enum.Material.Metal,
+			shape = Enum.PartType.Cylinder,
+		},
+		{ size = Vector3.new(1.3, 0.5, 0.06), at = CFrame.new(0, 0, -0.78), color = Color3.fromRGB(245, 240, 220) },
+	},
 }
 for id, pieces in MORE do
 	MODELS[id] = pieces
-end
--- Tony's blasters and the custom ones (shared/BlasterLooks).
-for _, id in BlasterLooks.designs() do
-	MODELS[id] = BlasterLooks.pieces(id) :: { Piece }
 end
 -- The bags (shared/BagLooks).
 for _, id in BagLooks.designs() do
 	MODELS[id] = BagLooks.pieces(id) :: { Piece }
 end
 
+-- Tony's crates (shared/CrateLooks).
+for _, id in CrateLooks.designs() do
+	MODELS[id] = CrateLooks.pieces(id) :: { Piece }
+end
+
+-- A boxing glove (the Shop's Strength packs): a big padded fist, knuckles, a thumb, a cuff and
+-- laces, punching toward -Z.
+local function glove(main: Color3, cuff: Color3, material: Enum.Material, shine: number): { Piece }
+	local function ball(size: number, at: Vector3, color: Color3): Piece
+		return {
+			size = Vector3.one * size,
+			at = CFrame.new(at),
+			color = color,
+			material = material,
+			reflectance = shine,
+			shape = Enum.PartType.Ball,
+		}
+	end
+	return {
+		ball(2.4, Vector3.new(0, 0, 0), main),
+		ball(1.9, Vector3.new(0, 0.25, -0.75), main),
+		ball(1.7, Vector3.new(0, -0.2, -0.9), main),
+		ball(1, Vector3.new(-1.05, -0.35, -0.3), main),
+		{
+			size = Vector3.new(1.4, 1.9, 1.9),
+			at = CFrame.new(0, -0.1, 1.3) * CFrame.Angles(0, math.rad(90), 0),
+			color = cuff,
+			material = material,
+			reflectance = shine,
+			shape = Enum.PartType.Cylinder,
+		},
+		{
+			size = Vector3.new(0.25, 0.25, 1.4),
+			at = CFrame.new(0, 0.95, 1.2),
+			color = Color3.new(1, 1, 1),
+		},
+		{
+			size = Vector3.new(0.9, 0.18, 0.18),
+			at = CFrame.new(0, 0.96, 0.9),
+			color = Color3.new(1, 1, 1),
+		},
+		{
+			size = Vector3.new(0.9, 0.18, 0.18),
+			at = CFrame.new(0, 0.96, 1.5),
+			color = Color3.new(1, 1, 1),
+		},
+	}
+end
+
+MODELS.Glove = glove(Color3.fromRGB(230, 40, 45), Color3.fromRGB(250, 250, 250), Enum.Material.SmoothPlastic, 0.05)
+MODELS.GoldGlove = glove(Color3.fromRGB(255, 200, 50), Color3.fromRGB(200, 40, 40), Enum.Material.Metal, 0.3)
+MODELS.DiamondGlove = glove(Color3.fromRGB(150, 225, 255), Color3.fromRGB(170, 90, 255), Enum.Material.Glass, 0.4)
+
+-- Pictures made of other pictures, side by side: `{ id, offset }` each.
+local function group(parts: { { any } }): { Piece }
+	local pieces: { Piece } = {}
+	for _, entry in parts do
+		local source: { Piece } = MODELS[entry[1] :: string] or {}
+		local offset = entry[2] :: CFrame
+		for _, piece in source do
+			local copy = table.clone(piece)
+			copy.at = offset * piece.at
+			table.insert(pieces, copy)
+		end
+	end
+	return pieces
+end
+
+MODELS.SnackPack = group({
+	{ "Candy", CFrame.new(0, -0.9, 0) },
+	{ "Energy", CFrame.new(-1.3, 0.6, 0.4) },
+	{ "Gloves", CFrame.new(1.3, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-10)) },
+})
+MODELS.GlovePair = group({
+	{ "Glove", CFrame.new(-1.3, 0, 0) * CFrame.Angles(0, math.rad(15), math.rad(-10)) },
+	{ "Glove", CFrame.new(1.3, 0.3, 0.4) * CFrame.Angles(0, math.rad(-15), math.rad(10)) },
+})
+MODELS.GoldGlovePair = group({
+	{ "GoldGlove", CFrame.new(-1.3, 0, 0) * CFrame.Angles(0, math.rad(15), math.rad(-10)) },
+	{ "GoldGlove", CFrame.new(1.3, 0.3, 0.4) * CFrame.Angles(0, math.rad(-15), math.rad(10)) },
+})
+MODELS.TreatPack = group({
+	{ "Candy", CFrame.new(0, -1.3, 0) },
+	{ "Energy", CFrame.new(-1.6, 0.3, 0.4) },
+	{ "Scanner", CFrame.new(1.6, 0.3, 0) },
+	{ "Disguise", CFrame.new(0, 1.2, 0) },
+})
+
 function ItemModels.has(id: string): boolean
 	return MODELS[id] ~= nil
 end
 
 -- Dresses a built model in a cosmetic: a paint repaints the body and trim, an underglow adds a
--- neon slab underneath (tagged RainbowGlow when it cycles), a zap colour recolours the glow.
+-- neon slab underneath (tagged RainbowGlow when it cycles).
 local function dress(model: Model, look: Cosmetics.Item)
 	if look.slot == "Paint" then
 		Cosmetics.paint(model, look)
@@ -470,15 +803,6 @@ local function dress(model: Model, look: Cosmetics.Item)
 			glow:AddTag("RainbowGlow")
 		end
 		glow.Parent = model
-	elseif look.slot == "Zap" then
-		for _, part in model:GetDescendants() do
-			if part:IsA("BasePart") and part:GetAttribute("Role") == "glow" then
-				part.Color = look.color
-				if look.rainbow then
-					part:AddTag("RainbowGlow")
-				end
-			end
-		end
 	end
 end
 
@@ -554,6 +878,9 @@ function ItemModels.viewport(
 				height = direction.Y,
 				angle = math.atan2(direction.X, direction.Z),
 			}
+			view.Destroying:Once(function()
+				turning[view] = nil
+			end)
 		end
 	end
 	view.Parent = parent

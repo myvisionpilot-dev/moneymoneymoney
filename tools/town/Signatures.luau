@@ -12,9 +12,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Kit = require(script.Parent.Kit)
 
 local shared = ReplicatedStorage:FindFirstChild("Shared")
-local looks = shared and shared:FindFirstChild("BlasterLooks")
+local looks = shared and shared:FindFirstChild("CrateLooks")
 -- A fresh copy: Studio keeps a module's first require even after its code is updated.
-local BlasterLooks = if looks then require(looks:Clone()) :: any else nil
+local CrateLooks = if looks then require(looks:Clone()) :: any else nil
 
 local Signatures = {}
 
@@ -66,18 +66,19 @@ local function roofOf(s)
 	return s.height + 1, s.z0 + 5 -- the roof's top, and a spot behind the parapet
 end
 
--- A stun blaster from shared/BlasterLooks at `at` in the shop's frame, `scale` times its size.
-function Signatures.blaster(model, cf, at, design, scale)
-	local pieces = BlasterLooks and BlasterLooks.pieces(design)
+-- One of Tony's lucky crates from shared/CrateLooks at `at` in the shop's frame, `scale` times its size.
+-- `solid`: you bump into it (one on the pavement).
+function Signatures.crate(model, cf, at, design, scale, solid)
+	local pieces = CrateLooks and CrateLooks.pieces(design)
 	if not pieces then
 		return
 	end
 	local size = scale or 1
-	for _, piece in pieces do
+	for index, piece in pieces do
 		local p = put(
 			model,
 			cf,
-			"Blaster",
+			"Crate",
 			piece.size * size,
 			at * CFrame.new(piece.at.Position * size) * piece.at.Rotation,
 			piece.color,
@@ -86,6 +87,9 @@ function Signatures.blaster(model, cf, at, design, scale)
 		)
 		p.Reflectance = piece.reflectance or 0
 		p.Transparency = piece.transparency or 0
+		if solid and index == 1 then
+			p.CanCollide = true
+		end
 	end
 end
 
@@ -136,16 +140,28 @@ Signatures.Clothes = function(model, cf, s)
 end
 
 Signatures.GunStore = function(model, cf, s)
-	-- A giant Mega Zapper on a post, aimed at the sky.
+	-- A giant gold crate on a post, tipped toward the street, and two crates by the door.
 	local roof, back = roofOf(s)
 	local x = s.width / 4
 	post(model, cf, x, back, roof, 3.2, 0.7)
-	Signatures.blaster(
+	local tilt = CFrame.Angles(math.rad(-12), math.rad(20), math.rad(8))
+	Signatures.crate(model, cf, CFrame.new(x, roof + 6.4, back) * tilt, "GoldCrate", 2.6)
+	local doorX, z = -(s.width / 2 - 3), s.z0 - 1.6
+	Signatures.crate(
 		model,
 		cf,
-		CFrame.new(x, roof + 5.8, back) * ALONG * CFrame.Angles(math.rad(15), 0, 0),
-		"MegaZapper",
-		3
+		CFrame.new(doorX, 1.55, z) * CFrame.Angles(0, math.rad(10), 0),
+		"LuckyCrate",
+		0.85,
+		true
+	)
+	Signatures.crate(
+		model,
+		cf,
+		CFrame.new(doorX + 0.2, 3.55, z + 0.1) * CFrame.Angles(0, math.rad(-20), 0),
+		"LuckyCrate",
+		0.75,
+		true
 	)
 end
 

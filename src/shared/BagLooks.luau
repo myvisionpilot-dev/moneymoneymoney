@@ -5,9 +5,18 @@
 -- on a strap over one shoulder (BagLooks.carry "Sling"); the backpack goes on your back.
 -- Used for the shop pictures (ItemModels) and the bag you wear in a run (BagLook).
 
-local BlasterLooks = require(script.Parent.BlasterLooks)
-
-type Piece = BlasterLooks.Piece
+-- One part of a little model, in the model's own space (bags here, and every ItemModels picture).
+export type Piece = {
+	size: Vector3,
+	at: CFrame,
+	color: Color3,
+	material: Enum.Material?,
+	shape: Enum.PartType?,
+	role: string?, -- "body" or "trim" (repainted by a paint), "glow" (neon)
+	reflectance: number?,
+	transparency: number?,
+	name: string?, -- the part's name (a bag's strap clips)
+}
 export type Carry = "Sling" | "Back"
 
 local BagLooks = {}

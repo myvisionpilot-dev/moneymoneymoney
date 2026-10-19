@@ -105,7 +105,7 @@ local function sellTo(player: Player, pedestrian: Model)
 	end
 	local last = lastBought[pedestrian]
 	if last and os.clock() - last < settings.BuyCooldownSeconds then
-		Notifier.send(player, `{pedestrian.Name} just had one. Try someone else!`, "Info")
+		Notifier.send(player, "They just had one. Try someone else!", "Info")
 		return
 	end
 	lastBought[pedestrian] = os.clock()
@@ -127,7 +127,7 @@ local function addSellPrompt(player: Player, shift: Shift, pedestrian: Model)
 	end
 	shift.prompts[pedestrian] = JobKit.prompt(root, {
 		action = "Sell hot dog",
-		object = pedestrian.Name,
+		object = "", -- no names on people
 		hold = settings.SellHoldSeconds,
 		range = settings.RangeStuds,
 		owner = player,

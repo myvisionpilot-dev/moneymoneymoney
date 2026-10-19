@@ -1,5 +1,7 @@
 --!strict
--- Delivery: grab a package at the depot, walk it to the marked house, get paid into your bag.
+-- Delivery: grab a package at the depot and get it onto the marked house's doormat (walk it up,
+-- or throw it: see Courier), then get paid into your bag. Some are fragile, some houses have a
+-- guard dog, and deliveries one after another build a chain.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -13,12 +15,10 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Timing = require(ReplicatedStorage.Shared.Timing)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
-local Carry = require(script.Parent.Parent.Carry)
+local Courier = require(script.Parent.Courier)
 local EconomyService = require(script.Parent.Parent.EconomyService)
 local MoneyPath = require(script.Parent.MoneyPath)
 local Notifier = require(script.Parent.Parent.Notifier)
-local PayNotice = require(script.Parent.Parent.PayNotice)
-local Stats = require(script.Parent.Parent.Stats)
 
 local DEPOT_TAG = "DeliveryDepot"
 local DROPOFF_TAG = "DeliveryDropoff"
@@ -34,7 +34,8 @@ type Job = {
 	startedAt: number,
 	endsAt: number,
 	startPosition: Vector3,
-	package: BasePart?,
+	fragile: boolean,
+	drop: Courier.Drop?,
 }
 
 local jobs: { [Player]: Job } = {}
@@ -58,8 +59,9 @@ local function clear(player: Player): Job?
 		return nil
 	end
 	jobs[player] = nil
-	if job.package then
-		job.package:Destroy()
+	local drop = job.drop
+	if drop then
+		Courier.stop(drop, false)
 	end
 	if player.Parent then
 		remotes.JobGuide:fireClient(player, nil)
@@ -71,6 +73,19 @@ local function fail(player: Player, reason: string)
 	if clear(player) then
 		Notifier.send(player, reason, "Bad")
 	end
+end
+
+local function guide(player: Player, job: Job)
+	local drop = job.drop
+	if jobs[player] ~= job or not drop then
+		return
+	end
+	remotes.JobGuide:fireClient(player, {
+		title = if job.fragile then "Delivery (FRAGILE)" else "Delivery",
+		markers = { Courier.marker(drop) },
+		endsAt = job.endsAt,
+		pay = payout(player, getContext().tier()),
+	})
 end
 
 local function pickDropoff(from: Vector3): BasePart?
@@ -89,6 +104,24 @@ local function pickDropoff(from: Vector3): BasePart?
 		return nil
 	end
 	return pool[rng:NextInteger(1, #pool)]
+end
+
+local function delivered(player: Player, job: Job, how: Courier.How)
+	local drop = job.drop
+	if jobs[player] ~= job or not drop then
+		return
+	end
+	local elapsed = Timing.now() - job.startedAt
+	local minimum = (job.dropoff.Position - job.startPosition).Magnitude / settings.MaxSpeedStudsPerSecond
+	if elapsed < minimum then
+		warn(`[Delivery] {player.Name} arrived impossibly fast ({elapsed}s, minimum {minimum}s)`)
+		fail(player, "Delivery voided: that was impossibly fast.")
+		return
+	end
+	job.drop = nil
+	jobs[player] = nil
+	remotes.JobGuide:fireClient(player, nil)
+	Courier.reward(drop, how, payout(player, getContext().tier()), "Package delivered", "delivery", "Delivery")
 end
 
 local function start(player: Player, _source: Instance?): (boolean, string?)
@@ -120,42 +153,48 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 		startedAt = now,
 		endsAt = now + settings.TimeLimitSeconds,
 		startPosition = root.Position,
-		package = Carry.prop(player, "Package"),
+		fragile = rng:NextNumber() < Config.Paths.Courier.Fragile.Chance,
+		drop = nil,
 	}
 	jobs[player] = job
+	local drop = Courier.begin(player, {
+		kind = "Package",
+		near = dropoff.Position,
+		fragile = job.fragile,
+		onDelivered = function(how: Courier.How)
+			delivered(player, job, how)
+		end,
+		onBroken = function()
+			if jobs[player] == job then
+				fail(player, "SMASH! The fragile package broke. No pay for that one.")
+			end
+		end,
+		onMoved = function()
+			guide(player, job)
+		end,
+	})
+	if not drop then
+		jobs[player] = nil
+		return false, nil
+	end
+	job.drop = drop
+	guide(player, job)
 
 	local pay = payout(player, ctx.tier())
-	remotes.JobGuide:fireClient(player, {
-		title = "Delivery",
-		markers = { dropoff.Position },
-		endsAt = job.endsAt,
-		pay = pay,
-	})
-	Notifier.send(player, `Take the package to the marked house for {Format.money(pay)}.`, "Info")
+	local message = `Get the package onto the marked doormat for {Format.money(pay)}. Throw it on for a bonus!`
+	if job.fragile then
+		message =
+			`FRAGILE package (+{math.floor(Config.Paths.Courier.Fragile.PayBonus * 100)}% pay): don't crash into anything!`
+	end
+	Notifier.send(player, message, "Info")
+	if Courier.hasGuard(drop) then
+		Notifier.send(player, "Beware of the dog at that house! Throw it from the path.", "Bad")
+	end
 	return true, nil
 end
 
-local function complete(player: Player): (boolean, string?)
-	local job = jobs[player]
-	if not job then
-		return false, nil
-	end
-	if CharacterUtil.distanceTo(player, job.dropoff.Position) > settings.DropoffRadiusStuds + 2 then
-		return false, nil
-	end
-	local elapsed = Timing.now() - job.startedAt
-	local minimum = (job.dropoff.Position - job.startPosition).Magnitude / settings.MaxSpeedStudsPerSecond
-	if elapsed < minimum then
-		warn(`[Delivery] {player.Name} arrived impossibly fast ({elapsed}s, minimum {minimum}s)`)
-		fail(player, "Delivery voided: that was impossibly fast.")
-		return false, "Too fast"
-	end
-
-	clear(player)
-	local pay = payout(player, getContext().tier())
-	PayNotice.earn(player, pay, "Package delivered", "delivery", true)
-	Stats.record(player, "Delivery")
-	return true, nil
+local function complete(_player: Player): (boolean, string?)
+	return false, "Deliveries finish on the doormat."
 end
 
 local function cancelAll(reason: string)
@@ -171,8 +210,6 @@ local function checkJobs()
 			clear(player)
 		elseif now > job.endsAt then
 			fail(player, "Too slow! The package went back to the depot.")
-		elseif CharacterUtil.distanceTo(player, job.dropoff.Position) <= settings.DropoffRadiusStuds then
-			complete(player)
 		end
 	end
 end
@@ -231,7 +268,7 @@ local function init(newContext: MoneyPath.Context)
 	end
 	Players.PlayerAdded:Connect(watchCharacter)
 	Players.PlayerRemoving:Connect(function(player: Player)
-		jobs[player] = nil
+		clear(player)
 	end)
 
 	local sinceCheck = 0

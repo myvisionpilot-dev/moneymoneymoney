@@ -65,7 +65,7 @@ function PathService.openQuota(newQuotaIndex: number)
 	open = true
 	for _, path in paths do
 		if path.unlockQuota == newQuotaIndex and newQuotaIndex > 1 then
-			Announcer.all(Announcer.TOWN_NEWS, `New money path unlocked: {path.displayName}!`)
+			Announcer.all(Announcer.TOWN_NEWS, `New: {path.displayName}!`)
 		end
 	end
 end

@@ -7,6 +7,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local CharacterUtil = require(ReplicatedStorage.Shared.CharacterUtil)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Signal = require(ReplicatedStorage.Shared.Signal)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local Style = require(ServerScriptService.Common.Style)
 local EconomyService = require(script.Parent.EconomyService)
@@ -27,7 +28,9 @@ local RANGE_SLACK = 3 -- studs, for network lag
 
 local limiter = RateLimiter.new(Config.Security.PromptsPerSecond, 1)
 
-local DepositService = {}
+local DepositService = {
+	deposited = Signal.new() :: Signal.Signal<Player, number>, -- (player, what they paid in)
+}
 
 local function onDeposit(player: Player, desk: BasePart)
 	if not limiter:allow(player) or not RosterService.isActive(player) then
@@ -63,6 +66,7 @@ local function onDeposit(player: Player, desk: BasePart)
 	if happy > 0 then
 		Juice.deposited(player, happy, "Happy hour bonus")
 	end
+	DepositService.deposited:Fire(player, amount)
 end
 
 local function setupDesk(instance: Instance)
@@ -74,7 +78,7 @@ local function setupDesk(instance: Instance)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "DepositPrompt"
 	prompt.ActionText = "Deposit cash"
-	prompt.ObjectText = "Mr. Penny"
+	prompt.ObjectText = "Bank"
 	prompt.HoldDuration = 0.25
 	prompt.MaxActivationDistance = Config.Economy.DepositRangeStuds
 	prompt.RequiresLineOfSight = false
