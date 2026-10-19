@@ -132,6 +132,8 @@ local handlers: { [Kind]: Handler } = {
 		end,
 	},
 
+	-- A tip-off: they're away. The arrow points at the back door; getting in ends the job (the cash
+	-- is inside: Paths/BreakIn).
 	BreakIn = {
 		legal = false,
 		title = function(_house: House): string
@@ -144,11 +146,7 @@ local handlers: { [Kind]: Handler } = {
 				return
 			end
 			job.targets = { backDoor.WorldPosition }
-			kit.prompt(job, backDoor, "Break in", kit.breakInHold(job.player), function(prompt: ProximityPrompt)
-				prompt:Destroy()
-				kit.addHeat(job)
-				kit.finish(job, "House broken into")
-			end)
+			kit.notify(job, "Sneak in the back door!")
 			kit.guide(job)
 		end,
 	},

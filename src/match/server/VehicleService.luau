@@ -1,6 +1,6 @@
 --!strict
 -- Vehicles: race cars lent by the garage (Paths/Racing), stolen cars (Paths/CarTheft), City Cabs
--- taxis (Paths/Taxi) and flipped wrecks (Paths/CarFlip). LeaveCar (R) gets you out of anything
+-- taxis (Paths/Taxi) and flipped wrecks (Paths/CarFlip). LeaveCar (Space) gets you out of anything
 -- but a race car.
 -- Each is a real physics car (CarBuilder) that you sit in; your own computer drives it
 -- (client/CarController). The car's TopSpeed attribute caps it (0 holds it still), the

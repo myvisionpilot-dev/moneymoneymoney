@@ -5,6 +5,8 @@
 -- has a red outline everyone can see through walls.
 -- Hide in a bush with no cop within Police.SpotHiddenStuds and they lose you: they circle
 -- where they last saw you until you come out or your heat drains. Police only chase during a quota.
+-- Inside a house (a break-in, built far above town) you can't be arrested: the police wait at the
+-- back door you went in by (the OutsideAt attribute on your character).
 
 local CollectionService = game:GetService("CollectionService")
 local PathfindingService = game:GetService("PathfindingService")
@@ -23,6 +25,8 @@ local TwistService = require(script.Parent.TwistService)
 local VehicleModels = require(script.Parent.VehicleModels)
 
 local SPAWN_TAG = "PoliceSpawn"
+local OUTSIDE_ATTRIBUTE = "OutsideAt"
+local DOOR_WAIT_STUDS = 30 -- how close to the back door they wait (you get a head start coming out)
 local DIRECT_CHASE_STUDS = 40 -- closer than this, cops run straight at you
 local WAYPOINT_REACHED_STUDS = 4
 local SEARCH_STEP = math.rad(60) -- how far round the circle each search point is
@@ -172,10 +176,24 @@ local function moveTo(cop: Cop, goal: Vector3)
 	steer(cop, goal)
 end
 
+-- Where the police go for a player: to them, or to the back door of the house they're inside
+-- (true).
+local function targetPosition(player: Player): (Vector3?, boolean)
+	local root = CharacterUtil.getRoot(player)
+	if not root then
+		return nil, false
+	end
+	local character = player.Character
+	local outside = character and character:GetAttribute(OUTSIDE_ATTRIBUTE)
+	if typeof(outside) == "Vector3" then
+		return outside, true
+	end
+	return root.Position, false
+end
+
 -- The nearest patrol point at least minStuds away, so police don't pop in on top of you.
 local function spawnPosition(target: Player, minStuds: number): Vector3
-	local root = CharacterUtil.getRoot(target)
-	local from = if root then root.Position else Vector3.zero
+	local from = targetPosition(target) or Vector3.zero
 	local best: Vector3? = nil
 	local bestDistance = math.huge
 	local fallback: Vector3? = nil
@@ -354,8 +372,8 @@ local function updateSpotted()
 	local near: { [Player]: boolean } = {}
 	local spotStuds = Config.Police.SpotHiddenStuds * TwistService.spotMultiplier() -- shorter in a Blackout
 	for _, cop in cops do
-		local targetRoot = CharacterUtil.getRoot(cop.target)
-		if targetRoot and (targetRoot.Position - cop.root.Position).Magnitude <= spotStuds then
+		local position = targetPosition(cop.target)
+		if position and (position - cop.root.Position).Magnitude <= spotStuds then
 			near[cop.target] = true
 		end
 	end
@@ -412,20 +430,25 @@ local function search(cop: Cop, lastSeen: Vector3)
 end
 
 local function chase(cop: Cop)
-	local targetRoot = CharacterUtil.getRoot(cop.target)
-	if not targetRoot or not cop.model.Parent or cop.humanoid.Health <= 0 then
+	local position, indoors = targetPosition(cop.target)
+	if not position or not cop.model.Parent or cop.humanoid.Health <= 0 then
 		removeCop(cop)
 		return
 	end
 	if HeatService.isHidden(cop.target) then
-		search(cop, targetRoot.Position)
+		search(cop, position)
 		return
 	end
 	cop.searchCenter = nil
 
-	local distance = (targetRoot.Position - cop.root.Position).Magnitude
+	local distance = (position - cop.root.Position).Magnitude
 	local tagRange = if cop.inCar then Config.Police.CarTagRangeStuds else Config.Police.TagRangeStuds
-	if distance <= tagRange then
+	if indoors and distance <= DOOR_WAIT_STUDS then
+		cop.waypoints = {}
+		moveTo(cop, cop.root.Position) -- wait for them to come out
+		return
+	end
+	if not indoors and distance <= tagRange then
 		local target = cop.target
 		JailService.arrest(target, "the police")
 		removeCopsChasing(target)
@@ -433,11 +456,11 @@ local function chase(cop: Cop)
 	end
 	if distance < DIRECT_CHASE_STUDS then
 		cop.waypoints = {}
-		moveTo(cop, targetRoot.Position)
+		moveTo(cop, position)
 		return
 	end
 	if not cop.pathing and os.clock() >= cop.nextPathAt then
-		requestPath(cop, targetRoot.Position)
+		requestPath(cop, position)
 	end
 	local waypoint = cop.waypoints[cop.waypointIndex]
 	if waypoint and (waypoint.Position - cop.root.Position).Magnitude < WAYPOINT_REACHED_STUDS then
@@ -450,7 +473,7 @@ local function chase(cop: Cop)
 			cop.humanoid.Jump = true
 		end
 	else
-		moveTo(cop, targetRoot.Position)
+		moveTo(cop, position)
 	end
 end
 

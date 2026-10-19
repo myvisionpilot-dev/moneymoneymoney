@@ -23,6 +23,7 @@ local customise = require(script:WaitForChild("CustomiseWindow")).start(root)
 local browser = require(script:WaitForChild("LobbyBrowser")).start(root)
 local barSpace = require(script:WaitForChild("ShopFrame")).BAR_SPACE
 local store = require(Shared:WaitForChild("StoreWindow")).start(root, barSpace) -- the Shop (in runs too)
-require(script:WaitForChild("MenuBar")).start(root, upgrades, customise, browser, store, shopButtons)
+local boosts = require(script:WaitForChild("BoostsWindow")).start(root) -- invite friends, join the group
+require(script:WaitForChild("MenuBar")).start(root, upgrades, customise, browser, store, shopButtons, boosts)
 require(script:WaitForChild("ProfileState")).start()
 require(script:WaitForChild("WheelController")).start(root) -- the Lucky Wheel in the hall

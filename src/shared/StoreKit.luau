@@ -81,6 +81,14 @@ StoreKit.Images = {
 	PassBail = "rbxassetid://132319325839939",
 	PassClean = "rbxassetid://91065277998197",
 	PassVip = "rbxassetid://128470465461987",
+	Strength10 = "rbxassetid://98467039579348", -- a red boxing glove
+	Strength25 = "rbxassetid://95047625876520", -- a red glove punching, speed lines
+	Strength60 = "rbxassetid://121439958185507", -- a red fist bump
+	Strength150 = "rbxassetid://139336181330570", -- a gold glove on a POW burst
+	Strength400 = "rbxassetid://83877816925659", -- a gold fist bump on a burst
+	Strength1000 = "rbxassetid://113282993996532", -- a diamond glove, lightning
+	InviteFriend = "rbxassetid://83284672111672", -- two blocky friends, a heart and a +
+	GroupJoin = "rbxassetid://132445182889462", -- a purple group flag over a cheering crowd
 }
 
 -- The faint brick pattern over a frame: dark on colours, light on the dark body.

@@ -16,6 +16,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Passes = require(ServerScriptService.Common.Passes)
+local Social = require(ServerScriptService.Common.Social)
 local RateLimiter = require(ServerScriptService.Common.RateLimiter)
 local BoostService = require(script.Parent.Parent.BoostService)
 local EconomyService = require(script.Parent.Parent.EconomyService)
@@ -76,7 +77,8 @@ end
 
 local function rollWallet(player: Player): number
 	local wallet = rollOnce()
-	if Passes.has(player, "DoubleLuck") then
+	-- Luck: the x2 Luck pass always rolls twice and keeps the better; the group's Luck sometimes.
+	if Passes.has(player, "DoubleLuck") or rng:NextNumber() < Social.luck(player) then
 		wallet = math.max(wallet, rollOnce())
 	end
 	return wallet

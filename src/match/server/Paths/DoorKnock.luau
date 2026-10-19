@@ -103,14 +103,14 @@ end
 local function payFor(kind: DoorJobs.Kind, house: House): number
 	local multiplier = getContext().payMultiplier(kind, DoorJobs.isLegal(kind))
 	if kind == "BreakIn" then
-		return math.floor(settings.BreakInPay[house.tier] * multiplier + 0.5)
+		return math.floor(Config.Paths.BreakIn.Cash[house.tier] * multiplier + 0.5) -- all the cash inside
 	end
 	return math.floor(basePay(kind) * settings.HouseTierPayMultiplier[house.tier] * multiplier + 0.5)
 end
 
-local function heatFor(kind: DoorJobs.Kind, house: House): number
+local function heatFor(kind: DoorJobs.Kind, _house: House): number
 	if kind == "BreakIn" then
-		return Config.Heat.BreakIn[house.tier]
+		return 0 -- only if they trip a laser inside (Paths/BreakIn)
 	elseif kind == "WalletSwipe" then
 		return Config.Heat.WalletSwipe
 	elseif kind == "ShadyPackage" then
@@ -689,7 +689,22 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	forced[player] = nil
 end)
 
+-- The door job they're on, if any (Paths/BreakIn ends a break-in job when they get in).
+local function jobKind(player: Player): DoorJobs.Kind?
+	local job = jobs[player]
+	return if job then job.kind else nil
+end
+
+local function closeJob(player: Player)
+	local job = jobs[player]
+	if job then
+		kit.close(job)
+	end
+end
+
 return {
+	jobKind = jobKind,
+	closeJob = closeJob,
 	path = DoorKnock,
 	startNear = startNear,
 	nearestFree = nearestFree,

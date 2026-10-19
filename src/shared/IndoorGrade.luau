@@ -1,14 +1,16 @@
 --!strict
 -- Softer light indoors (client only, both places). The outdoor look (tools/lighting.luau) is
 -- bright and very saturated, which blows out the bank's white walls; while the camera is inside
--- (the lobby is all indoors; in the Match, inside a part tagged SafeZone: the bank) a second
--- colour correction calms it down, the bloom eases off and the exposure drops a touch.
+-- (the lobby is all indoors; in the Match, inside a part tagged SafeZone: the bank, or IndoorZone:
+-- a house you broke into) a second colour correction calms it down, the bloom eases off and the
+-- exposure drops a touch.
 
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local ZONE_TAGS = { "SafeZone", "IndoorZone" }
 local FADE = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CHECK_SECONDS = 0.25
 local INDOOR = {
@@ -94,10 +96,12 @@ function IndoorGrade.start(always: boolean, amount: number?)
 		end
 		local point = camera.CFrame.Position
 		local inside = false
-		for _, zone in CollectionService:GetTagged("SafeZone") do
-			if zone:IsA("BasePart") and insidePart(point, zone) then
-				inside = true
-				break
+		for _, tag in ZONE_TAGS do
+			for _, zone in CollectionService:GetTagged(tag) do
+				if zone:IsA("BasePart") and insidePart(point, zone) then
+					inside = true
+					break
+				end
 			end
 		end
 		set(inside)

@@ -29,6 +29,8 @@ export type LobbyRemotes = {
 	BuyCredItem: ToServer<string>, -- an upgrade (its next level), unlock or cosmetic id
 	EquipCosmetic: ToServer<string>, -- a cosmetic id you own: wear it, or take it off if worn
 	WheelResult: ToClient<Types.WheelResult>, -- your Lucky Wheel spin stopped: what you won
+	BuyStrength: ToServer<number>, -- a Config.Store.StrengthPacks index, paid in Cred
+	CheckGroup: ToServer<nil>, -- look again: did I just join the group?
 }
 
 export type MatchRemotes = {
@@ -69,6 +71,10 @@ export type MatchRemotes = {
 	GigAnswer: ToServer<Types.GigAnswer>, -- you accepted (or ignored) the gig on your phone
 	Throw: ToServer<Vector3>, -- you threw what you're holding (a parcel, a letter, the ball) at this spot
 	TugTap: ToServer<nil>, -- one tap on the leash
+	BuyStrength: ToServer<number>, -- a Config.Store.StrengthPacks index, paid in Cred
+	CheckGroup: ToServer<nil>, -- look again: did I just join the group?
+	SetProne: ToServer<boolean>, -- lie down (C) or get back up
+	TripLaser: ToServer<nil>, -- you touched a laser in the house you broke into
 }
 
 local IS_SERVER = RunService:IsServer()
@@ -150,6 +156,8 @@ function Remotes.lobby(): LobbyRemotes
 		BuyCredItem = toServer("BuyCredItem"),
 		EquipCosmetic = toServer("EquipCosmetic"),
 		WheelResult = toClient("WheelResult"),
+		BuyStrength = toServer("BuyStrength"),
+		CheckGroup = toServer("CheckGroup"),
 	}
 	lobbyRemotes = remotes
 	return remotes
@@ -197,6 +205,10 @@ function Remotes.match(): MatchRemotes
 		GigAnswer = toServer("GigAnswer"),
 		Throw = toServer("Throw"),
 		TugTap = toServer("TugTap"),
+		BuyStrength = toServer("BuyStrength"),
+		CheckGroup = toServer("CheckGroup"),
+		SetProne = toServer("SetProne"),
+		TripLaser = toServer("TripLaser"),
 	}
 	matchRemotes = remotes
 	return remotes

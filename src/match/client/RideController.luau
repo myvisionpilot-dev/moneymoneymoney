@@ -1,5 +1,5 @@
 --!strict
--- R (D-pad up on a controller, the GET OUT button on touch screens): get out of the car you're
+-- Space or R (D-pad up or B on a controller, the GET OUT button on touch screens): get out of the car you're
 -- driving, or ditch a stolen one. It only works while you're in a vehicle; the server checks
 -- everything else (a race car keeps you in until the race ends).
 
@@ -48,7 +48,16 @@ function RideController.start()
 		local me = ClientState.me()
 		local usable = me ~= nil and me.status == "Active" and inVehicle()
 		if usable and not bound then
-			ContextActionService:BindAction(LEAVE_ACTION, onKey, false, Enum.KeyCode.R, Enum.KeyCode.DPadUp)
+			ContextActionService:BindActionAtPriority(
+				LEAVE_ACTION,
+				onKey,
+				false,
+				Enum.ContextActionPriority.High.Value,
+				Enum.KeyCode.Space,
+				Enum.KeyCode.R,
+				Enum.KeyCode.DPadUp,
+				Enum.KeyCode.ButtonB
+			)
 			bound = true
 		elseif not usable and bound then
 			ContextActionService:UnbindAction(LEAVE_ACTION)

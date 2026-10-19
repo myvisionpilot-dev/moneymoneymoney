@@ -16,6 +16,7 @@ local Leaderboards = require(ServerScriptService.Common.Leaderboards)
 local Passes = require(ServerScriptService.Common.Passes)
 local Perks = require(ServerScriptService.Common.Perks)
 local Profiles = require(ServerScriptService.Common.Profiles)
+local Social = require(ServerScriptService.Common.Social)
 local HeatService = require(script.Parent.HeatService)
 local Juice = require(script.Parent.Juice)
 local Notifier = require(script.Parent.Notifier)
@@ -99,6 +100,11 @@ local function onRunEnded(userId: number, prize: number, failed: boolean)
 	if bonus > 0 then
 		Profiles.addCred(player, data, bonus, "Investor bonus")
 		Notifier.send(player, `Investor: +{Format.cred(bonus)} on top of your prize.`, "Good")
+	end
+	-- Bringing people in: an invited friend who joined, and being in the group (Config.Social).
+	local social = math.floor(prize * Social.credBonus(player))
+	if social > 0 then
+		Profiles.addCred(player, data, social, `friend and group bonus`)
 	end
 	-- The 2x Cred game pass pays the prize again.
 	if prize > 0 and Passes.has(player, "DoubleCred") then

@@ -698,54 +698,6 @@ for _, id in CrateLooks.designs() do
 	MODELS[id] = CrateLooks.pieces(id) :: { Piece }
 end
 
--- A boxing glove (the Shop's Strength packs): a big padded fist, knuckles, a thumb, a cuff and
--- laces, punching toward -Z.
-local function glove(main: Color3, cuff: Color3, material: Enum.Material, shine: number): { Piece }
-	local function ball(size: number, at: Vector3, color: Color3): Piece
-		return {
-			size = Vector3.one * size,
-			at = CFrame.new(at),
-			color = color,
-			material = material,
-			reflectance = shine,
-			shape = Enum.PartType.Ball,
-		}
-	end
-	return {
-		ball(2.4, Vector3.new(0, 0, 0), main),
-		ball(1.9, Vector3.new(0, 0.25, -0.75), main),
-		ball(1.7, Vector3.new(0, -0.2, -0.9), main),
-		ball(1, Vector3.new(-1.05, -0.35, -0.3), main),
-		{
-			size = Vector3.new(1.4, 1.9, 1.9),
-			at = CFrame.new(0, -0.1, 1.3) * CFrame.Angles(0, math.rad(90), 0),
-			color = cuff,
-			material = material,
-			reflectance = shine,
-			shape = Enum.PartType.Cylinder,
-		},
-		{
-			size = Vector3.new(0.25, 0.25, 1.4),
-			at = CFrame.new(0, 0.95, 1.2),
-			color = Color3.new(1, 1, 1),
-		},
-		{
-			size = Vector3.new(0.9, 0.18, 0.18),
-			at = CFrame.new(0, 0.96, 0.9),
-			color = Color3.new(1, 1, 1),
-		},
-		{
-			size = Vector3.new(0.9, 0.18, 0.18),
-			at = CFrame.new(0, 0.96, 1.5),
-			color = Color3.new(1, 1, 1),
-		},
-	}
-end
-
-MODELS.Glove = glove(Color3.fromRGB(230, 40, 45), Color3.fromRGB(250, 250, 250), Enum.Material.SmoothPlastic, 0.05)
-MODELS.GoldGlove = glove(Color3.fromRGB(255, 200, 50), Color3.fromRGB(200, 40, 40), Enum.Material.Metal, 0.3)
-MODELS.DiamondGlove = glove(Color3.fromRGB(150, 225, 255), Color3.fromRGB(170, 90, 255), Enum.Material.Glass, 0.4)
-
 -- Pictures made of other pictures, side by side: `{ id, offset }` each.
 local function group(parts: { { any } }): { Piece }
 	local pieces: { Piece } = {}
@@ -765,14 +717,6 @@ MODELS.SnackPack = group({
 	{ "Candy", CFrame.new(0, -0.9, 0) },
 	{ "Energy", CFrame.new(-1.3, 0.6, 0.4) },
 	{ "Gloves", CFrame.new(1.3, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-10)) },
-})
-MODELS.GlovePair = group({
-	{ "Glove", CFrame.new(-1.3, 0, 0) * CFrame.Angles(0, math.rad(15), math.rad(-10)) },
-	{ "Glove", CFrame.new(1.3, 0.3, 0.4) * CFrame.Angles(0, math.rad(-15), math.rad(10)) },
-})
-MODELS.GoldGlovePair = group({
-	{ "GoldGlove", CFrame.new(-1.3, 0, 0) * CFrame.Angles(0, math.rad(15), math.rad(-10)) },
-	{ "GoldGlove", CFrame.new(1.3, 0.3, 0.4) * CFrame.Angles(0, math.rad(-15), math.rad(10)) },
 })
 MODELS.TreatPack = group({
 	{ "Candy", CFrame.new(0, -1.3, 0) },

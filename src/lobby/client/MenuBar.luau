@@ -43,7 +43,8 @@ function MenuBar.start(
 	customise: UI.Window,
 	browser: UI.Window,
 	store: UI.Window,
-	shopButtons: ProfileHud.Buttons
+	shopButtons: ProfileHud.Buttons,
+	boosts: UI.Window
 )
 	local bar = UI.frame({
 		Name = "MenuBar",
@@ -131,7 +132,7 @@ function MenuBar.start(
 	UI.shine(group, 3.4, 12)
 
 	local function closeAll(except: GuiObject?)
-		for _, panel in { upgrades.panel, customise.panel, choice.panel, browser.panel, store.panel } do
+		for _, panel in { upgrades.panel, customise.panel, choice.panel, browser.panel, store.panel, boosts.panel } do
 			if panel ~= except then
 				panel.Visible = false
 			end
@@ -154,6 +155,9 @@ function MenuBar.start(
 			toggle(store.panel)
 		end)
 	end
+	shopButtons.boosts.Activated:Connect(function()
+		toggle(boosts.panel)
+	end)
 	play.Activated:Connect(function()
 		local status = QueueController.status
 		if status and status.leaving then
@@ -174,9 +178,11 @@ function MenuBar.start(
 	end)
 
 	-- The group panel hides while a shop window is open (PLAY still shows the countdown).
-	for _, panel in { upgrades.panel, customise.panel, store.panel } do
+	for _, panel in { upgrades.panel, customise.panel, store.panel, boosts.panel } do
 		panel:GetPropertyChangedSignal("Visible"):Connect(function()
-			QueueController.setHidden(upgrades.panel.Visible or customise.panel.Visible or store.panel.Visible)
+			QueueController.setHidden(
+				upgrades.panel.Visible or customise.panel.Visible or store.panel.Visible or boosts.panel.Visible
+			)
 		end)
 	end
 

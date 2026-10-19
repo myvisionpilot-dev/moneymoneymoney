@@ -3,7 +3,7 @@
 -- Shop button under the status panel in a run): what Robux buys, on one long screen you scroll,
 -- in the store look (StoreKit):
 --   -- CRED --      Cred packs (developer products): three small cards, two bigger, one wide
---   -- STRENGTH --  Strength packs (developer products), laid out the same: a glove punches,
+--   -- STRENGTH --  Strength packs, bought with Cred, laid out the same: a glove punches,
 --                   embers rise, and your Strength (and its tier) is in the heading
 --   -- FEATURED --  the packs (Big Baller in gold, the Rainbow Pack in rainbow)
 --   -- PASSES --    every other game pass, two to a row
@@ -16,11 +16,11 @@
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(script.Parent.Config)
 local Cursor = require(script.Parent.Cursor)
 local Format = require(script.Parent.Format)
-local ItemModels = require(script.Parent.ItemModels)
 local ScreenFx = require(script.Parent.ScreenFx)
 local Sounds = require(script.Parent.Sounds)
 local StoreFx = require(script.Parent.StoreFx)
@@ -245,9 +245,16 @@ function StoreWindow.start(root: Frame, bottom: number): UI.Window
 		end)
 	end
 
-	-- A Strength pack: the glove turning big in its glow (and throwing a punch now and then),
+	-- A Strength pack: its picture big in its glow (throwing a punch now and then),
 	-- embers rising, "+150 STRENGTH" over its bottom edge, then the buttons.
-	local function strengthCard(pack: Config.StrengthPack, width: UDim, height: number, row: Frame, big: boolean)
+	local function strengthCard(
+		index: number,
+		pack: Config.StrengthPack,
+		width: UDim,
+		height: number,
+		row: Frame,
+		big: boolean
+	)
 		local color = if big then STRENGTH_BIG else STRENGTH_COLOR
 		local card, content = StoreKit.card(color, {
 			Size = UDim2.new(width, UDim.new(1, 0)),
@@ -257,12 +264,12 @@ function StoreWindow.start(root: Frame, bottom: number): UI.Window
 		end
 		liven(card)
 		local art = height - BUY_HEIGHT - 30
-		local picture = ItemModels.viewport(pack.picture, {
+		local picture = StoreKit.image(StoreKit.art(pack.picture), {
 			AnchorPoint = Vector2.new(0.5, 0),
 			Position = UDim2.new(0.5, 0, 0, 4),
 			Size = UDim2.fromOffset(art, art),
 			ZIndex = 3,
-		}, content, true)
+		}, content)
 		fx.float(picture)
 		fx.punch(picture, Color3.fromRGB(255, 230, 120))
 		fx.embers(card, if big then 16 else 9)
@@ -295,8 +302,30 @@ function StoreWindow.start(root: Frame, bottom: number): UI.Window
 			StoreKit.label({ Size = UDim2.fromScale(1, 1), TextSize = 18, Text = pack.tag, ZIndex = 6 }, ribbon)
 			fx.pulse(ribbon)
 		end
-		buyRow(content, Enum.InfoType.Product, pack.id, false, function()
-			MarketplaceService:PromptProductPurchase(player, pack.id)
+		-- The price in Cred, on a button as wide as the card (lime when you can afford it).
+		local balance = player:GetAttribute("CredBalance")
+		local afford = typeof(balance) == "number" and balance >= pack.price
+		local buy = StoreKit.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -10),
+			Size = UDim2.new(1, -20, 0, BUY_HEIGHT),
+			BackgroundColor3 = UI.Colors.PanelDark,
+			Text = "",
+		}, content)
+		if afford then
+			StoreKit.lime(buy)
+			UI.shine(buy, 4 + math.random() * 2.5, 8)
+		end
+		StoreKit.iconText(buy, StoreKit.Images.CredCoin, Format.number(pack.price), 26)
+		buy.Activated:Connect(function()
+			local now = player:GetAttribute("CredBalance")
+			if typeof(now) ~= "number" or now < pack.price then
+				Sounds.play("Fail", 1, 0.6)
+				Toasts.show("Not enough Cred!", "Bad")
+				return
+			end
+			local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyStrength") :: RemoteEvent
+			remote:FireServer(index)
 		end)
 	end
 
@@ -431,7 +460,7 @@ function StoreWindow.start(root: Frame, bottom: number): UI.Window
 				local pack = strengthPacks[index]
 				if pack then
 					local big = index > #strengthPacks - 3
-					strengthCard(pack, UDim.new(1 / count, -GAP * (count - 1) / count), height, row, big)
+					strengthCard(index, pack, UDim.new(1 / count, -GAP * (count - 1) / count), height, row, big)
 				end
 			end
 		end
@@ -495,16 +524,20 @@ function StoreWindow.start(root: Frame, bottom: number): UI.Window
 					celebrate(`+{Format.number(pack.cred)} CRED!`, "Spend it in Upgrades or Customise")
 				end
 			end
-			for _, pack in Config.Store.StrengthPacks do
-				if pack.id > 0 and pack.id == productId then
-					celebrate(`+{Format.number(pack.strength)} STRENGTH!`, "Your shove hits harder")
-				end
-			end
 		end
 	)
+	local lastStrength: number? = Strength.of(player)
 	player.AttributeChanged:Connect(function(name: string)
 		if name == "Strength" then
+			local now = Strength.of(player)
+			if lastStrength and now > lastStrength and window.panel.Visible then
+				celebrate(`+{Format.number(now - lastStrength)} STRENGTH!`, "Your shove hits harder")
+			end
+			lastStrength = now
 			render()
+			return
+		elseif name == "CredBalance" then
+			render() -- what you can afford
 			return
 		end
 		if name:sub(1, 5) ~= "Pass_" then

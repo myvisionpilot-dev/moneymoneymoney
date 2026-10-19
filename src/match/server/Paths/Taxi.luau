@@ -3,7 +3,7 @@
 -- one of the taxi stops; pull up slowly and they hop in, then drive them to the marked stop
 -- for Taxi.BaseFare plus Taxi.PerStud for every stud of the trip. The next fare comes straight
 -- away. A passenger gives up waiting after PickupSeconds, or gets out without paying if the
--- ride takes longer than FareSeconds. Getting out of the cab (R) ends the shift.
+-- ride takes longer than FareSeconds. Getting out of the cab (Space) ends the shift.
 -- Map tags: TaxiDesk (the counter), TaxiSpawn (where the cab waits, facing along the road),
 -- TaxiStop (on the footpaths, facing the road).
 
@@ -154,7 +154,7 @@ local function start(player: Player, _source: Instance?): (boolean, string?)
 	local shift: Shift = { fare = nil, fares = 0 }
 	shifts[player] = shift
 	newFare(player, shift)
-	Notifier.send(player, "You're on shift! Pick up your passenger. Press R to end your shift.", "Info")
+	Notifier.send(player, "You're on shift! Pick up your passenger. Press Space to end your shift.", "Info")
 	return true, nil
 end
 

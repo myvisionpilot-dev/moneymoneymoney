@@ -1,9 +1,9 @@
 --!strict
 -- Drives the physics car you're sitting in. server/CarBuilder built it and gave your computer
 -- its physics, so there's no input lag. Roblox fills in the seat's throttle and steering from
--- W/S/A/D, a gamepad's triggers and stick, or the touch stick; we add the handbrake (Space,
--- gamepad X/A, or the DRIFT button) and, every physics step, set the motors, steering, grip
--- and helper forces. The tuning is all in Config.Car.
+-- W/S/A/D, a gamepad's triggers and stick, or the touch stick; every physics step we set the
+-- motors, steering and helper forces. No drifting: the car grips. Space gets you out
+-- (RideController). The tuning is all in Config.Car.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -14,7 +14,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local TouchButtons = require(Shared:WaitForChild("TouchButtons"))
 
-local HANDBRAKE_ACTION = "Handbrake"
 local FLIP_ACTION = "FlipCar"
 local CORNERS = { "FL", "FR", "RL", "RR" }
 local AXLES = { { "FL", "FR" }, { "RL", "RR" } }
@@ -24,7 +23,6 @@ local GROUND_REACH = 0.8 -- studs below a wheel that still count as on the groun
 local AIRBORNE_SECONDS = 0.15
 local TIPPED = 0.3 -- the car's up vector this close to flat (or worse) counts as tipped over
 local STOPPED = 4 -- studs/s
-local GRIP_DROP_SECONDS = 0.08 -- the handbrake bites quickly; grip comes back over GripReturnSeconds
 
 local settings = Config.Car
 local player = Players.LocalPlayer
@@ -49,14 +47,9 @@ local CarController = {}
 
 local rig: Rig? = nil
 local waitingSeat: VehicleSeat? = nil -- seated, but the car hasn't fully arrived yet
-local handbrake = false
 local steerAngle = 0
-local rearGrip = settings.RearFriction
-local appliedGrip = settings.RearFriction
 local airborneFor = 0
 local tippedFor = 0
-local lastSpeed = 0 -- along the ground, last step (for DriftSlowdown)
-local driftButton: TouchButtons.TouchButton? = nil
 local flipButton: TouchButtons.TouchButton? = nil
 
 local function child(parent: Instance?, name: string): Instance?
@@ -156,29 +149,10 @@ local function power(car: Rig, speed: number, throttle: number, top: number)
 		frontTorque = brakeFront * math.abs(throttle)
 		rearTorque = brakeRear * math.abs(throttle)
 	end
-	if handbrake and top > 0 then
-		if throttle > 0.05 then
-			rearTorque *= settings.DriftThrottle -- keep some power to hold the slide
-		else
-			rearSpeed, rearTorque = 0, perWheel * settings.Braking * settings.DriftBrake
-		end
-	end
 	setAxle(car.axles.FL, frontSpeed, frontTorque)
 	setAxle(car.axles.FR, frontSpeed, frontTorque)
 	setAxle(car.axles.RL, rearSpeed, rearTorque)
 	setAxle(car.axles.RR, rearSpeed, rearTorque)
-end
-
-local function updateGrip(car: Rig, dt: number)
-	local target = if handbrake then settings.DriftFriction else settings.RearFriction
-	local seconds = if target < rearGrip then GRIP_DROP_SECONDS else settings.GripReturnSeconds
-	rearGrip = smooth(rearGrip, target, seconds, dt)
-	if math.abs(rearGrip - appliedGrip) > 0.02 or (rearGrip ~= appliedGrip and rearGrip == target) then
-		appliedGrip = rearGrip
-		local grip = PhysicalProperties.new(settings.WheelDensity, rearGrip, 0, 100, 100)
-		car.wheels.RL.CustomPhysicalProperties = grip
-		car.wheels.RR.CustomPhysicalProperties = grip
-	end
 end
 
 -- Pushes up the side that's squashed more and down the other, so it barely leans.
@@ -203,31 +177,23 @@ local function step(car: Rig, dt: number)
 	local throttle, steer = car.seat.ThrottleFloat, car.seat.SteerFloat
 
 	power(car, speed, throttle, top)
-	updateGrip(car, dt)
 	antiRoll(car, up)
 
-	-- How sideways we're sliding (radians, + = moving to the left of where the nose points),
-	-- and how far into a drift the back end is (0 = full grip, 1 = handbrake grip).
+	-- How sideways we're sliding (radians, + = moving to the left of where the nose points).
 	local sliding = velocity - up * velocity:Dot(up)
 	local slip = 0
 	if speed > STOPPED * 3 then
 		local direction = sliding.Unit
 		slip = math.atan2(cframe.LookVector:Cross(direction):Dot(up), cframe.LookVector:Dot(direction))
 	end
-	local gripRange = settings.RearFriction - settings.DriftFriction
-	local drift = if gripRange > 0 then 1 - math.clamp((rearGrip - settings.DriftFriction) / gripRange, 0, 1) else 0
-
 	-- Steering tightens as you speed up (35° parked, 8° flat out) and never asks for more grip
-	-- than CornerGrip, so going into a corner hot pushes wide instead of snapping round. In a
-	-- drift the front wheels follow the slide by themselves and your steering nudges it.
+	-- than CornerGrip, so going into a corner hot pushes wide instead of snapping round.
 	local maxAngle = settings.SteerAngleSlow + (settings.SteerAngleFast - settings.SteerAngleSlow) * share
 	if speed * speed > 1 then
 		local gripAngle = math.deg(math.atan(car.wheelbase * settings.CornerGrip / (speed * speed)))
 		maxAngle = math.min(maxAngle, gripAngle)
 	end
-	local driving = steer * maxAngle
-	local drifting = steer * settings.DriftSteer - math.deg(slip) * settings.CounterSteer
-	steerAngle = smooth(steerAngle, driving + (drifting - driving) * drift, settings.SteerSeconds, dt)
+	steerAngle = smooth(steerAngle, steer * maxAngle, settings.SteerSeconds, dt)
 	for _, hinge in car.steers do
 		hinge.TargetAngle = steerAngle * STEER_SIGN
 	end
@@ -245,30 +211,22 @@ local function step(car: Rig, dt: number)
 	-- In the air: calm the spin and tip back level, so it lands on its wheels.
 	airborneFor = if grounded == 0 then airborneFor + dt else 0
 	local spin = hull.AssemblyAngularVelocity
-	local previousSpeed = lastSpeed
-	lastSpeed = sliding.Magnitude
 	if airborneFor > AIRBORNE_SECONDS then
 		local target = up:Cross(Vector3.yAxis) * settings.AirLevelling + Vector3.yAxis * spin.Y
 		spin = spin:Lerp(target, 1 - math.exp(-settings.AirSpinDamping * dt))
 		hull.AssemblyAngularVelocity = spin
 	elseif grounded >= 3 then
-		-- On the road it turns at the rate its front wheels ask for, so bumps and the looser
-		-- back end don't knock it off line. Drifting fades this out.
+		-- On the road it turns at the rate its front wheels ask for, so bumps don't knock it off
+		-- line.
 		local wanted = -speed * math.tan(math.rad(steerAngle)) / car.wheelbase
-		local blend = (1 - math.exp(-settings.YawAssist * dt)) * (1 - drift)
+		local blend = 1 - math.exp(-settings.YawAssist * dt)
 		spin += up * (wanted - spin:Dot(up)) * blend
-		-- Past DriftMaxAngle the nose is turned back toward where you're going: no spinning out.
-		local excess = math.abs(slip) - math.rad(settings.DriftMaxAngle)
+		-- Past MaxSlideAngle the nose is turned back toward where you're going: no spinning out.
+		local excess = math.abs(slip) - math.rad(settings.MaxSlideAngle)
 		if excess > 0 then
-			spin += up * (math.sign(slip) * excess / math.max(dt, 1e-3) * settings.DriftCatch)
+			spin += up * (math.sign(slip) * excess / math.max(dt, 1e-3) * settings.SlideCatch)
 		end
 		hull.AssemblyAngularVelocity = spin
-		-- Drifting on the throttle keeps most of its speed (an arcade slide, not a skid).
-		local floor = previousSpeed - settings.DriftSlowdown * dt
-		if drift > 0.5 and throttle > 0.05 and lastSpeed > STOPPED * 3 and lastSpeed < floor then
-			hull.AssemblyLinearVelocity = velocity + sliding.Unit * (floor - lastSpeed)
-			lastSpeed = floor
-		end
 	end
 	if spin.Magnitude > settings.MaxSpin then
 		hull.AssemblyAngularVelocity = spin.Unit * settings.MaxSpin
@@ -304,11 +262,6 @@ local function flip()
 	tippedFor = 0
 end
 
-local function onHandbrake(_name: string, state: Enum.UserInputState, _input: InputObject): Enum.ContextActionResult
-	handbrake = state ~= Enum.UserInputState.End and state ~= Enum.UserInputState.Cancel
-	return Enum.ContextActionResult.Sink -- and Space doesn't jump you out of the seat
-end
-
 local function onFlip(_name: string, state: Enum.UserInputState, _input: InputObject): Enum.ContextActionResult
 	if state == Enum.UserInputState.Begin then
 		flip()
@@ -318,32 +271,14 @@ end
 
 local function begin(car: Rig)
 	rig = car
-	handbrake, steerAngle, airborneFor, tippedFor, lastSpeed = false, 0, 0, 0, 0
-	rearGrip, appliedGrip = settings.RearFriction, settings.RearFriction
+	steerAngle, airborneFor, tippedFor = 0, 0, 0
 	local high = Enum.ContextActionPriority.High.Value
-	ContextActionService:BindActionAtPriority(
-		HANDBRAKE_ACTION,
-		onHandbrake,
-		false,
-		high,
-		Enum.KeyCode.Space,
-		Enum.KeyCode.ButtonX,
-		Enum.KeyCode.ButtonA
-	)
 	ContextActionService:BindActionAtPriority(FLIP_ACTION, onFlip, false, high, Enum.KeyCode.F, Enum.KeyCode.ButtonY)
-	if driftButton then
-		driftButton.button.Visible = true
-	end
 end
 
 local function finish()
 	rig = nil
-	handbrake = false
-	ContextActionService:UnbindAction(HANDBRAKE_ACTION)
 	ContextActionService:UnbindAction(FLIP_ACTION)
-	if driftButton then
-		driftButton.button.Visible = false
-	end
 	if flipButton then
 		flipButton.button.Visible = false
 	end
@@ -367,19 +302,6 @@ end
 
 function CarController.start()
 	if TouchButtons.enabled() then
-		local drift = TouchButtons.add("", "DRIFT", 4, function() end)
-		drift.button.InputBegan:Connect(function(input: InputObject)
-			if input.UserInputType == Enum.UserInputType.Touch then
-				handbrake = true
-			end
-		end)
-		drift.button.InputEnded:Connect(function(input: InputObject)
-			if input.UserInputType == Enum.UserInputType.Touch then
-				handbrake = false
-			end
-		end)
-		drift.button.Visible = false
-		driftButton = drift
 		local flipper = TouchButtons.add("", "FLIP", 5, flip)
 		flipper.button.Visible = false
 		flipButton = flipper

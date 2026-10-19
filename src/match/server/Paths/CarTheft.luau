@@ -1,7 +1,7 @@
 --!strict
 -- Car theft → chop shop: from quota Paths.Unlocks.CarTheft, hold E on a parked car to break in,
 -- then drive it to the chop shop bay before CarTheft.TimeLimitSeconds runs out. Stealing adds
--- Heat.CarTheft. Press R to ditch the car. An empty spot gets a new car after RespawnSeconds.
+-- Heat.CarTheft. Press Space to ditch the car. An empty spot gets a new car after RespawnSeconds.
 -- Map tags: ParkedCar (spot markers on the ground, facing along the parking space), ChopShop (the bay).
 
 local CollectionService = game:GetService("CollectionService")

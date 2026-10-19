@@ -1,7 +1,8 @@
 --!strict
 -- The lobby's corners:
 --   top left     your streak and today's challenge with a progress bar, and under them the
---                lime glitter Shop button (a cart and "Shop")
+--                lime glitter Shop button (a cart and "Shop") and the gold Boosts button (two
+--                friends): invite friends, join the group
 --   bottom left  your Cred: a big gold coin and the amount, with a + that opens the Shop too
 -- MenuBar wires both buttons to the Shop window.
 
@@ -19,7 +20,7 @@ local WIDTH = 250
 
 local ProfileHud = {}
 
-export type Buttons = { shop: TextButton, plus: TextButton }
+export type Buttons = { shop: TextButton, plus: TextButton, boosts: TextButton }
 
 function ProfileHud.start(): Buttons
 	local root = UI.root(UI.screen("ProfileHud", 2))
@@ -56,6 +57,14 @@ function ProfileHud.start(): Buttons
 		Size = UDim2.fromOffset(200, 80),
 	}, column)
 	Cursor.registerPanel(shop)
+	UI.shine(shop, 4.2, 16)
+	local boosts = StoreKit.glitterIconButton("Boosts", StoreKit.Images.InviteFriend, StoreKit.Glitter.Gold, {
+		Name = "Boosts",
+		LayoutOrder = 3,
+		Size = UDim2.fromOffset(200, 80),
+	}, column)
+	Cursor.registerPanel(boosts)
+	UI.shine(boosts, 3.4, 16)
 
 	local streak = UI.label({
 		LayoutOrder = 2,
@@ -167,7 +176,7 @@ function ProfileHud.start(): Buttons
 	if ProfileState.view then
 		render(ProfileState.view)
 	end
-	return { shop = shop, plus = plus }
+	return { shop = shop, plus = plus, boosts = boosts }
 end
 
 return ProfileHud

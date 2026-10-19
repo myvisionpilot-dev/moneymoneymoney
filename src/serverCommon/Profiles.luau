@@ -26,6 +26,7 @@ export type Data = {
 	TutorialDone: boolean, -- played (or skipped, as an old hand) the first-join tutorial
 	Spins: { Free: number, LastDaily: number }, -- Lucky Wheel spins earned in runs; the UTC day of the last daily one
 	Strength: number, -- bought in the Shop (Config.Store.StrengthPacks): your shove hits harder
+	Referred: boolean, -- a friend they invited joined the game (Config.Social.InviteCred)
 }
 
 local TEMPLATE: Data = {
@@ -43,6 +44,7 @@ local TEMPLATE: Data = {
 	TutorialDone = false,
 	Spins = { Free = 0, LastDaily = 0 },
 	Strength = 0,
+	Referred = false,
 }
 
 local Profiles = {

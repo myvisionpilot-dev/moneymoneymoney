@@ -13,6 +13,7 @@
 --   /rob                      rob the store counter you're standing at (to test the till)
 --   /gig [kind]               your phone rings with a gig now (Parcel, Cat, Photo, Litter)
 --   /doorjob <kind>           a door job from the nearest house (Chore, DogWalk, Letter, BreakIn...)
+--   /breakin <house>          straight into that house's living room (to test the lasers)
 --   /tutorial                 play the first-join tutorial now
 --   /tp <x> <y> <z>           teleport yourself (goes through MovementGuard)
 --   /drive [top speed]        a car right where you stand (default: race car speed)
@@ -38,7 +39,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Admin = require(ServerScriptService.Common.Admin)
 local Profiles = require(ServerScriptService.Common.Profiles)
-local Purchases = require(ServerScriptService.Common.Purchases)
+local Social = require(ServerScriptService.Common.Social)
 local BoostService = require(script.Parent.BoostService)
 local CrateService = require(script.Parent.CrateService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -50,6 +51,7 @@ local MovementGuard = require(script.Parent.MovementGuard)
 local Notifier = require(script.Parent.Notifier)
 local PayNotice = require(script.Parent.PayNotice)
 local QuotaRunService = require(script.Parent.QuotaRunService)
+local BreakIn = require(script.Parent.Paths.BreakIn)
 local DoorKnock = require(script.Parent.Paths.DoorKnock)
 local PhoneGigs = require(script.Parent.Paths.PhoneGigs)
 local StoreRobbery = require(script.Parent.Paths.StoreRobbery)
@@ -184,6 +186,15 @@ local handlers: { [string]: Handler } = {
 			else "Unknown kind, or you're already on a door job"
 	end,
 
+	breakin = function(player: Player, args: { string }): string
+		local id = tonumber(args[1])
+		if not id then
+			return "Usage: /breakin <house number>"
+		end
+		local ok, message = BreakIn.debugEnter(player, id)
+		return if ok then `In house {id}` else message or "Couldn't get in"
+	end,
+
 	tp = function(player: Player, args: { string }): string
 		local x, y, z = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
 		if not x or not y or not z then
@@ -197,7 +208,7 @@ local handlers: { [string]: Handler } = {
 		local speed = tonumber(args[1]) or Config.Paths.Racing.CarSpeed
 		local color = Color3.fromRGB(225, 75, 65)
 		return if VehicleService.mount(player, "Debug", speed, color)
-			then `In a car (top speed {speed}). R gets out.`
+			then `In a car (top speed {speed}). Space gets out.`
 			else "No room for a car here"
 	end,
 
@@ -212,7 +223,7 @@ local handlers: { [string]: Handler } = {
 			return "Usage: /strength <points>"
 		end
 		data.Strength = math.max(0, math.floor(points))
-		Purchases.publish(player)
+		Social.publish(player)
 		return `Strength {data.Strength}`
 	end,
 

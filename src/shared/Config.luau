@@ -46,11 +46,11 @@ export type Pass = {
 	featured: ("Gold" | "Rainbow")?, -- a pack shown at the top in these colours
 }
 
--- A pack of Strength in the STORE (see Store below): bought with Robux, kept for good.
+-- A pack of Strength in the STORE (see Store below): bought with Cred, kept for good.
 export type StrengthPack = {
-	id: number, -- the developer product id from the Creator Dashboard (0: not made yet)
+	price: number, -- Cred
 	strength: number,
-	picture: string, -- an ItemModels id
+	picture: string, -- a StoreKit.Images key (art/store/draw_store_art.py)
 	tag: string?,
 }
 
@@ -488,7 +488,7 @@ return {
 		PickpocketFail = 1, -- they spotted you: a whole star
 		WalletSwipe = 0.5,
 		ShadyPackage = 1,
-		BreakIn = { 1, 1.5, 2, 2.5 }, -- by house tier (4 = mansion)
+		BreakIn = { 1, 1, 1.5, 2 }, -- tripping a laser, by house tier (4 = mansion)
 		StoreRobbery = 2,
 		CarTheft = 1.5,
 	},
@@ -513,6 +513,7 @@ return {
 			CarFlip = 2,
 			FoodStand = 3,
 			PhoneGigs = 1,
+			BreakIn = 1,
 		},
 		-- Phone gigs (Paths/PhoneGigs): while you're not wanted and not on another job, your phone
 		-- rings every GapSeconds with a quick job near you. Answer within AnswerSeconds; finish
@@ -709,7 +710,21 @@ return {
 				WalletSwipe = 700,
 				ShadyPackage = 2_200,
 			},
-			BreakInPay = { 1_800, 3_000, 4_500, 8_000 }, -- by house tier (no house multiplier)
+		},
+		-- Break-ins (Paths/BreakIn): every house has a back door. Pick its lock (a hold, shorter with
+		-- a lockpick) and you're in its living room (BreakInRooms builds it, away from town): cash
+		-- hidden around it, and red lasers in the way (jump the low ones, crawl under the high ones
+		-- with C). Touch one and the alarm goes: the rest of the cash is locked away (you keep what you
+		-- grabbed), your heat goes up by Heat.BreakIn, the police head for the back door and in
+		-- AlarmSeconds you're put outside. Leave by the door you came in. A house that was robbed
+		-- rests for RestSeconds.
+		BreakIn = {
+			Cash = { 2_000, 3_200, 5_500, 14_000 }, -- tier-1 pay for all the cash in the house, by house tier
+			RestSeconds = 240,
+			AlarmSeconds = 15,
+			GrabHoldSeconds = 0.3,
+			Height = 1_500, -- the rooms are built this high above town, side by side
+			Spacing = 240,
 		},
 		Pickpocket = {
 			MinPay = 150, -- tier-1 wallet range; big wallets are rare
@@ -856,23 +871,16 @@ return {
 		SteerAngleFast = 12, -- ...down to this at top speed, so it can't spin out
 		SteerSeconds = 0.12, -- how quickly the wheels turn to where you're steering
 		CornerGrip = 220, -- sideways studs/s² the steering will ask for at speed (more turns tighter; less pushes wide)
-		YawAssist = 7, -- how firmly the car turns exactly as its wheels point (per second; 0 = raw physics, off while drifting)
+		YawAssist = 7, -- how firmly the car turns exactly as its wheels point (per second; 0 = raw physics)
 		SuspensionHz = 2.6, -- bounces per second; lower is softer
 		DampingRatio = 0.75, -- share of critical damping (1 = no bounce at all)
 		SuspensionUp = 0.6, -- how far a wheel can push up into the body, as a share of its radius...
 		SuspensionDown = 0.5, -- ...and drop below where it rests
 		AntiRoll = 0.6, -- resists leaning in corners (share of the spring stiffness)
 		FrontFriction = 2, -- the most grip Roblox allows
-		RearFriction = 1.8, -- a little less at the back, so throttle in a hard turn kicks the tail out
-		DriftFriction = 0.4, -- rear grip with the handbrake on
-		DriftBrake = 0.25, -- share of Braking on the rear wheels with the handbrake on (and no throttle)
-		DriftThrottle = 0.6, -- share of power you keep with the handbrake on, to hold a slide
-		GripReturnSeconds = 0.3, -- rear grip comes back this smoothly after the handbrake
-		DriftSteer = 20, -- degrees: in a slide, steering aims the front wheels this far either side of where you're sliding...
-		CounterSteer = 0.7, -- ...and they follow the slide by themselves this much (1 = straight along it)
-		DriftMaxAngle = 35, -- degrees: a slide is held to this much sideways (no spinning out)
-		DriftSlowdown = 18, -- drifting on the throttle loses at most this much speed per second
-		DriftCatch = 0.5, -- share of the extra slide angle taken off each step
+		RearFriction = 2, -- the same grip at the back: no sliding the tail out
+		MaxSlideAngle = 25, -- degrees: a slide is held to this much sideways (no spinning out)...
+		SlideCatch = 0.5, -- ...by taking this share of the extra angle off each step
 		WheelDensity = 0.7,
 		BallastDensity = 20, -- a heavy plate under the floor keeps it the right way up
 		Downforce = 0.4, -- extra push down at top speed, as a share of the car's weight
@@ -896,6 +904,8 @@ return {
 	Movement = {
 		WalkSpeed = 25,
 		SprintSpeed = 35, -- while holding Shift (or the Sprint touch button)
+		CrawlSpeed = 9, -- lying down (C, or the CRAWL touch button): under the break-in lasers
+		SneakSpeed = 16, -- the fastest you go inside a house you broke into (so jumps over its lasers are easy to time)
 		MaxSpeedMultiplier = 2, -- the speed buff and an energy drink together never go past this
 		FieldOfView = 70,
 		FastFieldOfView = 78, -- while sprinting or driving: a little wider so speed feels faster
@@ -1170,16 +1180,15 @@ return {
 			{ id = 0, cred = 25_000, picture = "Cred25000" },
 			{ id = 0, cred = 100_000, picture = "Cred100000", tag = "BEST VALUE" },
 		} :: { CredPack },
-		-- Strength for your shove (Shove above), in the Shop under the Cred: bought as many times as
-		-- you like, it all adds up. Make each in the Creator Dashboard (developer products) and put
-		-- its id here: until then the card says SOON.
+		-- Strength for your shove (Shove above), in the Shop under the Cred, bought with Cred as many
+		-- times as you like: it all adds up and is kept for good.
 		StrengthPacks = {
-			{ id = 0, strength = 10, picture = "Glove" },
-			{ id = 0, strength = 25, picture = "Glove" },
-			{ id = 0, strength = 60, picture = "GlovePair" },
-			{ id = 0, strength = 150, picture = "GoldGlove" },
-			{ id = 0, strength = 400, picture = "GoldGlovePair" },
-			{ id = 0, strength = 1_000, picture = "DiamondGlove", tag = "BEST VALUE" },
+			{ price = 250, strength = 10, picture = "Strength10" },
+			{ price = 550, strength = 25, picture = "Strength25" },
+			{ price = 1_200, strength = 60, picture = "Strength60" },
+			{ price = 2_800, strength = 150, picture = "Strength150" },
+			{ price = 6_500, strength = 400, picture = "Strength400" },
+			{ price = 14_000, strength = 1_000, picture = "Strength1000", tag = "BEST VALUE" },
 		} :: { StrengthPack },
 		-- `text` is the card's line: [brackets] show in bright green. Packs with `featured` sit at
 		-- the top in their own colours.
@@ -1260,6 +1269,17 @@ return {
 		VipXp = 1.5, -- run XP multiplier
 		VipTagColor = "#FFD23C",
 		ReceiptsKept = 50, -- recent purchase ids remembered in the save, so none is paid twice
+	},
+	-- Rewards for bringing people in (the lobby's BOOSTS window), kept for good: a friend you
+	-- invited joining the game, and being in the game's group. Cred boosts add to every run's prize;
+	-- group Luck gives a pickpocket wallet that share of a second, better roll.
+	Social = {
+		InviteCred = 0.1,
+		GroupCred = 0.3,
+		GroupLuck = 0.3,
+		GroupId = 0, -- 0: the group that owns the game
+		RecheckSeconds = 60, -- how often an online player's invite and group rewards are checked
+		StoreName = "Referrals_v1", -- who each player's invited friends are (by inviter's UserId)
 	},
 	Badges = {
 		GettingSeriousQuota = 3,

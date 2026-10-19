@@ -38,6 +38,8 @@ require(script:WaitForChild("RideController")).start()
 require(script:WaitForChild("CarController")).start()
 require(script:WaitForChild("DodgeController")).start()
 require(script:WaitForChild("PoseController")).start() -- job poses, prompts being worked, cheers, waves
+require(script:WaitForChild("ProneController")).start() -- C: lie down
+require(script:WaitForChild("BreakInController")).start() -- back doors, lasers
 require(script:WaitForChild("DogController")).start()
 require(script:WaitForChild("ThrowController")).start()
 require(script:WaitForChild("TugController")).start()

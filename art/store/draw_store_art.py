@@ -1,5 +1,7 @@
 """Cartoon store art for MONEY MONEY MONEY: thick dark outlines, glossy gradients, drawn at 512px and
-saved at 256px with a clear background. Run: python art.py <fonts dir> <out dir>"""
+saved at 256px with a clear background. Run: python draw_store_art.py <fonts dir> <out dir> [names]
+(names: a comma-separated list of the pictures to draw, e.g. Strength10,InviteFriend; all if left out).
+Montserrat Black ships with Roblox Studio: <Studio version folder>/content/fonts."""
 
 import math
 import os
@@ -10,6 +12,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from scipy import ndimage
 
 FONTS, OUT = sys.argv[1], sys.argv[2]
+ONLY = set(sys.argv[3].split(",")) if len(sys.argv) > 3 else None
 BLACK_FONT = os.path.join(FONTS, "Montserrat-Black.ttf")
 S = 512
 INK = (18, 18, 26, 255)
@@ -674,6 +677,210 @@ def pass_rainbow():
     save(l, "PassRainbow")
 
 
+# ---------------------------------------------------------------- strength: boxing gloves and POW bursts
+GLOVE_RED = ((255, 130, 116), (232, 44, 48), (150, 14, 26))
+GLOVE_GOLD = ((255, 248, 160), (255, 204, 36), (204, 118, 0))
+GLOVE_DIAMOND = ((240, 252, 255), (140, 216, 255), (56, 118, 232))
+CUFF_WHITE = ((255, 255, 255), (206, 212, 226))
+CUFF_RED = ((255, 120, 110), (176, 24, 34))
+CUFF_PURPLE = ((214, 160, 255), (120, 52, 214))
+
+
+def glove_layer(colors, cuff):
+    """A cartoon boxing glove standing up (fist at the top, cuff at the bottom, the thumb bulging out
+    of its left side), on its own canvas, centred. Turn it with put() to make it punch."""
+    g = new()
+    hi, mid, lo = colors
+    def mitt(d, v):
+        d.ellipse([150, 52, 392, 312], fill=v)
+        d.rounded_rectangle([166, 180, 376, 352], radius=60, fill=v)
+    fill(g, mitt, hi, lo, line=6)
+    d = ImageDraw.Draw(g)
+    d.arc([186, 92, 372, 236], 195, 345, fill=lo, width=9)  # where the fingers fold over
+    fill(g, ellipse([104, 178, 232, 322]), hi, mid, line=6)  # the thumb
+    d = ImageDraw.Draw(g)
+    d.arc([128, 200, 220, 306], 300, 60, fill=lo, width=7)
+    fill(g, rrect([168, 324, 352, 452], 26), cuff[0], cuff[1], line=6)  # the cuff...
+    fill(g, rrect([168, 362, 352, 394], 8), mid, lo, line=5)  # ...and its band
+    d = ImageDraw.Draw(g)
+    for x in (226, 294):  # lace holes
+        d.ellipse([x - 9, 410, x + 9, 428], fill=INK)
+    gloss(g, ellipse([196, 74, 300, 170]), 130)
+    gloss(g, ellipse([122, 196, 172, 250]), 90)
+    return g
+
+
+PUNCH = -68  # turns the standing glove so it punches to the right
+
+def put(layer, piece, cx, cy, scale=1.0, angle=0.0, mirror=False):
+    """Pastes a drawing made on its own canvas: turned `angle` degrees, scaled and centred on (cx, cy)."""
+    if mirror:
+        piece = piece.transpose(Image.FLIP_LEFT_RIGHT)
+    if angle:
+        piece = piece.rotate(angle, center=(S / 2, S / 2), resample=Image.BICUBIC)
+    if scale != 1.0:
+        size = max(1, int(S * scale))
+        piece = piece.resize((size, size), Image.LANCZOS)
+    layer.alpha_composite(piece, (int(cx - piece.width / 2), int(cy - piece.height / 2)))
+
+
+def burst(layer, cx, cy, r, colors=((255, 246, 120), (255, 150, 20)), points=12, inner=0.62, word=None, spin=0.0):
+    """A comic-book POW star: spiky, bright, outlined, with an optional word in it."""
+    pts = []
+    for k in range(points * 2):
+        ang = math.pi * k / points + math.radians(spin)
+        rr = r if k % 2 == 0 else r * inner
+        pts.append((cx + rr * math.cos(ang), cy + rr * math.sin(ang)))
+    fill(layer, poly(pts), colors[0], colors[1], line=6)
+    if word:
+        text(layer, (cx, cy + 4), word, r * 0.5, (255, 255, 255), stroke=10, angle=-8)
+
+
+def speed_lines(layer, x, ys, length):
+    d = ImageDraw.Draw(layer)
+    for k, y in enumerate(ys):
+        x0 = x - (k % 2) * 30
+        d.line([(x0, y), (x0 + length, y)], fill=INK, width=26)
+        d.line([(x0 + 6, y), (x0 + length - 6, y)], fill=(255, 255, 255, 255), width=12)
+
+
+def bolt(layer, x, y, h, flip=False):
+    """A zigzag of lightning."""
+    w = h * 0.45 * (-1 if flip else 1)
+    pts = [(x, y), (x + w, y), (x + w * 0.45, y + h * 0.42), (x + w * 0.95, y + h * 0.42), (x - w * 0.15, y + h),
+           (x + w * 0.2, y + h * 0.55), (x - w * 0.25, y + h * 0.55)]
+    fill(layer, poly(pts), (255, 250, 160), (255, 196, 20), line=6)
+
+
+def strength_10():
+    l = new()
+    put(l, glove_layer(GLOVE_RED, CUFF_WHITE), 256, 256, 0.95, PUNCH + 30)
+    sparkle(l, 420, 110, 30)
+    save(l, "Strength10")
+
+
+def strength_25():
+    l = new()
+    speed_lines(l, 50, (190, 256, 322), 140)
+    put(l, glove_layer(GLOVE_RED, CUFF_WHITE), 280, 256, 0.82, PUNCH)
+    burst(l, 430, 150, 58, points=9)
+    save(l, "Strength25")
+
+
+def strength_60():
+    l = new()
+    burst(l, 256, 170, 92, points=10)
+    glove = glove_layer(GLOVE_RED, CUFF_WHITE)
+    put(l, glove, 160, 300, 0.66, PUNCH + 6)  # a fist bump
+    put(l, glove, 352, 300, 0.66, -(PUNCH + 6), mirror=True)
+    save(l, "Strength60")
+
+
+def strength_150():
+    l = new()
+    burst(l, 256, 250, 220, points=14, word=None, spin=8)
+    put(l, glove_layer(GLOVE_GOLD, CUFF_RED), 250, 262, 0.86, PUNCH + 30)
+    sparkle(l, 90, 90, 34)
+    sparkle(l, 440, 420, 26)
+    save(l, "Strength150")
+
+
+def strength_400():
+    l = new()
+    burst(l, 256, 230, 196, colors=((255, 210, 120), (255, 80, 40)), points=14, spin=4)
+    glove = glove_layer(GLOVE_GOLD, CUFF_RED)
+    put(l, glove, 160, 290, 0.66, PUNCH + 6)
+    put(l, glove, 352, 290, 0.66, -(PUNCH + 6), mirror=True)
+    burst(l, 256, 200, 54, points=8)
+    sparkle(l, 80, 80, 32)
+    sparkle(l, 440, 70, 26)
+    save(l, "Strength400")
+
+
+def strength_1000():
+    l = new()
+    burst(l, 256, 250, 226, colors=((255, 150, 255), (150, 50, 255)), points=16, spin=6)
+    bolt(l, 70, 60, 170)
+    bolt(l, 430, 300, 160, flip=True)
+    put(l, glove_layer(GLOVE_DIAMOND, CUFF_PURPLE), 256, 262, 0.92, PUNCH + 30)
+    sparkle(l, 120, 420, 30)
+    sparkle(l, 420, 80, 34)
+    sparkle(l, 460, 210, 22)
+    save(l, "Strength1000")
+
+
+# ---------------------------------------------------------------- bringing people in
+SKIN = ((255, 228, 120), (240, 184, 40))
+
+
+def friend(layer, cx, base, shirt, angle=0.0, scale=1.0):
+    """A blocky little player from the chest up: a square smiling head and a chunky torso."""
+    g = new()
+    fill(g, rrect([126, 300, 386, 470], 40), shirt[0], shirt[1], line=6)  # torso and shoulders
+    fill(g, rrect([150, 70, 362, 290], 46), SKIN[0], SKIN[1], line=6)  # head
+    d = ImageDraw.Draw(g)
+    d.ellipse([200, 150, 232, 196], fill=INK)
+    d.ellipse([280, 150, 312, 196], fill=INK)
+    d.ellipse([208, 158, 220, 172], fill=(255, 255, 255, 255))
+    d.ellipse([288, 158, 300, 172], fill=(255, 255, 255, 255))
+    d.arc([196, 170, 316, 262], 20, 160, fill=INK, width=12)  # the smile
+    for x in (180, 332):  # rosy cheeks
+        cheek = Image.new("RGBA", g.size, (0, 0, 0, 0))
+        ImageDraw.Draw(cheek).ellipse([x - 22, 208, x + 22, 236], fill=(255, 120, 120, 150))
+        g.alpha_composite(cheek)
+    gloss(g, rrect([170, 86, 300, 140], 30), 90)
+    gloss(g, rrect([150, 314, 300, 350], 20), 60)
+    put(layer, g, cx, base - S * scale / 2, scale, angle)
+
+
+def heart(layer, cx, cy, r, colors=((255, 150, 190), (230, 30, 100))):
+    def shape(d, v):
+        d.ellipse([cx - r, cy - r * 0.8, cx + r * 0.08, cy + r * 0.3], fill=v)
+        d.ellipse([cx - r * 0.08, cy - r * 0.8, cx + r, cy + r * 0.3], fill=v)
+        d.polygon([(cx - r * 0.96, cy - r * 0.08), (cx + r * 0.96, cy - r * 0.08), (cx, cy + r)], fill=v)
+    fill(layer, shape, colors[0], colors[1], line=6)
+    gloss(layer, ellipse([cx - r * 0.75, cy - r * 0.62, cx - r * 0.2, cy - r * 0.2]), 120)
+
+
+def plus_badge(layer, cx, cy, r):
+    fill(layer, ellipse([cx - r, cy - r, cx + r, cy + r]), (150, 255, 110), (40, 170, 30), line=6)
+    d = ImageDraw.Draw(layer)
+    for box in ([cx - r * 0.55, cy - r * 0.16, cx + r * 0.55, cy + r * 0.16], [cx - r * 0.16, cy - r * 0.55, cx + r * 0.16, cy + r * 0.55]):
+        d.rounded_rectangle(box, radius=6, fill=(255, 255, 255, 255), outline=INK, width=5)
+    gloss(layer, ellipse([cx - r * 0.7, cy - r * 0.8, cx + r * 0.2, cy - r * 0.2]), 90)
+
+
+def invite_friend():
+    l = new()
+    friend(l, 168, 470, ((255, 110, 100), (200, 30, 40)), angle=6, scale=0.62)
+    friend(l, 344, 470, ((110, 180, 255), (30, 90, 220)), angle=-6, scale=0.62)
+    heart(l, 256, 110, 66)
+    plus_badge(l, 440, 120, 48)
+    sparkle(l, 70, 90, 30)
+    save(l, "InviteFriend")
+
+
+def group_join():
+    l = new()
+    d = ImageDraw.Draw(l)
+    fill(l, rrect([88, 40, 112, 330], 10), GOLD_HI, GOLD_LO, line=5)  # the pole
+    fill(l, ellipse([78, 22, 122, 66]), GOLD_HI, GOLD_LO, line=5)
+    flag = [(112, 64), (440, 84), (390, 160), (444, 236), (112, 230)]
+    fill(l, poly(flag), (200, 130, 255), (110, 40, 210), line=6)
+    star = []
+    for k in range(10):
+        ang = -math.pi / 2 + k * math.pi / 5
+        rr = 58 if k % 2 == 0 else 24
+        star.append((246 + rr * math.cos(ang), 150 + rr * math.sin(ang)))
+    fill(l, poly(star), (255, 246, 140), (255, 180, 0), line=5)
+    gloss(l, poly([(120, 74), (420, 90), (400, 116), (120, 110)]), 70)
+    # The crowd underneath, cheering.
+    friend(l, 150, 482, ((120, 230, 110), (30, 150, 40)), angle=8, scale=0.44)
+    friend(l, 362, 482, ((255, 170, 70), (220, 100, 10)), angle=-8, scale=0.44)
+    friend(l, 256, 492, ((110, 180, 255), (30, 90, 220)), scale=0.5)
+    sparkle(l, 460, 300, 28)
+    save(l, "GroupJoin")
+
 # ---------------------------------------------------------------- flat icons (white with a dark outline)
 def flat(name, draw, outline=18):
     l = new()
@@ -788,17 +995,25 @@ def sparkle_star():
 
 
 os.makedirs(OUT, exist_ok=True)
-money_sprites()
-sparkle_star()
-for job in (cred_100, cred_500, cred_1000, cred_5000, cred_25000, cred_100000, pass_double_cash, pass_double_luck,
-            pass_double_cred, pass_mega_bag, pass_fat_stack, pass_tip_jar, pass_bail, pass_clean, pass_vip,
-            pass_big_baller, pass_rainbow, cred_icon):
-    job()
-flat("IconRobux", icon_robux)
-flat("IconGift", icon_gift)
-flat("IconCart", icon_cart)
-flat("IconArrow", icon_arrow)
-flat("IconBrush", icon_brush)
+if ONLY is None:
+    money_sprites()
+    sparkle_star()
+JOBS = {
+    "Cred100": cred_100, "Cred500": cred_500, "Cred1000": cred_1000, "Cred5000": cred_5000,
+    "Cred25000": cred_25000, "Cred100000": cred_100000, "PassDoubleCash": pass_double_cash,
+    "PassDoubleLuck": pass_double_luck, "PassDoubleCred": pass_double_cred, "PassMegaBag": pass_mega_bag,
+    "PassFatStack": pass_fat_stack, "PassTipJar": pass_tip_jar, "PassBail": pass_bail, "PassClean": pass_clean,
+    "PassVip": pass_vip, "PassBigBaller": pass_big_baller, "PassRainbow": pass_rainbow, "CredCoin": cred_icon,
+    "Strength10": strength_10, "Strength25": strength_25, "Strength60": strength_60, "Strength150": strength_150,
+    "Strength400": strength_400, "Strength1000": strength_1000, "InviteFriend": invite_friend,
+    "GroupJoin": group_join,
+    "IconRobux": lambda: flat("IconRobux", icon_robux), "IconGift": lambda: flat("IconGift", icon_gift),
+    "IconCart": lambda: flat("IconCart", icon_cart), "IconArrow": lambda: flat("IconArrow", icon_arrow),
+    "IconBrush": lambda: flat("IconBrush", icon_brush),
+}
+for name, job in JOBS.items():
+    if ONLY is None or name in ONLY:
+        job()
 
 # The brick tile: an L in each cell (a lighter top-left on dark, a shade on colours).
 tile = Image.new("RGBA", (64, 64), (0, 0, 0, 0))

@@ -8,6 +8,7 @@
 --              flipping patties, crouching to pick something up...
 --   Gesture    one-off moves: a throw, a cheer when they're paid, a resident's wave, handing
 --              over the cash (restarted every time GestureAt changes)
+--   Prone      lying flat on the floor, chin up, arms out in front (C: client/ProneController)
 -- Arm joints take the pose over (no swinging while you carry a box); the waist, neck and root
 -- add to the walk. Joint angles are in degrees: +x swings a limb forward, z out to the side
 -- (negative z out for the left arm). Also turns the wheels of anything pushed (mower, bin,
@@ -27,6 +28,7 @@ type Joint = Motor6D | AnimationConstraint
 
 local PROP_TAG = "JobProp"
 local BLEND_IN = 9 -- weight per second
+local PRONE_BLEND = 30 -- lying down (and getting up) is quicker, so you can drop just before a laser
 local ADDITIVE: { [string]: boolean } = { Root = true, Waist = true, Neck = true }
 local REST = CFrame.new()
 
@@ -66,6 +68,15 @@ local POSES: { [string]: Pose } = {
 	Leash = {
 		RightShoulder = r(28, 0, 14),
 		RightElbow = r(30, 0, 0),
+	},
+	-- Lying flat on your front, propped on your elbows, chin up (crawling under lasers).
+	Prone = {
+		Root = r(-88, 0, 0, 1.2),
+		Neck = r(62, 0, 0),
+		LeftShoulder = r(150, 0, -12),
+		RightShoulder = r(150, 0, 12),
+		LeftElbow = r(40, 0, 0),
+		RightElbow = r(40, 0, 0),
 	},
 	Tug = {
 		RightShoulder = r(62, 0, 10),
@@ -431,7 +442,7 @@ local function rigFor(model: Model): Rig
 end
 
 local function readPose(rig: Rig)
-	local pose = rig.model:GetAttribute("JobPose")
+	local pose = if rig.model:GetAttribute("Prone") then "Prone" else rig.model:GetAttribute("JobPose")
 	rig.pose = if typeof(pose) == "string" and POSES[pose] then pose else nil
 	if rig.pose then
 		rig.shownPose = rig.pose
@@ -464,16 +475,18 @@ local function watch(model: Instance)
 	local function ensure(): Rig
 		return rigFor(model)
 	end
-	model:GetAttributeChangedSignal("JobPose"):Connect(function()
-		readPose(ensure())
-	end)
+	for _, attribute in { "JobPose", "Prone" } do
+		model:GetAttributeChangedSignal(attribute):Connect(function()
+			readPose(ensure())
+		end)
+	end
 	model:GetAttributeChangedSignal("Working"):Connect(function()
 		readWorking(ensure())
 	end)
 	model:GetAttributeChangedSignal("GestureAt"):Connect(function()
 		readGesture(ensure())
 	end)
-	if model:GetAttribute("JobPose") then
+	if model:GetAttribute("JobPose") or model:GetAttribute("Prone") then
 		readPose(ensure())
 	end
 	model.Destroying:Connect(function()
@@ -529,7 +542,8 @@ local function step(rig: Rig, dt: number): boolean
 	end
 	local animator = rig.animator
 	rig.fresh = animator ~= nil and #animator:GetPlayingAnimationTracks() > 0
-	local blend = math.min(1, dt * BLEND_IN)
+	local rate = if rig.pose == "Prone" or rig.shownPose == "Prone" then PRONE_BLEND else BLEND_IN
+	local blend = math.min(1, dt * rate)
 	rig.poseWeight += ((if rig.pose then 1 else 0) - rig.poseWeight) * blend
 	rig.motionWeight += ((if rig.motion then 1 else 0) - rig.motionWeight) * blend
 	local out: { [Joint]: CFrame } = {}
