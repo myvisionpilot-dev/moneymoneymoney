@@ -7,6 +7,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
@@ -94,13 +95,19 @@ function IndoorGrade.start(always: boolean, amount: number?)
 		if not camera then
 			return
 		end
-		local point = camera.CFrame.Position
+		-- Indoors if the camera is, or you are (zoomed out through the roof, it's still indoors).
+		local points = { camera.CFrame.Position }
+		local character = Players.LocalPlayer.Character
+		if character then
+			table.insert(points, character:GetPivot().Position)
+		end
 		local inside = false
 		for _, tag in ZONE_TAGS do
 			for _, zone in CollectionService:GetTagged(tag) do
-				if zone:IsA("BasePart") and insidePart(point, zone) then
-					inside = true
-					break
+				for _, point in points do
+					if zone:IsA("BasePart") and insidePart(point, zone) then
+						inside = true
+					end
 				end
 			end
 		end

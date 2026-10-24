@@ -165,20 +165,32 @@ local function pilaster(folder, cf, x)
 	local bulb = Kit.decor(
 		ball(folder, "SconceBulb", 0.7, (cf * CFrame.new(x, lampY + 0.45, -(LINING + 1.6))).Position, LAMP, M.Neon)
 	)
-	pointLight(bulb, 14, 0.8)
+	pointLight(bulb, 14, 0.5)
 end
 
 -- A tall frosted window glowing with daylight, in a wood frame with glazing bars.
 local function window(folder, cf, x)
 	local width, height, bottom = 6, 9, FLOOR_Y + 6.5
 	local glass = Kit.decor(
-		wallBox(folder, "WindowGlass", cf, x, bottom + height / 2, width, height, LINING, 0.2, DAYLIGHT, M.Neon)
+		wallBox(
+			folder,
+			"WindowGlass",
+			cf,
+			x,
+			bottom + height / 2,
+			width,
+			height,
+			LINING,
+			0.2,
+			DAYLIGHT,
+			M.SmoothPlastic
+		)
 	)
 	local light = Instance.new("SurfaceLight")
 	light.Face = Enum.NormalId.Front
 	light.Range = 18
 	light.Angle = 80
-	light.Brightness = 0.9
+	light.Brightness = 0.5
 	light.Color = Color3.fromRGB(248, 251, 255)
 	light.Parent = glass
 	for _, info in
@@ -235,7 +247,7 @@ local function ceiling(folder)
 		Kit.decor(Kit.cylinder(folder, "ChandelierRod", 3.5, 0.3, hub + Vector3.new(0, 2.75, 0), BRASS, M.Metal))
 		Kit.decor(Kit.cylinder(folder, "ChandelierCrown", 0.6, 2.2, hub + Vector3.new(0, 2.5, 0), BRASS, M.Metal))
 		local core = Kit.decor(ball(folder, "ChandelierHub", 1.8, hub, BRASS, M.Metal))
-		pointLight(core, 36, 1.5)
+		pointLight(core, 28, 1) -- not too bright: it spilled out of the front doors
 		Kit.decor(ball(folder, "ChandelierDrop", 0.8, hub - Vector3.new(0, 1.4, 0), BRASS, M.Metal))
 		for index = 0, 7 do
 			local angle = index / 8 * math.pi * 2

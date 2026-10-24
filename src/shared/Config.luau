@@ -1300,8 +1300,8 @@ return {
 		Enabled = false,
 		TimerScale = 0.1, -- speeds up all run timers in debug
 		-- Extra debug-command accounts: the owner's own account (so commands still work once the
-		-- game belongs to a group) and TinTinTerryy3.
-		AdminUserIds = { 1665200665, 1913433940 } :: { number },
+		-- game belongs to a group), TinTinTerryy3 and Deezisthecolor1234.
+		AdminUserIds = { 1665200665, 1913433940, 2812668591 } :: { number },
 		StudioAutoStartSeconds = 10, -- Studio test starts this long after the first player joins
 	},
 }

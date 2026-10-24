@@ -27,6 +27,7 @@ local SPLINTERS: { [string]: { Color3 } } = {
 	GoldCrate = { Color3.fromRGB(255, 205, 50), Color3.fromRGB(200, 120, 30), Color3.fromRGB(255, 110, 200) },
 	DiamondCrate = { Color3.fromRGB(150, 225, 255), Color3.fromRGB(235, 245, 255), Color3.fromRGB(170, 90, 255) },
 }
+local DUST = { Color3.fromRGB(200, 190, 170), Color3.fromRGB(160, 150, 135) }
 local CHEERS: { [string]: string } = { Common = "NICE!", Rare = "RARE!", Epic = "EPIC!", Legendary = "LEGENDARY!" }
 
 local CrateController = {}
@@ -82,17 +83,39 @@ local function play(root: Frame, reveal: Types.CrateReveal)
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = 3,
 	}, stage, true)
+	Sounds.play("Whoosh", 1.1, 0.7)
 	TweenService:Create(crate, TweenInfo.new(0.45, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
 		Position = UDim2.fromScale(0.5, 0.5),
 	}):Play()
 	task.wait(0.45)
+	-- It lands: a thud, a puff of dust and a little jolt.
 	Sounds.play("Thud", 1, 0.8)
+	local landedAt = centreOf(stage) + Vector2.new(0, STAGE * 0.35)
+	ScreenFx.debris(landedAt, 10, DUST)
+	ScreenFx.shockwave(landedAt, Color3.new(1, 1, 1))
+	ScreenFx.shake(0.15, 0.15)
 
-	-- Shake: harder, faster ticks, the glow swelling (and turning the rarity colour).
+	-- Rays fade in behind the crate and spin up as it shakes.
+	local tease = Instance.new("ImageLabel")
+	tease.Name = "Tease"
+	tease.AnchorPoint = Vector2.new(0.5, 0.5)
+	tease.Position = UDim2.fromScale(0.5, 0.5)
+	tease.Size = UDim2.fromOffset(STAGE * 1.6, STAGE * 1.6)
+	tease.BackgroundTransparency = 1
+	tease.Image = UI.Images.Sunburst
+	tease.ImageTransparency = 1
+	tease.ZIndex = 1
+	tease.Parent = stage
+
+	-- Shake: harder, faster ticks and rattles, the glow swelling (and turning the rarity colour),
+	-- sparks leaking out, and a rising rush of wind.
 	local seconds = Config.Crates.RevealSeconds
 	local started = os.clock()
 	local nextTick = 0
+	local nextSpark = 0
+	local rattle = 0
 	local rng = Random.new()
+	local rush = Sounds.loop("Wind", 0.5)
 	while true do
 		local t = (os.clock() - started) / seconds
 		if t >= 1 then
@@ -102,34 +125,80 @@ local function play(root: Frame, reveal: Types.CrateReveal)
 		crate.Position = UDim2.new(0.5, rng:NextNumber(-amp, amp), 0.5, rng:NextNumber(-amp, amp) * 0.6)
 		crate.Rotation = rng:NextNumber(-amp, amp) * 0.8
 		local size = STAGE * (0.6 + 0.9 * t)
+		local tint = Color3.new(1, 1, 1):Lerp(color, math.clamp((t - 0.45) * 2.5, 0, 1))
 		glow.Size = UDim2.fromOffset(size, size)
 		glow.ImageTransparency = 0.7 - 0.5 * t
-		glow.ImageColor3 = Color3.new(1, 1, 1):Lerp(color, math.clamp((t - 0.45) * 2.5, 0, 1))
+		glow.ImageColor3 = tint
+		tease.ImageTransparency = 1 - 0.6 * t
+		tease.ImageColor3 = tint
+		tease.Rotation = (tease.Rotation + (30 + 330 * t) * (1 / 60)) % 360
+		if rush then
+			rush.PlaybackSpeed = 0.6 + 1.1 * t
+		end
 		if os.clock() >= nextTick then
-			Sounds.play("Click", 0.9 + t * 0.7, 0.7)
+			rattle += 1
+			if rattle % 2 == 0 then
+				Sounds.play("LockRattle", 0.9 + t * 0.6, 0.6)
+			else
+				Sounds.play("Click", 0.9 + t * 0.7, 0.7)
+			end
 			nextTick = os.clock() + 0.28 - 0.2 * t
+		end
+		if t > 0.25 and os.clock() >= nextSpark then
+			local edge = centreOf(stage) + Vector2.new(rng:NextNumber(-0.4, 0.4), rng:NextNumber(-0.4, 0.4)) * STAGE
+			ScreenFx.stars(edge, 2 + math.floor(t * 4), tint)
+			nextSpark = os.clock() + 0.3 - 0.22 * t
 		end
 		RunService.RenderStepped:Wait()
 	end
+	if rush then
+		rush:Destroy()
+	end
+	tease:Destroy()
 
 	-- Pop!
 	local centre = centreOf(stage)
 	crate:Destroy()
+	Sounds.play("Smash", 1, 0.8)
+	Sounds.play("Crack", 1.2, 0.6)
 	ScreenFx.flash(color, if big then 0.6 else 0.4)
 	ScreenFx.shockwave(centre, color)
-	ScreenFx.debris(centre, 26, SPLINTERS[reveal.crate] or { color })
-	ScreenFx.stars(centre, if big then 40 else 22, color)
+	task.delay(0.12, function()
+		ScreenFx.shockwave(centre, Color3.new(1, 1, 1))
+	end)
+	ScreenFx.debris(centre, 34, SPLINTERS[reveal.crate] or { color })
+	ScreenFx.stars(centre, if big then 48 else 26, color)
+	ScreenFx.shake(0.25, 0.2)
 	if tier == "Legendary" then
 		Sounds.play("Fanfare")
 		ScreenFx.boom()
 		ScreenFx.shake(0.8, 0.5)
-		task.delay(0.3, function()
-			ScreenFx.stars(centre, 36, UI.Colors.Gold)
-			ScreenFx.shockwave(centre, Color3.new(1, 1, 1))
+		ScreenFx.rain(50)
+		task.spawn(function()
+			-- Fireworks all over the screen.
+			local size = root.AbsoluteSize
+			for index = 1, 7 do
+				task.wait(0.22)
+				local at = root.AbsolutePosition
+					+ Vector2.new(size.X * rng:NextNumber(0.15, 0.85), size.Y * rng:NextNumber(0.12, 0.6))
+				local hue = if index % 2 == 0 then UI.Colors.Gold else color
+				ScreenFx.stars(at, 22, hue)
+				ScreenFx.shockwave(at, hue)
+				Sounds.play("Crack", rng:NextNumber(1.3, 1.8), 0.5)
+			end
 		end)
-	elseif big then
+	elseif tier == "Epic" then
 		ScreenFx.boom()
+		Sounds.play("LevelUp", 1, 0.8)
 		ScreenFx.shake(0.5, 0.35)
+		ScreenFx.rain(24)
+		task.delay(0.3, function()
+			ScreenFx.stars(centre, 30, UI.Colors.Gold)
+			ScreenFx.shockwave(centre, color)
+		end)
+	elseif tier == "Rare" then
+		Sounds.play("LevelUp", 1.1, 0.7)
+		Sounds.play("Purchase")
 	else
 		Sounds.play("Purchase")
 	end
@@ -210,10 +279,27 @@ local function play(root: Frame, reveal: Types.CrateReveal)
 		end
 	end)
 	local shownAt = os.clock()
-	task.wait(0.6) -- a click right at the pop doesn't skip it
+	local rng = Random.new()
+	local nextTwinkle = 0
+	-- While it's up the prize bobs and the glow breathes, with twinkles round it.
+	local function idle()
+		local age = os.clock() - shownAt
+		holder.Position = UDim2.new(0.5, 0, 0.5, math.sin(age * 3) * 6)
+		glow.ImageTransparency = 0.25 + 0.15 * math.sin(age * 4)
+		if os.clock() >= nextTwinkle then
+			local around = centreOf(stage) + Vector2.new(rng:NextNumber(-0.6, 0.6), rng:NextNumber(-0.55, 0.55)) * STAGE
+			ScreenFx.stars(around, if big then 5 else 3, if rng:NextNumber() < 0.5 then color else UI.Colors.Gold)
+			nextTwinkle = os.clock() + (if big then 0.15 else 0.3)
+		end
+	end
+	while os.clock() - shownAt < 0.6 do -- a click right at the pop doesn't skip it
+		idle()
+		task.wait(0.03)
+	end
 	closed = false
 	while not closed and os.clock() - shownAt < SHOW_SECONDS do
-		task.wait(0.05)
+		idle()
+		task.wait(0.03)
 	end
 	inputs:Disconnect()
 	turning:Disconnect()

@@ -1,6 +1,6 @@
 --!strict
 -- The door offer, as a conversation with whoever answered: their greeting over their head and
--- their two jobs as numbered answer cards with the pay (orange for crimes, with the heat they
+-- their three jobs as numbered answer cards with the pay (orange for crimes, with the heat they
 -- bring; blue for honest work), plus "Walk away". Press the number or click.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,7 +36,12 @@ function DoorController.start()
 		end
 		local options: { Dialogue.Option } = {}
 		for _, option in newOffer.options do
-			table.insert(options, { text = option.title, detail = detailFor(option), heat = option.heat > 0 })
+			-- Orange for any crime (a break-in only brings heat if you trip a laser).
+			table.insert(options, {
+				text = option.title,
+				detail = detailFor(option),
+				heat = option.heat > 0 or not option.legal,
+			})
 		end
 		table.insert(options, { text = "Walk away" })
 		handle = Dialogue.open({

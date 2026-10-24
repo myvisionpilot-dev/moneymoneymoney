@@ -344,7 +344,8 @@ def save(layer, name, outline=16, color=INK):
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     square = Image.new("RGBA", (int(side), int(side)), (0, 0, 0, 0))
     square.alpha_composite(art.crop((x0, y0, x1, y1)), (int(cx - x0 - (x1 - x0) / 2 + side / 2 - (x1 - x0) / 2), int(side / 2 - (y1 - y0) / 2)))
-    art = square.resize((256, 256), Image.LANCZOS)
+    size = int(os.environ.get("ART_SIZE", "256"))  # make_icons.py asks for bigger copies
+    art = square.resize((size, size), Image.LANCZOS)
     art.save(os.path.join(OUT, name + ".png"))
     return art
 

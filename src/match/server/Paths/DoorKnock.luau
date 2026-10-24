@@ -1,7 +1,8 @@
 --!strict
 -- Door knocks: knock at any house (hold E at the door). Its fixed resident answers and offers
--- two jobs: a chore (always legal) and their own wildcard (legal or illegal). The house then
--- rests for Doors.HouseRestSeconds. The jobs themselves live in DoorJobs.
+-- three jobs: a chore, another honest job and one crime. Their own wildcard fills its side (honest
+-- or not); the other side is picked by house number. The house then rests for
+-- Doors.HouseRestSeconds. The jobs themselves live in DoorJobs.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -44,7 +45,7 @@ type Job = DoorJobs.Job
 
 type Offer = {
 	house: House,
-	kinds: { DoorJobs.Kind }, -- by answer slot: the chore, then their wildcard
+	kinds: { DoorJobs.Kind }, -- by answer slot: the chore, the honest job, the crime
 	expiresAt: number,
 	resident: Model?,
 	closed: boolean,
@@ -313,6 +314,36 @@ end
 
 -- Offers -------------------------------------------------------------------------------
 
+local EXTRA_HONEST: { DoorJobs.Kind } = { "DogWalk", "Letter" }
+local EXTRA_CRIMES: { DoorJobs.Kind } = { "WalletSwipe", "ShadyPackage", "BreakIn" }
+-- How a job is pitched when it isn't the resident's own (theirs has its own line).
+local PITCHES: { [string]: string } = {
+	DogWalk = "The dog needs a walk to the park.",
+	Letter = "Could you drop a letter off?",
+	WalletSwipe = "Their wallet's hanging out...",
+	ShadyPackage = "A box for the alley. Don't ask.",
+	BreakIn = "They're away soon. The back door's flimsy...",
+}
+
+type Pick = { kind: DoorJobs.Kind, line: string }
+
+-- A chore, another honest job and one crime.
+local function picksFor(house: House): { Pick }
+	local resident = house.resident
+	local own: DoorJobs.Kind = resident.wildcard
+	local honest: Pick, crime: Pick
+	if DoorJobs.isLegal(own) then
+		honest = { kind = own, line = resident.wildcardLine }
+		local kind: DoorJobs.Kind = EXTRA_CRIMES[house.id % #EXTRA_CRIMES + 1]
+		crime = { kind = kind, line = PITCHES[kind] }
+	else
+		crime = { kind = own, line = resident.wildcardLine }
+		local kind: DoorJobs.Kind = EXTRA_HONEST[house.id % #EXTRA_HONEST + 1]
+		honest = { kind = kind, line = PITCHES[kind] }
+	end
+	return { { kind = "Chore", line = "A bit of honest work." }, honest, crime }
+end
+
 -- Where the resident stands (their root), on the doorstep facing out.
 local function residentSpot(house: House): (Vector3, Vector3)
 	local door = house.door
@@ -392,16 +423,14 @@ local function knock(player: Player, house: House): (boolean, string?)
 	house.restUntil = now + settings.HouseRestSeconds
 	Sounds.at("Knock", house.door)
 
-	local resident = house.resident
 	local only: DoorJobs.Kind? = forced[player]
-	local chore: DoorJobs.Kind = "Chore"
-	local kinds: { DoorJobs.Kind } = if only then { only } else { chore, resident.wildcard :: DoorJobs.Kind }
-	local options: { Types.DoorOfferOption } = if only
-		then { optionFor(1, only, house, resident.wildcardLine) }
-		else {
-			optionFor(1, chore, house, "A bit of honest work."),
-			optionFor(2, resident.wildcard, house, resident.wildcardLine),
-		}
+	local picks: { Pick } = if only then { { kind = only, line = house.resident.wildcardLine } } else picksFor(house)
+	local kinds: { DoorJobs.Kind } = {}
+	local options: { Types.DoorOfferOption } = {}
+	for slot, pick in picks do
+		table.insert(kinds, pick.kind)
+		table.insert(options, optionFor(slot, pick.kind, house, pick.line))
+	end
 	local offer: Offer = {
 		house = house,
 		kinds = kinds,
@@ -689,10 +718,11 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	forced[player] = nil
 end)
 
--- The door job they're on, if any (Paths/BreakIn ends a break-in job when they get in).
-local function jobKind(player: Player): DoorJobs.Kind?
+-- The door job they're on, if any, and its house (Paths/BreakIn only opens a back door for
+-- someone on a break-in job there, and ends the job when they get in).
+local function jobKind(player: Player): (DoorJobs.Kind?, number?)
 	local job = jobs[player]
-	return if job then job.kind else nil
+	return if job then job.kind else nil, if job then job.house.id else nil
 end
 
 local function closeJob(player: Player)

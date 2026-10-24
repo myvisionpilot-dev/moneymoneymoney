@@ -1,6 +1,7 @@
 --!strict
--- Break-ins on your screen (Paths/BreakIn on the server). Back doors take as long to pick as the
--- server says you take (the BreakInHold attribute). Inside a house (the Inside attribute on your
+-- Break-ins on your screen (Paths/BreakIn on the server). Back doors are hidden except the one
+-- whose break-in job you took (BreakInHouse), and take as long to pick as the server says you
+-- take (BreakInHold). Inside a house (the Inside attribute on your
 -- character): the sweeping lasers slide back and forth, and if any part of your body touches a
 -- beam we tell the server (poses are only exact here, so it's checked here). A panel at the top
 -- shows the cash left and how to get past the lasers; when the alarm goes it flashes red with a
@@ -21,6 +22,7 @@ local UI = require(Shared:WaitForChild("UI"))
 local DOOR_PROMPT = "BreakInPrompt"
 local INSIDE_ATTRIBUTE = "Inside"
 local HOLD_ATTRIBUTE = "BreakInHold"
+local TIP_ATTRIBUTE = "BreakInHouse" -- the house whose back door you can see (its break-in job)
 local ALARM_ATTRIBUTE = "AlarmEndsAt"
 local LASER_TAG = "Laser"
 local CHECK_SECONDS = 1 / 30
@@ -63,6 +65,33 @@ local function applyHold(prompt: ProximityPrompt)
 	end
 end
 
+-- Back doors are hidden till you take a house's break-in job: then that one shows (its door,
+-- lamp and prompt), on your screen only.
+local function showDoor(model: Instance)
+	if not model:IsA("Model") then
+		return
+	end
+	local mine = model:GetAttribute("HouseId") == player:GetAttribute(TIP_ATTRIBUTE)
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Transparency = if mine then 0 else 1
+			part.CanCollide = mine and part:GetAttribute("Collide") == true
+			part.CanQuery = mine
+		elseif part:IsA("PointLight") or part:IsA("ProximityPrompt") then
+			(part :: any).Enabled = mine
+		end
+	end
+end
+
+local function showDoors()
+	local folder = workspace:FindFirstChild("BreakInDoors")
+	if folder then
+		for _, model in folder:GetChildren() do
+			showDoor(model)
+		end
+	end
+end
+
 local function watchPrompt(instance: Instance)
 	if instance:IsA("ProximityPrompt") and instance.Name == DOOR_PROMPT then
 		doorPrompts[instance] = true
@@ -70,6 +99,10 @@ local function watchPrompt(instance: Instance)
 			doorPrompts[instance] = nil
 		end)
 		applyHold(instance)
+		local model = instance:FindFirstAncestorOfClass("Model")
+		if model then
+			showDoor(model) -- it may stream in after the tip-off
+		end
 	end
 end
 
@@ -324,6 +357,8 @@ function BreakInController.start()
 		watchPrompt(descendant)
 	end
 	workspace.DescendantAdded:Connect(watchPrompt)
+	showDoors()
+	player:GetAttributeChangedSignal(TIP_ATTRIBUTE):Connect(showDoors)
 	player:GetAttributeChangedSignal(HOLD_ATTRIBUTE):Connect(function()
 		for prompt in doorPrompts do
 			applyHold(prompt)

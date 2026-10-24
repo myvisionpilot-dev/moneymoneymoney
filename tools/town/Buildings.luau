@@ -2047,7 +2047,7 @@ local function bank(parent)
 	local model = Kit.model(parent, "Bank")
 	local cf = CFrame.new() -- world space; the bank has a grand front north and south
 	local W, D, H = 60, 44, 20
-	local stone = Color3.fromRGB(236, 232, 220)
+	local stone = Color3.fromRGB(206, 196, 176) -- sandstone: near-white glowed in the bright sun
 	local gold = Color3.fromRGB(240, 196, 60)
 	-- The floor, plaster, panelling, windows, ceiling and chandeliers come from BankInterior (below).
 	-- The north wall is solid all the way across: the vault hangs on it, behind Mr. Penny.

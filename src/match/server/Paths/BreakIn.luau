@@ -1,5 +1,6 @@
 --!strict
--- Break-ins: every house has a back door. Hold E there to pick the lock (shorter with a lockpick,
+-- Break-ins: every house has a back door, hidden until you take its resident's "break in" job at
+-- the front (Paths/DoorKnock): then you see it. Hold E there to pick the lock (shorter with a lockpick,
 -- gloves and the rest: ShopService.breakInHoldSeconds) and you're in its living room
 -- (BreakInRooms builds it far above town; everyone who breaks into that house meanwhile shares
 -- it). Grab the cash hidden round the room, but don't touch a red laser (your own screen tells us
@@ -38,6 +39,7 @@ local DOOR_PROMPT = "BreakInPrompt" -- client/BreakInController sets its hold ti
 local INSIDE_ATTRIBUTE = "Inside" -- on your character: the house you're in
 local OUTSIDE_ATTRIBUTE = "OutsideAt" -- on your character: its back door (where the police wait)
 local HOLD_ATTRIBUTE = "BreakInHold" -- on you: how long you take to pick a back door
+local TIP_ATTRIBUTE = "BreakInHouse" -- on you: the house whose back door you can see
 local ALARM_ATTRIBUTE = "AlarmEndsAt" -- on the room: when everyone is put outside
 local PROMPT_RANGE = 8
 local GRAB_RANGE = 6
@@ -158,7 +160,18 @@ local function buildDoor(id: number, tier: number, back: Attachment, look: Vecto
 	light.Range = 8
 	light.Brightness = 0.35
 	light.Color = Color3.fromRGB(255, 220, 160)
+	light.Enabled = false
 	light.Parent = lamp
+	-- Hidden from everyone: client/BreakInController shows it to whoever's on a break-in job here.
+	model:SetAttribute("HouseId", id)
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then
+			part:SetAttribute("Collide", part.CanCollide)
+			part.Transparency = 1
+			part.CanCollide = false
+			part.CanQuery = false
+		end
+	end
 	model.Parent = doorFolder
 	return door, at(3, 3)
 end
@@ -334,7 +347,8 @@ leave = function(player: Player, message: string?)
 	end
 end
 
-local function enter(player: Player, house: House): (boolean, string?)
+-- `anyway` (debug): no tip-off needed.
+local function enter(player: Player, house: House, anyway: boolean?): (boolean, string?)
 	local ctx = getContext()
 	if not ctx.isOpen() then
 		return false, "It's locked up tight. Try again when a quota starts."
@@ -345,7 +359,12 @@ local function enter(player: Player, house: House): (boolean, string?)
 	if not ctx.canWork(player) or inside[player] or entering[player] then
 		return false, nil
 	end
-	if ctx.isBusy(player) and DoorKnock.jobKind(player) ~= "BreakIn" then
+	-- Only on a break-in job from this house's resident (the door's hidden from everyone else).
+	local kind, jobHouse = DoorKnock.jobKind(player)
+	if not anyway and (kind ~= "BreakIn" or jobHouse ~= house.id) then
+		return false, nil
+	end
+	if anyway and ctx.isBusy(player) then
 		return false, "Finish your current job first."
 	end
 	if CharacterUtil.distanceTo(player, house.door.Position) > PROMPT_RANGE + RANGE_SLACK then
@@ -382,7 +401,7 @@ local function enter(player: Player, house: House): (boolean, string?)
 	setAttributes(character, house)
 	Sounds.at("LockOpen", house.door)
 	MovementGuard.teleport(player, visit.room.spawn)
-	if DoorKnock.jobKind(player) == "BreakIn" then
+	if kind == "BreakIn" then
 		DoorKnock.closeJob(player) -- the tip-off's done: they're in
 	end
 	Stats.record(player, "BreakIn")
@@ -479,7 +498,6 @@ end
 local function tick()
 	local now = Timing.now()
 	for _, house in houses do
-		house.prompt.Enabled = house.restUntil <= now
 		local visit = house.visit
 		if visit and visit.alarmEndsAt and now >= visit.alarmEndsAt then
 			for player in table.clone(visit.inside) do
@@ -492,6 +510,12 @@ local function tick()
 		local seconds = math.floor(ShopService.breakInHoldSeconds(player) * 100 + 0.5) / 100
 		if player:GetAttribute(HOLD_ATTRIBUTE) ~= seconds then
 			player:SetAttribute(HOLD_ATTRIBUTE, seconds)
+		end
+		-- The house whose back door they can see (they took its break-in job).
+		local kind, houseId = DoorKnock.jobKind(player)
+		local shown = if kind == "BreakIn" then houseId else nil
+		if player:GetAttribute(TIP_ATTRIBUTE) ~= shown then
+			player:SetAttribute(TIP_ATTRIBUTE, shown)
 		end
 	end
 end
@@ -585,7 +609,7 @@ local function debugEnter(player: Player, id: number): (boolean, string?)
 			forget(player, true)
 			house.restUntil = 0
 			MovementGuard.teleport(player, house.outside)
-			return enter(player, house)
+			return enter(player, house, true)
 		end
 	end
 	return false, "No house with that number"
